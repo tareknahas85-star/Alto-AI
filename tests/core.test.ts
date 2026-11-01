@@ -20,7 +20,7 @@ import { cleanForSpeech, pickVoice, splitSegments, VOICE_AR, VOICE_EN } from '..
 import { classifyApp } from '../src/core/hands-guard'
 import { RISKY_CLICK, SECRET_FIELD } from '../src/core/browser-guard'
 import { partitionForUrl, serviceForUrl, SIDE_DEFAULT_PARTITION } from '../src/core/side-partition'
-import { buildAskPrompt, chunkText, csvOf, extractMermaid, htmlToText, isPrivateHost, parseCsv, parseFlashcards, parseQuiz, retrieve, type NbSource } from '../src/core/notebook'
+import { buildAskPrompt, chunkText, csvOf, extractMermaid, htmlToText, isPrivateHost, parseCsv, parseFlashcards, parseQuiz, retrieve, type NbSource, parseDeck, parseInfographic, parseDialogue, infographicHtml } from '../src/core/notebook'
 import { interpretRelease, interpretFailure, describeUpdate, isNewer, shouldPrompt, POSTPONE_MS } from '../src/core/update-state'
 import { isBuildDeleteCommand, reviewVerdict, findProjectByText } from '../src/core/build-guards'
 
@@ -980,4 +980,17 @@ test('voice: emojis/diacritics dropped, language runs split', () => {
   const segs = splitSegments(c)
   assert.ok(segs.some((x) => x.lang === 'en' && /Example Domain/.test(x.text)))
   assert.ok(segs.some((x) => x.lang === 'ar'))
+})
+
+test('notebook phase 2: deck / infographic / dialogue parsers and safe html', () => {
+  const deck = parseDeck('```json\n{"title":"خطة","slides":[{"title":"غلاف","bullets":[]},{"title":"نقطة","bullets":["أ","ب"],"notes":"ن"},{"bad":1}]}\n```')
+  assert.equal(deck?.slides.length, 2)
+  assert.equal(deck?.slides[1].bullets.length, 2)
+  assert.equal(parseDeck('مو JSON'), null)
+  const inf = parseInfographic('```json\n{"title":"<b>x</b>","stats":[{"value":"21","label":"يوم"}],"sections":[{"heading":"ق","points":["<script>alert(1)</script>"]}],"takeaway":"خ"}\n```')
+  assert.ok(inf)
+  const html = infographicHtml(inf!)
+  assert.ok(!html.includes('<script>alert') && html.includes('&lt;script&gt;'))
+  const d = parseDialogue('```json\n[{"who":"A","text":"أهلين"},{"who":"b","text":"يا هلا"},{"who":"A","text":""}]\n```')
+  assert.deepEqual(d.map((x) => x.who), ['A', 'B'])
 })

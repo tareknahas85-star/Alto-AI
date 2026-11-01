@@ -350,6 +350,7 @@ declare global {
       generate: (id: string, kind: string, focus: string) => Promise<NbResult>
       deleteNote: (id: string, noteId: string) => Promise<NbViewInfo | null>
       exportNote: (id: string, noteId: string) => Promise<{ ok: boolean; path?: string; error?: string }>
+      audio: (id: string, noteId: string) => Promise<{ ok: boolean; url?: string; error?: string }>
     }
     todo: {
       list: () => Promise<TodoInfo[]>

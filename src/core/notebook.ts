@@ -4,7 +4,7 @@
 export interface NbSource { id: string; name: string; kind: 'file' | 'text' | 'link'; text: string; at: number; ref?: string }
 export interface NbNote { id: string; kind: OutputKind | 'answer'; title: string; body: string; at: number }
 export interface Notebook { id: string; title: string; at: number; sources: NbSource[]; notes: NbNote[] }
-export type OutputKind = 'report' | 'table' | 'mindmap' | 'flashcards' | 'quiz'
+export type OutputKind = 'report' | 'table' | 'mindmap' | 'flashcards' | 'quiz' | 'slides' | 'infographic' | 'audio'
 
 export const MAX_SOURCE_CHARS = 400_000
 export const OUTPUT_BUDGET = 60_000
@@ -132,11 +132,23 @@ const OUT: Record<OutputKind, { title: string; ask: string }> = {
   quiz: {
     title: 'اختبار',
     ask: 'اعمل اختبار 8-10 أسئلة اختيار من متعدد (4 خيارات لكل سؤال، جواب صحيح واحد). رجّع فقط JSON داخل كتلة ```json على شكل مصفوفة: [{"q":"السؤال","options":["أ","ب","ج","د"],"answer":0,"why":"شرح قصير"}] حيث answer هو رقم الخيار الصحيح (يبدأ من 0). بدون أي شرح خارج الكتلة.'
+  },
+  slides: {
+    title: 'عرض تقديمي',
+    ask: 'اعمل عرض تقديمي من 6 إلى 10 شرايح. رجّع فقط JSON داخل كتلة ```json على شكل: {"title":"عنوان العرض","slides":[{"title":"عنوان الشريحة","bullets":["نقطة قصيرة","نقطة قصيرة"],"notes":"ملاحظة للمتحدّث"}]}. أول شريحة هي الغلاف (بدون نقاط أو بنقطة وحدة)، وآخر شريحة خلاصة. بين 3 و5 نقاط قصيرة بكل شريحة. بدون أي شرح خارج الكتلة.'
+  },
+  infographic: {
+    title: 'إنفوغرافيك',
+    ask: 'لخّص المحتوى بإنفوغرافيك. رجّع فقط JSON داخل كتلة ```json على شكل: {"title":"العنوان","stats":[{"value":"رقم أو كلمة قصيرة","label":"وصفها"}],"sections":[{"heading":"عنوان القسم","points":["نقطة قصيرة"]}],"takeaway":"الخلاصة بجملة وحدة"}. بين 3 و4 أرقام/حقائق بارزة، و3 إلى 5 أقسام، وكل الأرقام لازم تكون موجودة بالمصادر. بدون أي شرح خارج الكتلة.'
+  },
+  audio: {
+    title: 'ملخّص صوتي',
+    ask: 'اكتب حوار صوتي قصير بين مذيعين اثنين (A و B) بيشرحوا محتوى المصادر لحدا ما بيعرفه، بالشامي وبأسلوب حكي طبيعي (جمل قصيرة، أسئلة وأجوبة، بدون تكرار). 14 إلى 22 دور. رجّع فقط JSON داخل كتلة ```json على شكل مصفوفة: [{"who":"A","text":"..."},{"who":"B","text":"..."}]. بدون رموز أو روابط أو أقواس بالنص لأنو رح ينقرا بصوت. بدون أي شرح خارج الكتلة.'
   }
 }
 
 export const outputTitle = (k: OutputKind): string => OUT[k].title
-export const OUTPUT_KINDS: OutputKind[] = ['report', 'table', 'mindmap', 'flashcards', 'quiz']
+export const OUTPUT_KINDS: OutputKind[] = ['report', 'table', 'mindmap', 'flashcards', 'quiz', 'slides', 'infographic', 'audio']
 
 export function buildOutputPrompt(kind: OutputKind, sources: NbSource[], focus = ''): string {
   return [
@@ -242,4 +254,67 @@ export function isPrivateHost(host: string): boolean {
   const a = Number(m[1])
   const b = Number(m[2])
   return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+}
+
+export interface Slide { title: string; bullets: string[]; notes: string }
+export interface Deck { title: string; slides: Slide[] }
+export interface Infographic { title: string; stats: { value: string; label: string }[]; sections: { heading: string; points: string[] }[]; takeaway: string }
+export interface DialogueLine { who: 'A' | 'B'; text: string }
+
+function jsonObject(text: string): Record<string, unknown> | null {
+  const body = fenced(text, 'json') ?? (/\{[\s\S]*\}/.exec(text)?.[0] ?? null)
+  if (!body) return null
+  try {
+    const v = JSON.parse(body) as unknown
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
+const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x ?? '').trim()).filter(Boolean) : [])
+const objs = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object').map((x) => x as Record<string, unknown>) : [])
+
+export function parseDeck(text: string): Deck | null {
+  const o = jsonObject(text)
+  if (!o) return null
+  const slides = objs(o.slides)
+    .filter((x) => typeof x.title === 'string' && String(x.title).trim())
+    .map((x) => ({ title: String(x.title).trim().slice(0, 140), bullets: strs(x.bullets).slice(0, 7).map((b) => b.slice(0, 220)), notes: typeof x.notes === 'string' ? x.notes.slice(0, 1000) : '' }))
+    .slice(0, 20)
+  if (!slides.length) return null
+  return { title: typeof o.title === 'string' && o.title.trim() ? o.title.trim().slice(0, 140) : slides[0].title, slides }
+}
+
+export function parseInfographic(text: string): Infographic | null {
+  const o = jsonObject(text)
+  if (!o) return null
+  const stats = objs(o.stats).filter((x) => x.value != null && x.label != null).map((x) => ({ value: String(x.value).slice(0, 24), label: String(x.label).slice(0, 80) })).slice(0, 6)
+  const sections = objs(o.sections).filter((x) => typeof x.heading === 'string').map((x) => ({ heading: String(x.heading).slice(0, 80), points: strs(x.points).slice(0, 6).map((p) => p.slice(0, 200)) })).slice(0, 8)
+  if (!stats.length && !sections.length) return null
+  return { title: typeof o.title === 'string' ? o.title.slice(0, 140) : 'إنفوغرافيك', stats, sections, takeaway: typeof o.takeaway === 'string' ? o.takeaway.slice(0, 300) : '' }
+}
+
+export function parseDialogue(text: string): DialogueLine[] {
+  return objs(jsonArray(text) ?? [])
+    .filter((x) => typeof x.text === 'string' && String(x.text).trim())
+    .map((x) => ({ who: String(x.who).toUpperCase() === 'B' ? ('B' as const) : ('A' as const), text: String(x.text).trim().slice(0, 400) }))
+    .slice(0, 40)
+}
+
+const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
+
+/** Standalone, script-free RTL page for the exported infographic (every value escaped). */
+export function infographicHtml(i: Infographic): string {
+  const stats = i.stats.map((s) => '<div class="stat"><b>' + esc(s.value) + '</b><span>' + esc(s.label) + '</span></div>').join('')
+  const secs = i.sections.map((s) => '<section><h2>' + esc(s.heading) + '</h2><ul>' + s.points.map((p) => '<li>' + esc(p) + '</li>').join('') + '</ul></section>').join('')
+  return (
+    '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(i.title) + '</title><style>' +
+    'body{margin:0;background:#0f172a;color:#e2e8f0;font-family:Segoe UI,Tahoma,Arial,sans-serif;line-height:1.7}main{max-width:860px;margin:0 auto;padding:32px 20px}' +
+    'h1{font-size:30px;margin:0 0 24px;color:#fff}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}' +
+    '.stat{background:#1e293b;border-radius:14px;padding:16px;text-align:center}.stat b{display:block;font-size:34px;color:#38bdf8}.stat span{font-size:14px;color:#94a3b8}' +
+    'section{background:#1e293b;border-radius:14px;padding:16px 20px;margin-bottom:12px}h2{margin:0 0 8px;font-size:19px;color:#fbbf24}ul{margin:0;padding-inline-start:20px}' +
+    '.take{background:#0369a1;border-radius:14px;padding:16px 20px;font-size:18px;margin-top:20px}</style></head><body><main><h1>' + esc(i.title) + '</h1>' +
+    (stats ? '<div class="stats">' + stats + '</div>' : '') + secs + (i.takeaway ? '<div class="take">' + esc(i.takeaway) + '</div>' : '') + '</main></body></html>'
+  )
 }
