@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { ModelPicker } from './ModelPicker'
-import { ArrowUp, AudioLines, Bot, Check, Copy, Volume2, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
+import { ArrowUp, AudioLines, Bot, Check, Copy, Headphones, Volume2, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
 import { MediaPanel } from './MediaPanel'
 import { MediaCard } from './MediaCard'
 import { encodeMediaMsg, parseMediaMsg, type MediaRef } from '../core/media-msg'
@@ -309,6 +309,23 @@ function tierChip(saved: string): { label: string; cls: string } {
 
 let speaking: HTMLAudioElement | null = null
 
+/** Voice conversation: speak a reply and resolve when it ends (or is skipped). */
+function playSpeech(text: string, skip: { current: (() => void) | null }): Promise<void> {
+  return new Promise((resolve) => {
+    void (async () => {
+      const r = await window.api.voice.speak(text.slice(0, 1200))
+      if (!r.ok || !r.url) return resolve()
+      const a = new Audio(r.url)
+      speaking = a
+      const done = (): void => { if (speaking === a) speaking = null; skip.current = null; resolve() }
+      a.onended = done
+      a.onerror = done
+      skip.current = () => { a.pause(); done() }
+      void a.play().catch(done)
+    })()
+  })
+}
+
 function MsgFooter({ text, at }: { text: string; at?: number }): ReactElement {
   const [ok, setOk] = useState(false)
   const [say, setSay] = useState<'' | 'load' | 'play'>('')
@@ -551,6 +568,114 @@ export function ChatWindow({
       console.warn('mic failed', e)
     }
   }
+  // Hands-free voice conversation: listen (silence detection) -> Whisper -> ask -> speak the reply -> listen again
+  const [talk, setTalk] = useState<'' | 'listen' | 'think' | 'speak'>('')
+  const talkOn = useRef(false)
+  const talkStream = useRef<MediaStream | null>(null)
+  const skipSpeech = useRef<(() => void) | null>(null)
+  const lastReplyRef = useRef('')
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
+  const sendVoiceRef = useRef<(t: string) => Promise<void>>(async () => undefined)
+  const sendVoice = async (txt: string): Promise<void> => {
+    const toModel = txt + '\n\n[وضع محادثة صوتية: جاوب بالشامي بجمل قصيرة وطبيعية متل الحكي، بدون جداول أو قوائم أو رموز أو روابط.]'
+    lastTypedRef.current = txt
+    lastUserRef.current = toModel
+    const withUser = [...messagesRef.current, { role: 'user' as const, content: txt, at: Date.now() }]
+    setMessages(withUser)
+    await runRequest(false, withUser)
+  }
+  sendVoiceRef.current = sendVoice
+  const listenOnce = async (): Promise<string> => {
+    const stream = talkStream.current
+    if (!stream) return ''
+    const ctx = new AudioContext()
+    const an = ctx.createAnalyser()
+    an.fftSize = 1024
+    ctx.createMediaStreamSource(stream).connect(an)
+    const buf = new Float32Array(an.fftSize)
+    const level = (): number => {
+      an.getFloatTimeDomainData(buf)
+      let sum = 0
+      for (const v of buf) sum += v * v
+      return Math.sqrt(sum / buf.length)
+    }
+    const mr = new MediaRecorder(stream)
+    const chunks: Blob[] = []
+    mr.ondataavailable = (e) => e.data.size && chunks.push(e.data)
+    mr.start(250)
+    const t0 = Date.now()
+    let floor = 0
+    let n = 0
+    let voiced = 0
+    let speechAt = 0
+    let lastVoice = 0
+    while (talkOn.current) {
+      await new Promise((r) => setTimeout(r, 60))
+      const lvl = level()
+      const now = Date.now()
+      if (now - t0 < 400) { floor = (floor * n + lvl) / (n + 1); n++; continue }
+      const thr = Math.max(0.02, floor * 2.5)
+      if (lvl > thr) {
+        voiced += 60
+        lastVoice = now
+        if (!speechAt && voiced >= 180) speechAt = now
+      } else if (!speechAt) voiced = 0
+      if (speechAt && now - lastVoice > 1300) break
+      if (speechAt && now - speechAt > 60000) break
+      if (!speechAt && now - t0 > 25000) break
+    }
+    await new Promise<void>((r) => { mr.onstop = () => r(); try { mr.stop() } catch { r() } })
+    void ctx.close()
+    if (!speechAt || !talkOn.current || !chunks.length) return ''
+    const blob = new Blob(chunks, { type: 'audio/webm' })
+    const [a] = await window.api.attach.savePasted('voice-' + Date.now() + '.webm', await blob.arrayBuffer(), project?.id ?? null)
+    return a?.text?.trim() ?? ''
+  }
+  const talkLoop = async (): Promise<void> => {
+    while (talkOn.current) {
+      setTalk('listen')
+      const txt = await listenOnce()
+      if (!talkOn.current) break
+      if (txt.length < 3) continue
+      setTalk('think')
+      lastReplyRef.current = ''
+      await sendVoiceRef.current(txt)
+      if (!talkOn.current) break
+      const reply = lastReplyRef.current
+      lastReplyRef.current = ''
+      if (reply && !reply.startsWith('Error:')) {
+        setTalk('speak')
+        await playSpeech(reply, skipSpeech)
+      }
+    }
+    setTalk('')
+  }
+  const stopTalk = (): void => {
+    talkOn.current = false
+    skipSpeech.current?.()
+    if (speaking) { speaking.pause(); speaking = null }
+    talkStream.current?.getTracks().forEach((t) => t.stop())
+    talkStream.current = null
+    setTalk('')
+  }
+  const toggleTalk = async (): Promise<void> => {
+    if (talkOn.current) {
+      if (loading) void window.api.cancelChat(tabId)
+      stopTalk()
+      return
+    }
+    if (loading) return
+    try {
+      talkStream.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+    } catch (e) {
+      console.warn('mic failed', e)
+      return
+    }
+    talkOn.current = true
+    void talkLoop()
+  }
+  useEffect(() => () => { talkOn.current = false; talkStream.current?.getTracks().forEach((t) => t.stop()) }, [])
   const addAtts = (list: AttachmentInfo[]): void => setAtts((a) => [...a, ...list.filter((x) => !a.some((y) => y.path === x.path))])
   const pickFiles = async (): Promise<void> => {
     try {
@@ -720,6 +845,7 @@ export function ChatWindow({
     }
     setStreamText('')
     streamRef.current = ''
+    lastReplyRef.current = next.length && next[next.length - 1].role === 'assistant' ? next[next.length - 1].content : ''
     setMessages(next)
     setLoading(false)
     if (next.length && next !== base) persist(next)
@@ -1089,6 +1215,22 @@ export function ChatWindow({
             className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface2"
           >
             <Paperclip size={18} />
+          </button>
+          {talk && active && (
+            <div className="fixed bottom-36 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-outline bg-surface px-4 py-2 text-sm shadow-lg" dir="rtl">
+              <span className={'h-2.5 w-2.5 rounded-full ' + (talk === 'listen' ? 'animate-pulse bg-danger' : talk === 'think' ? 'animate-pulse bg-amber-500' : 'bg-green-500')} />
+              <span>{talk === 'listen' ? 'عم سمعك... احكي' : talk === 'think' ? 'عم فكّر...' : 'عم احكي...'}</span>
+              {talk === 'speak' && <button onClick={() => skipSpeech.current?.()} className="rounded-full border border-outline px-2 py-0.5 text-xs hover:bg-surface2">تخطّى</button>}
+              <button onClick={() => void toggleTalk()} className="rounded-full bg-danger px-2 py-0.5 text-xs text-white">وقّف المحادثة</button>
+            </div>
+          )}
+          <button
+            onClick={() => void toggleTalk()}
+            title={talk ? 'وقّف المحادثة الصوتية' : 'محادثة صوتية (احكي معي وبرد عليك بصوت)'}
+            aria-label="محادثة صوتية"
+            className={'mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (talk ? 'bg-danger text-white' : 'text-muted hover:bg-surface2')}
+          >
+            <Headphones size={18} />
           </button>
           <button
             onClick={() => void toggleRec()}
