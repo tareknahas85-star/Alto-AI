@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { ModelPicker } from './ModelPicker'
 import { startLiveAudio } from './live-audio'
-import { ArrowUp, AudioLines, Bot, Check, Copy, Headphones, Volume2, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
+import { startWake } from './wake-audio'
+import { ArrowUp, AudioLines, Bot, Check, Copy, Headphones, Ear, Volume2, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
 import { MediaPanel } from './MediaPanel'
 import { MediaCard } from './MediaCard'
 import { encodeMediaMsg, parseMediaMsg, type MediaRef } from '../core/media-msg'
@@ -575,6 +576,9 @@ export function ChatWindow({
   const talkStream = useRef<MediaStream | null>(null)
   const skipSpeech = useRef<(() => void) | null>(null)
   const liveStop = useRef<(() => void) | null>(null)
+  const [wakeOn, setWakeOn] = useState<boolean>(() => { try { return localStorage.getItem('wakeWord') === '1' } catch { return false } })
+  const [wakeErr, setWakeErr] = useState('')
+  const toggleTalkRef = useRef<() => Promise<void>>(async () => undefined)
   const lastReplyRef = useRef('')
   const messagesRef = useRef(messages)
   messagesRef.current = messages
@@ -706,6 +710,19 @@ export function ChatWindow({
     void talkLoop()
   }
   useEffect(() => () => { talkOn.current = false; liveStop.current?.(); talkStream.current?.getTracks().forEach((t) => t.stop()) }, [])
+  toggleTalkRef.current = toggleTalk
+  useEffect(() => {
+    if (!wakeOn || !active || talk) return
+    let stop: (() => void) | null = null
+    let dead = false
+    void startWake(() => { if (!talkOn.current) void toggleTalkRef.current() }).then((r) => {
+      if (dead) { r.stop(); return }
+      if (!r.ok) { setWakeErr(r.error ?? 'تعذّر تشغيل كلمة التنبيه'); setWakeOn(false); try { localStorage.setItem('wakeWord', '0') } catch { /* ignore */ } return }
+      setWakeErr('')
+      stop = r.stop
+    })
+    return () => { dead = true; stop?.() }
+  }, [wakeOn, active, talk])
   const addAtts = (list: AttachmentInfo[]): void => setAtts((a) => [...a, ...list.filter((x) => !a.some((y) => y.path === x.path))])
   const pickFiles = async (): Promise<void> => {
     try {
@@ -1254,6 +1271,14 @@ export function ChatWindow({
               <button onClick={() => void toggleTalk()} className="rounded-full bg-danger px-2 py-0.5 text-xs text-white">وقّف المحادثة</button>
             </div>
           )}
+          <button
+            onClick={() => { const v = !wakeOn; setWakeOn(v); setWakeErr(''); try { localStorage.setItem('wakeWord', v ? '1' : '0') } catch { /* ignore */ } }}
+            title={wakeErr || (wakeOn ? 'كلمة التنبيه شغّالة: قول «Hey Jarvis» وبفتح المحادثة الصوتية (اضغط لتطفيها)' : 'شغّل كلمة التنبيه (محلي): قول «Hey Jarvis» لفتح المحادثة الصوتية')}
+            aria-label="كلمة التنبيه"
+            className={'mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (wakeErr ? 'text-danger' : wakeOn ? 'bg-green-500 text-white' : 'text-muted hover:bg-surface2')}
+          >
+            <Ear size={18} />
+          </button>
           <button
             onClick={() => void toggleTalk()}
             title={talk ? 'وقّف المحادثة الصوتية' : 'محادثة صوتية (احكي معي وبرد عليك بصوت)'}
