@@ -22,7 +22,7 @@ for line in sys.stdin:
     sys.stdout.write(json.dumps(out, ensure_ascii=True) + "\\n"); sys.stdout.flush()
 `
 
-function pythons(): string[] {
+export function pythons(): string[] {
   const home = os.homedir()
   return [
     process.env.WHISPER_PYTHON ?? '',
