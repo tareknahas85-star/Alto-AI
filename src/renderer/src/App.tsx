@@ -457,7 +457,7 @@ function Shell(): ReactElement {
 
   return (
     <div className="flex h-screen w-full bg-bg text-fg" style={{ paddingLeft: sidePanel.open ? sidePanel.width : 0 }}>
-      <aside className="flex w-[280px] shrink-0 flex-col border-e border-outline bg-surface p-3">
+      <aside className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-e border-outline bg-surface p-3">
         <AboutBadge onSetup={() => setWizard(true)} />
 
         <nav className="space-y-1">
@@ -475,7 +475,7 @@ function Shell(): ReactElement {
           ))}
         </nav>
 
-        <div className="mt-3 flex min-h-0 flex-1 flex-col border-t border-outline pt-3">
+        <div className="mt-3 flex min-h-[15rem] flex-1 flex-col border-t border-outline pt-3">
           <button onClick={() => newTab(null)} className="mb-2 flex items-center justify-between rounded-full border border-outline px-4 py-2 text-sm hover:bg-surface2">
             <span>محادثة جديدة</span>
             <Plus size={16} />
