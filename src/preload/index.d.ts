@@ -331,6 +331,12 @@ declare global {
         import: (password: string) => Promise<{ ok: boolean; error?: string; files?: number; skills?: number; at?: string }>
       }
       security: { status: () => Promise<{ keyStorage: 'os-protected' | 'legacy' | 'memory'; phoneApproval: boolean }> }
+    wake: {
+      start: () => Promise<{ ok: boolean; error?: string }>
+      audio: (b: Uint8Array) => void
+      stop: () => Promise<boolean>
+      onEvent: (cb: (ev: { type: string }) => void) => () => void
+    }
     live: {
       available: () => Promise<boolean>
       start: () => Promise<{ ok: boolean; model?: string; error?: string }>

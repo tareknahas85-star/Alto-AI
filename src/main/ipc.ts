@@ -36,6 +36,7 @@ import { registerLearnHandlers } from './learn-ipc'
 import { registerNotebookIpc, setNotebookRunner } from './notebook-ipc'
 import { registerVoiceIpc } from './voice-ipc'
 import { registerLiveIpc } from './live-voice'
+import { registerWakeIpc } from './wake-live'
 import { recordTurn as recordLearning } from '../core/learning'
 import { needsFreshInfo, needsLocation } from '../core/guidance'
 import { memoryPrompt } from '../core/memory'
@@ -346,6 +347,7 @@ export function registerIpcHandlers(): void {
   registerNotebookIpc()
   registerVoiceIpc()
   registerLiveIpc()
+  registerWakeIpc()
   setScheduleRunner(async (prompt, projectId, mode, taskId) => {
     const fake = { send: () => undefined } as unknown as WebContents
     return (await runChat(fake, prompt, false, [], { tabId: 'sched-' + taskId, projectId, mode: mode === 'free' ? { kind: 'free' } : { kind: 'auto' } })) as { content: string; failed?: boolean; meta?: string }

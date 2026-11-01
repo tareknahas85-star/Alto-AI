@@ -329,6 +329,16 @@ const api = {
     import: (password: string) => ipcRenderer.invoke('transfer:import', password)
   },
   security: { status: () => ipcRenderer.invoke('security:status') },
+  wake: {
+    start: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('wake:start'),
+    audio: (b: Uint8Array): void => ipcRenderer.send('wake:audio', b),
+    stop: (): Promise<boolean> => ipcRenderer.invoke('wake:stop'),
+    onEvent: (cb: (ev: { type: string }) => void): (() => void) => {
+      const h = (_e: unknown, ev: { type: string }): void => cb(ev)
+      ipcRenderer.on('wake:event', h)
+      return () => ipcRenderer.removeListener('wake:event', h)
+    },
+  },
   live: {
     available: (): Promise<boolean> => ipcRenderer.invoke('live:available'),
     start: (): Promise<{ ok: boolean; model?: string; error?: string }> => ipcRenderer.invoke('live:start'),
