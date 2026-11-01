@@ -4,6 +4,7 @@ import path from 'path'
 import WebSocket from 'ws'
 import { getApiKey } from '../store/secure-store'
 import { pickLiveModel, liveSetup, parseLiveAll, type LiveModelInfo } from '../core/live-voice'
+import { liveToolDecls, runLiveTool } from './live-tools'
 
 // محادثة صوتية مباشرة عبر Gemini Live (أونلاين، بمفتاح Gemini تبع المستخدم).
 // الـmain بيحمل الـWebSocket والمفتاح، والواجهة بس بتبعت/بتستقبل صوت PCM عبر IPC.
@@ -30,6 +31,18 @@ async function resolveModel(key: string, forced?: string): Promise<LiveModelInfo
 }
 
 let ws: WebSocket | null = null
+// موافقة بالصوت: بنسجّل آخر وقت سمعنا فيه "إي" من المستخدم، ووقت آخر طلب تأكيد.
+const YES = /(^|\s)(إي|اي|ايه|إيه|أيوا|ايوا|أيوه|ايوه|اه|آه|نعم|موافق|yes|ok)(\s|$|[.!،,؟?])/i
+const NO = /(^|\s)(لا|لأ|لاء|ما بدي|بلاش|وقف|no)(\s|$|[.!،,؟?])/i
+let pendingAt = 0
+let lastYesAt = 0
+async function heardYes(): Promise<boolean> {
+  for (let i = 0; i < 8; i++) {
+    if (lastYesAt > pendingAt) return true
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  return false
+}
 let sender: WebContents | null = null
 
 function emit(ev: Record<string, unknown>): void {
@@ -56,10 +69,25 @@ export function registerLiveIpc(): void {
       await new Promise<void>((resolve, reject) => {
         let up = false
         const t = setTimeout(() => reject(new Error('انتهى الوقت وانا عم وصل بـGemini Live')), 15000)
-        sock.on('open', () => sock.send(JSON.stringify(liveSetup(model.name, cfg.voice))))
+        sock.on('open', () => sock.send(JSON.stringify(liveSetup(model.name, cfg.voice, liveToolDecls()))))
         sock.on('message', (data) => {
           for (const ev of parseLiveAll(data.toString())) {
             if (ev.type === 'ready') { up = true; clearTimeout(t); resolve(); continue }
+            if (ev.type === 'userText') {
+              const tx = ev.text
+              if (YES.test(tx) && !NO.test(tx)) lastYesAt = Date.now()
+            }
+            if (ev.type === 'toolCall' && ev.name !== 'run_task') {
+              const id = ev.id
+              const name = ev.name
+              void runLiveTool(name, ev.args, heardYes).then((res) => {
+                if (res.startsWith('{"needs_confirmation"')) pendingAt = Date.now()
+                if (ws === sock && sock.readyState === WebSocket.OPEN) {
+                  sock.send(JSON.stringify({ toolResponse: { functionResponses: [{ id, name, response: { result: res.slice(0, 6000) } }] } }))
+                }
+              })
+              continue
+            }
             if (ev.type !== 'ignore') emit(ev as unknown as Record<string, unknown>)
           }
         })

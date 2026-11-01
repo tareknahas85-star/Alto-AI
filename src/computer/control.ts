@@ -1,5 +1,6 @@
 import { rp } from './pathbase'
 import { spawn } from 'child_process'
+import { AsyncLocalStorage } from 'async_hooks'
 import { app, BrowserWindow, dialog } from 'electron'
 import fsp from 'fs/promises'
 import fs from 'fs'
@@ -111,7 +112,23 @@ async function boxOrPhone(win: BrowserWindow | undefined, opts: Electron.Message
   return first
 }
 
-async function confirmAlways(title: string, detail: string): Promise<boolean> {
+// Gemini Live (سعاد): الموافقة بتصير بالصوت. جوّا runVoiceApproved ما بتطلع نافذة؛ بنسجّل الطلب المعلّق وبنرجّع رفض،
+// والمستخدم بيجاوب بصوتو والأداة بتنعاد مع confirmed=true. الأفعال الحسّاسة (confirmAlways بدون voiceOk) ما بتتأكد بالصوت.
+type VoicePending = { title: string; detail: string; voiceOk: boolean }
+const voiceAls = new AsyncLocalStorage<{ confirmed: boolean; pending: VoicePending | null }>()
+export async function runVoiceApproved<T>(confirmed: boolean, fn: () => Promise<T>): Promise<{ result: T; pending: VoicePending | null }> {
+  const ctx = { confirmed, pending: null as VoicePending | null }
+  const result = await voiceAls.run(ctx, fn)
+  return { result, pending: ctx.pending }
+}
+
+async function confirmAlways(title: string, detail: string, voiceOk = false): Promise<boolean> {
+  const v = voiceAls.getStore()
+  if (v) {
+    if (voiceOk && v.confirmed) return true
+    v.pending = { title, detail, voiceOk }
+    return false
+  }
   if (isUnattended()) return false // nobody is there to confirm
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const opts = {
@@ -131,6 +148,12 @@ async function confirmAlways(title: string, detail: string): Promise<boolean> {
 
 async function ask(title: string, detail: string): Promise<boolean> {
   if (sessionAllowAll || autoApproveOn() || fullAccessOn()) return true
+  const v = voiceAls.getStore()
+  if (v) {
+    if (v.confirmed) return true
+    v.pending = { title, detail, voiceOk: true }
+    return false
+  }
   if (isUnattended()) return false // scheduled run: nobody is there to click
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const opts = {
@@ -302,7 +325,7 @@ async function guardForeground(): Promise<string | null> {
   const extra = readJson<{ apps?: string[] }>('hands-allowed.json', {}).apps ?? []
   const cls = classifyApp(f.proc, Array.isArray(extra) ? extra : [])
   if (cls === 'blocked') return `blocked: ${f.proc} is a password manager / system tool; the agent never types or clicks in it. Ask the user to do it himself.`
-  if (cls === 'confirm' && !(await confirmAlways('الوكيل بدو يتحكم بتطبيق مو بقائمة المسموح', `${f.proc} — "${f.title}"`)))
+  if (cls === 'confirm' && !(await confirmAlways('الوكيل بدو يتحكم بتطبيق مو بقائمة المسموح', `${f.proc} — "${f.title}"`, true)))
     return `Error: the user did not allow driving ${f.proc}.`
   return null
 }
@@ -542,6 +565,28 @@ export function addComputerTools(
   addDevTools(((nm: string, ...r: unknown[]) => { if (!devOff.includes(nm)) (def as (...a: unknown[]) => void)(nm, ...r) }) as unknown as typeof def, handlers, getSignal)
   addBrowserTools(((nm: string, ...r: unknown[]) => { if (!devOff.includes(nm)) (def as (...a: unknown[]) => void)(nm, ...r) }) as unknown as typeof def, ask, confirmAlways)
   addEyesTools(((nm: string, ...r: unknown[]) => { if (!devOff.includes(nm)) (def as (...a: unknown[]) => void)(nm, ...r) }) as unknown as typeof def, runPs)
+  def(
+    'pc_close_app',
+    'Close an application by process name (e.g. "whatsapp", "notepad"). Always asks the user. Tries a graceful close first, then CHECKS the process list and reports the REAL state (CLOSED / STILL_RUNNING / NOT_RUNNING). Many apps (WhatsApp, Telegram) only hide to the tray when closed gracefully: if STILL_RUNNING, tell the user and ask if he wants force=true. Never claim it is closed unless the result says CLOSED.',
+    { name: str, force: { type: 'boolean' } },
+    ['name'],
+    async (a) => {
+      const n = s(a.name).trim().replace(/\.exe$/i, '')
+      if (!/^[A-Za-z0-9._ -]{1,60}$/.test(n)) return 'Error: bad process name'
+      if (classifyApp(n) === 'blocked') return 'blocked: ' + n + ' is a password manager / system tool; the agent never closes it. Ask the user to do it himself.'
+      const force = a.force === true
+      if (!(await confirmAlways(force ? 'بدو يسكّر تطبيق بالقوة (ممكن يضيع شغل غير محفوظ)' : 'بدو يسكّر تطبيق', n, true))) return 'Error: the user did not allow closing ' + n
+      const out = await runPs(
+        '$n=$A.n+\'*\'; $b=@(Get-Process -Name $n -ErrorAction SilentlyContinue); if(-not $b){ \'NOT_RUNNING\'; return }; if($A.force){ $b | Stop-Process -Force -ErrorAction SilentlyContinue } else { foreach($p in $b){ try{ [void]$p.CloseMainWindow() }catch{} } }; Start-Sleep -Seconds 3; $l=@(Get-Process -Name $n -ErrorAction SilentlyContinue); if($l){ \'STILL_RUNNING:\'+$l.Count } else { \'CLOSED\' }',
+        { n, force },
+        30000
+      )
+      const r = out.trim()
+      if (r === 'CLOSED') return 'CLOSED: ' + n + ' is no longer running (verified).'
+      if (r === 'NOT_RUNNING') return 'NOT_RUNNING: no process named ' + n + ' was running.'
+      return r + ' — ' + n + ' is STILL RUNNING' + (force ? ' even after force.' : ' (it probably hid to the tray). Ask the user if he wants force=true.')
+    }
+  )
   def('pc_windows', 'List the open windows (title + process).', {}, [], async () =>
     runPs(
       'Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object -First 40 ProcessName,Id,MainWindowTitle | Format-Table -AutoSize | Out-String -Width 200',
