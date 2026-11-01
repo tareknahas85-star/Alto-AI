@@ -330,7 +330,9 @@ const api = {
   },
   security: { status: () => ipcRenderer.invoke('security:status') },
   voice: {
-    speak: (text: string): Promise<{ ok: boolean; url?: string; note?: string; error?: string }> => ipcRenderer.invoke('voice:speak', text)
+    speak: (text: string): Promise<{ ok: boolean; url?: string; note?: string; error?: string }> => ipcRenderer.invoke('voice:speak', text),
+    transcribe: (data: ArrayBuffer): Promise<{ ok: boolean; text?: string; error?: string }> => ipcRenderer.invoke('voice:transcribe', data),
+    warm: (): Promise<boolean> => ipcRenderer.invoke('voice:warm')
   },
   nb: {
     list: (): Promise<{ id: string; title: string; at: number; sources: number; notes: number }[]> => ipcRenderer.invoke('nb:list'),
