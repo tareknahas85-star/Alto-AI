@@ -16,7 +16,7 @@ import { isOpenNow } from '../src/core/osm-hours'
 import { looksLooping, ENDS_WITH_STALL, REFUSES_TOOLS, badReplyReason, BUILD_TEST_CLAIM, hasBuildProof, WEAK_MODEL, claimedPorts } from '../src/core/reply-quality'
 import { rotateLogFile, LOG_MAX_BYTES } from '../src/core/log-rotate'
 import { checkSideUrl, clampSideWidth, windowWidthFor } from '../src/core/side-url'
-import { cleanForSpeech, pickVoice, VOICE_AR, VOICE_EN } from '../src/core/voice'
+import { cleanForSpeech, pickVoice, splitSegments, VOICE_AR, VOICE_EN } from '../src/core/voice'
 import { classifyApp } from '../src/core/hands-guard'
 import { RISKY_CLICK, SECRET_FIELD } from '../src/core/browser-guard'
 import { partitionForUrl, serviceForUrl, SIDE_DEFAULT_PARTITION } from '../src/core/side-partition'
@@ -973,4 +973,11 @@ test('5.19.3: القراءة الصوتية — تنظيف واختيار الص
   assert.equal(pickVoice('مرحبا كيفك'), VOICE_AR)
   assert.equal(pickVoice('Hello there, how are you'), VOICE_EN)
   assert.ok(cleanForSpeech('أ'.repeat(5000)).length <= 2500)
+})
+test('voice: emojis/diacritics dropped, language runs split', () => {
+  const c = cleanForSpeech('تمام 😀 فتحت الصفحة (Example Domain) وقريت فيها ✅')
+  assert.ok(!/[\u{1F000}-\u{1FFFF}\u2705]/u.test(c))
+  const segs = splitSegments(c)
+  assert.ok(segs.some((x) => x.lang === 'en' && /Example Domain/.test(x.text)))
+  assert.ok(segs.some((x) => x.lang === 'ar'))
 })
