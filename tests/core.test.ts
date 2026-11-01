@@ -9,6 +9,7 @@ import { writeJson } from '../src/core/json-store'
 import { listCustomModels } from '../src/core/custom-models'
 import { workDir, quarantineEmptyFragments } from '../src/core/run-report'
 import { recordEngineRun, getEngineSeries } from '../src/core/usage-log'
+import { pickLiveModel, liveSetup, parseLiveAll } from '../src/core/live-voice'
 import { splitArgs, KITS } from '../src/computer/devtools'
 import { estimateStrength, canonicalName } from '../src/core/model-rank'
 import { createStreamBatcher } from '../src/core/stream-batch'
@@ -993,4 +994,24 @@ test('notebook phase 2: deck / infographic / dialogue parsers and safe html', ()
   assert.ok(!html.includes('<script>alert') && html.includes('&lt;script&gt;'))
   const d = parseDialogue('```json\n[{"who":"A","text":"أهلين"},{"who":"b","text":"يا هلا"},{"who":"A","text":""}]\n```')
   assert.deepEqual(d.map((x) => x.who), ['A', 'B'])
+})
+
+test('gemini live: model pick, setup, parser', () => {
+  const m = pickLiveModel([
+    { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-2.5-flash-native-audio-preview', supportedGenerationMethods: ['bidiGenerateContent'] },
+    { name: 'models/gemini-3.8-live-extended-thinking', supportedGenerationMethods: ['bidiGenerateContent'] },
+    { name: 'models/gemini-3.8-live', supportedGenerationMethods: ['bidiGenerateContent'] },
+    { name: 'models/gemini-3.8-live-lite', supportedGenerationMethods: ['bidiGenerateContent'] },
+  ])
+  assert.equal(m?.label, 'gemini-3.8-live')
+  assert.equal(pickLiveModel([{ name: 'models/x', supportedGenerationMethods: ['generateContent'] }]), null)
+  const s = liveSetup('models/a', 'Kore') as { setup: { model: string; generationConfig: { responseModalities: string[] } } }
+  assert.equal(s.setup.model, 'models/a')
+  assert.deepEqual(s.setup.generationConfig.responseModalities, ['AUDIO'])
+  const ev = parseLiveAll(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAA=' } }] }, outputTranscription: { text: 'مرحبا' }, turnComplete: true } }))
+  assert.deepEqual(ev.map((e) => e.type), ['audio', 'modelText', 'turnComplete'])
+  assert.deepEqual(parseLiveAll('{"setupComplete":{}}'), [{ type: 'ready' }])
+  assert.deepEqual(parseLiveAll('x'), [{ type: 'ignore' }])
+  assert.deepEqual(parseLiveAll('{"serverContent":{"interrupted":true}}'), [{ type: 'interrupted' }])
 })
