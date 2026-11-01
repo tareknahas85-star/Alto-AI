@@ -1,7 +1,7 @@
 // F28: IPC handlers for the side browser. Every handler runs behind the F11 sender guard (set up in index.ts),
 // so only the app's own renderer can call them. Arguments are type-checked here (F12).
 import { ipcMain, type BrowserWindow } from 'electron'
-import { openSide, navigateSide, closeSide, setSideWidth, setSideOverlay, clearSideData, backSide, reloadSide, sideState } from './side-browser'
+import { openSide, navigateSide, closeSide, setSideWidth, setSideOverlay, clearSideData, clearSideService, backSide, reloadSide, sideState } from './side-browser'
 
 export function registerSideIpc(getWin: () => BrowserWindow | null): void {
   const withWin = (fn: (win: BrowserWindow) => unknown): unknown => {
@@ -38,6 +38,8 @@ export function registerSideIpc(getWin: () => BrowserWindow | null): void {
     await clearSideData()
     return true
   })
+
+  ipcMain.handle('side:clearService', async (_e, id: unknown) => (typeof id === 'string' ? clearSideService(id) : false))
 
   ipcMain.handle('side:state', () => sideState())
 }

@@ -4,20 +4,20 @@ import { BrowserWindow, ipcMain, session } from 'electron'
 import { GEMINI_PARTITION } from '../tools/gemini-internal'
 import { openGeminiInChrome } from '../tools/google-media-tools'
 import { readJson, writeJson } from '../core/json-store'
+import { partitionOfService } from '../core/side-partition'
 
 // Manual corrections: when the automatic check is wrong for a site, the user marks the real state and it wins until cleared.
 const MARKS_FILE = 'media-account-marks.json'
 const marks = (): Record<string, 'yes' | 'no'> => readJson<Record<string, 'yes' | 'no'>>(MARKS_FILE, {})
 
-const SIDE = 'persist:side-browser'
 interface Acc { id: string; label: string; url: string; partition: string; domains: string[]; auth?: RegExp }
 const ACCS: Acc[] = [
   { id: 'gemini', label: 'Gemini (Google)', url: 'https://gemini.google.com/app', partition: GEMINI_PARTITION, domains: ['google.com'], auth: /^(__Secure-1PSID|SID)$/ },
-  { id: 'leonardo', label: 'Leonardo.ai', url: 'https://app.leonardo.ai/', partition: SIDE, domains: ['leonardo.ai'] },
-  { id: 'ideogram', label: 'Ideogram', url: 'https://ideogram.ai/', partition: SIDE, domains: ['ideogram.ai'] },
-  { id: 'designer', label: 'Microsoft Designer', url: 'https://designer.microsoft.com/', partition: SIDE, domains: ['microsoft.com', 'live.com', 'microsoftonline.com'] },
-  { id: 'canva', label: 'Canva', url: 'https://www.canva.com/', partition: SIDE, domains: ['canva.com'] },
-  { id: 'morphic', label: 'Morphic', url: 'https://morphic.com/', partition: SIDE, domains: ['morphic.com', 'morphic.sh'] }
+  { id: 'leonardo', label: 'Leonardo.ai', url: 'https://app.leonardo.ai/', partition: partitionOfService('leonardo'), domains: ['leonardo.ai'] },
+  { id: 'ideogram', label: 'Ideogram', url: 'https://ideogram.ai/', partition: partitionOfService('ideogram'), domains: ['ideogram.ai'] },
+  { id: 'designer', label: 'Microsoft Designer', url: 'https://designer.microsoft.com/', partition: partitionOfService('designer'), domains: ['microsoft.com', 'live.com', 'microsoftonline.com'] },
+  { id: 'canva', label: 'Canva', url: 'https://www.canva.com/', partition: partitionOfService('canva'), domains: ['canva.com'] },
+  { id: 'morphic', label: 'Morphic', url: 'https://morphic.com/', partition: partitionOfService('morphic'), domains: ['morphic.com', 'morphic.sh'] }
 ]
 
 const hit = (cookieDomain: string, acc: Acc): boolean => {

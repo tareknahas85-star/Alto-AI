@@ -16,6 +16,7 @@ import { isOpenNow } from '../src/core/osm-hours'
 import { looksLooping, ENDS_WITH_STALL, REFUSES_TOOLS, badReplyReason, BUILD_TEST_CLAIM, hasBuildProof, WEAK_MODEL, claimedPorts } from '../src/core/reply-quality'
 import { rotateLogFile, LOG_MAX_BYTES } from '../src/core/log-rotate'
 import { checkSideUrl, clampSideWidth, windowWidthFor } from '../src/core/side-url'
+import { partitionForUrl, serviceForUrl, SIDE_DEFAULT_PARTITION } from '../src/core/side-partition'
 import { interpretRelease, interpretFailure, describeUpdate, isNewer, shouldPrompt, POSTPONE_MS } from '../src/core/update-state'
 import { isBuildDeleteCommand, reviewVerdict, findProjectByText } from '../src/core/build-guards'
 
@@ -899,4 +900,14 @@ test('5.18.0: ترتيب القوة منطقي والمكرر بيتوحّد', (
   assert.ok(estimateStrength('meta-llama/llama-3.3-70b-instruct:free') > estimateStrength('meta-llama/llama-3.2-3b-instruct:free'))
   assert.ok(estimateStrength('free/glm-5.3') > estimateStrength('free/glm-5.3-flash'))
   assert.equal(canonicalName('apinex:free/glm-5.3'), canonicalName('z-ai/glm-5.3:free'))
+})
+
+test('5.18.3: كل خدمة وسائط الها جلسة منفصلة بالمتصفح الجانبي', () => {
+  assert.equal(partitionForUrl('https://app.leonardo.ai/'), 'persist:side-leonardo')
+  assert.equal(partitionForUrl('https://www.canva.com/design'), 'persist:side-canva')
+  assert.equal(partitionForUrl('https://designer.microsoft.com/'), 'persist:side-designer')
+  assert.equal(partitionForUrl('https://morphic.sh/x'), 'persist:side-morphic')
+  assert.equal(partitionForUrl('https://example.com/'), SIDE_DEFAULT_PARTITION)
+  assert.equal(partitionForUrl('https://evilcanva.com/'), SIDE_DEFAULT_PARTITION)
+  assert.equal(serviceForUrl('not a url'), null)
 })

@@ -5,8 +5,10 @@
 // downloads blocked, external popups opened in the system browser, http(s) only.
 import { WebContentsView, session, shell, screen, type BrowserWindow } from 'electron'
 import { checkSideUrl, clampSideWidth, windowWidthFor } from '../core/side-url'
+import { SIDE_DEFAULT_PARTITION, SIDE_SERVICES, partitionForUrl, partitionOfService, serviceForUrl } from '../core/side-partition'
 
-const PARTITION = 'persist:side-browser'
+// Which session the open page uses: one per media service, a shared default for everything else.
+let partition = SIDE_DEFAULT_PARTITION
 // Must match the height of the toolbar the renderer draws (h-11 = 44px).
 export const TOOLBAR_HEIGHT = 44
 
@@ -16,16 +18,17 @@ let view: WebContentsView | null = null
 let attachedTo: BrowserWindow | null = null
 let width = 420
 let currentUrl: string | null = null
-let hardened = false
+const hardened = new Set<string>()
+const migrated = new Set<string>()
 // True while a popup/approval is open: the page is detached (kept alive) so the popup can draw over it.
 let overlayHidden = false
 // Window content width before the panel widened it. Restored when the panel closes.
 let widthBeforeSide: number | null = null
 
-function hardenSession(): void {
-  if (hardened) return
-  hardened = true
-  const sess = session.fromPartition(PARTITION)
+function hardenSession(p: string): void {
+  if (hardened.has(p)) return
+  hardened.add(p)
+  const sess = session.fromPartition(p)
   // Every permission (camera, mic, location, notifications, ...) is refused.
   sess.setPermissionRequestHandler((_wc, _perm, callback) => callback(false))
   sess.setPermissionCheckHandler(() => false)
@@ -34,10 +37,10 @@ function hardenSession(): void {
 }
 
 function createView(): WebContentsView {
-  hardenSession()
+  hardenSession(partition)
   const v = new WebContentsView({
     webPreferences: {
-      partition: PARTITION,
+      partition,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -114,12 +117,54 @@ function ensureAttached(win: BrowserWindow): void {
   layout(win)
 }
 
+// First time a service gets its own session: bring over its cookies from the old shared one so nobody has to sign in again.
+async function migrateOnce(p: string): Promise<void> {
+  if (p === SIDE_DEFAULT_PARTITION || migrated.has(p)) return
+  migrated.add(p)
+  const svc = SIDE_SERVICES.find((x) => partitionOfService(x.id) === p)
+  if (!svc) return
+  try {
+    const from = session.fromPartition(SIDE_DEFAULT_PARTITION).cookies
+    const to = session.fromPartition(p).cookies
+    if ((await to.get({})).length > 0) return
+    for (const c of await from.get({})) {
+      const d = (c.domain ?? '').replace(/^\./, '').toLowerCase()
+      if (!svc.domains.some((x) => d === x || d.endsWith('.' + x))) continue
+      try {
+        await to.set({
+          url: (c.secure ? 'https' : 'http') + '://' + d + (c.path || '/'), name: c.name, value: c.value,
+          domain: c.domain, path: c.path, secure: c.secure, httpOnly: c.httpOnly, expirationDate: c.expirationDate, sameSite: c.sameSite
+        })
+      } catch { /* skip a cookie that can't be copied */ }
+    }
+  } catch { /* migration is best-effort */ }
+}
+
+// Switches the panel to the session that belongs to this address (recreates the page view when it differs).
+function switchPartition(win: BrowserWindow, url: string): void {
+  const p = partitionForUrl(url)
+  if (view && p !== partition) {
+    if (!overlayHidden) { try { win.contentView.removeChildView(view) } catch { /* ignore */ } }
+    view.webContents.close()
+    view = null
+    attachedTo = null
+  }
+  partition = p
+}
+
+function loadIn(url: string): void {
+  const p = partition
+  const v = view
+  void migrateOnce(p).then(() => { if (view === v && v) return v.webContents.loadURL(url).catch(() => undefined); return undefined })
+}
+
 export function openSide(win: BrowserWindow, rawUrl: string): { ok: true; url: string } | { ok: false; error: string } {
   const checked = checkSideUrl(rawUrl)
   if (!checked.ok) return { ok: false, error: checked.reason }
+  switchPartition(win, checked.url)
   ensureAttached(win)
   currentUrl = checked.url
-  void view!.webContents.loadURL(checked.url).catch(() => undefined)
+  loadIn(checked.url)
   return { ok: true, url: checked.url }
 }
 
@@ -128,7 +173,12 @@ export function navigateSide(rawUrl: string): { ok: true; url: string } | { ok: 
   const checked = checkSideUrl(rawUrl)
   if (!checked.ok) return { ok: false, error: checked.reason }
   currentUrl = checked.url
-  void view.webContents.loadURL(checked.url).catch(() => undefined)
+  const win = attachedTo
+  if (win && !win.isDestroyed() && partitionForUrl(checked.url) !== partition) {
+    switchPartition(win, checked.url)
+    ensureAttached(win)
+  }
+  loadIn(checked.url)
   return { ok: true, url: checked.url }
 }
 
@@ -185,9 +235,23 @@ export function onWindowResized(win: BrowserWindow): void {
 }
 
 export async function clearSideData(): Promise<void> {
-  const sess = session.fromPartition(PARTITION)
+  for (const p of [SIDE_DEFAULT_PARTITION, ...SIDE_SERVICES.map((x) => partitionOfService(x.id))]) {
+    const sess = session.fromPartition(p)
+    await sess.clearStorageData()
+    await sess.clearCache()
+  }
+}
+
+/** Wipes one service's session only (cookies, storage, cache); the other sites stay signed in. */
+export async function clearSideService(id: string): Promise<boolean> {
+  const svc = SIDE_SERVICES.find((x) => x.id === id)
+  if (!svc) return false
+  const sess = session.fromPartition(partitionOfService(svc.id))
   await sess.clearStorageData()
   await sess.clearCache()
+  migrated.add(partitionOfService(svc.id)) // don't re-import old cookies after an explicit clear
+  if (view && serviceForUrl(currentUrl ?? '')?.id === svc.id) closeSide()
+  return true
 }
 
 export function sideState(): SideState {
