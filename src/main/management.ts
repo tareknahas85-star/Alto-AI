@@ -1,3 +1,5 @@
+import { DEFAULT_ALLOWED, classifyApp } from '../core/hands-guard'
+import { readJson, writeJson } from '../core/json-store'
 import { fetchRemoteModels, importRemoteModels, setCustomModelKey, setCustomModelPosition } from '../core/custom-models'
 import { listDirShallow } from '../core/project-files'
 import { lintSkill } from '../skills/lint'
@@ -95,6 +97,14 @@ export function registerManagementHandlers(): void {
   ipcMain.handle('computer:set', (_e, on: unknown) => {
     setComputerEnabled(on === true)
     return computerState()
+  })
+  ipcMain.handle('computer:apps:get', () => ({ defaults: DEFAULT_ALLOWED, extra: readJson<{ apps?: string[] }>('hands-allowed.json', {}).apps ?? [] }))
+  ipcMain.handle('computer:apps:set', (_e, list: unknown) => {
+    const apps = Array.isArray(list)
+      ? [...new Set(list.map((x) => String(x).trim().toLowerCase().replace(/\.exe$/, '')).filter((x) => /^[a-z0-9._+\- ]{1,60}$/.test(x) && classifyApp(x) !== 'blocked'))].slice(0, 100)
+      : []
+    writeJson('hands-allowed.json', { apps })
+    return { defaults: DEFAULT_ALLOWED, extra: apps }
   })
   ipcMain.handle('computer:setFull', (_e, on: unknown) => {
     setFullAccess(on === true)

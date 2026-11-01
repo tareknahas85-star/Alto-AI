@@ -67,6 +67,8 @@ const api = {
     set: (on: boolean): Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean }> => ipcRenderer.invoke('computer:set', on),
     reset: (): Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean }> => ipcRenderer.invoke('computer:reset'),
     setAuto: (on: boolean): Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }> => ipcRenderer.invoke('computer:setAuto', on),
+    appsGet: (): Promise<{ defaults: string[]; extra: string[] }> => ipcRenderer.invoke('computer:apps:get'),
+    appsSet: (l: string[]): Promise<{ defaults: string[]; extra: string[] }> => ipcRenderer.invoke('computer:apps:set', l),
     setFull: (on: boolean): Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }> => ipcRenderer.invoke('computer:setFull', on)
   },
   onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void): (() => void) => {
