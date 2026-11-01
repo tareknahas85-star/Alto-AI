@@ -679,7 +679,7 @@ export function ChatWindow({
       const lr = await startLiveAudio({
         onTool: async (request) => {
           lastReplyRef.current = ''
-          await sendVoiceRef.current(request)
+          await sendVoiceRef.current(request + '\n\n[بعد التنفيذ تأكّد فعلياً من النتيجة (قائمة العمليات أو لقطة للشاشة) وبلّغ بصدق إذا ما نجح.]')
           return lastReplyRef.current || 'تم التنفيذ بدون ردّ نصي'
         },
         onState: (s) => setTalk(s),
@@ -1278,7 +1278,7 @@ export function ChatWindow({
           )}
           <button
             onClick={() => { const v = !wakeOn; setWakeOn(v); setWakeErr(''); try { localStorage.setItem('wakeWord', v ? '1' : '0') } catch { /* ignore */ } }}
-            title={wakeErr || (wakeOn ? 'كلمة التنبيه شغّالة: قول «Hey Jarvis» وبفتح المحادثة الصوتية (اضغط لتطفيها)' : 'شغّل كلمة التنبيه (محلي): قول «Hey Jarvis» لفتح المحادثة الصوتية')}
+            title={wakeErr || (wakeOn ? 'كلمة التنبيه شغّالة: قول «سعاد» وبفتح المحادثة الصوتية (اضغط لتطفيها)' : 'شغّل كلمة التنبيه (محلي): قول «سعاد» لفتح المحادثة الصوتية')}
             aria-label="كلمة التنبيه"
             className={'mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (wakeErr ? 'text-danger' : wakeOn ? 'bg-green-500 text-white' : 'text-muted hover:bg-surface2')}
           >

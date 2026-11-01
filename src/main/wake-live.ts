@@ -1,44 +1,51 @@
 import { ipcMain, type WebContents } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { pythons } from './whisper-live'
 
-// كلمة التنبيه (wake word) محلية بالكامل بمكتبة openWakeWord المجانية. الواجهة بتبعت صوت المايك PCM16 16kHz
-// (دفعات 1280 عينة)، والـpython بيحكي "WAKE" لما يسمع «Hey Jarvis». ما في شي بيطلع من الجهاز.
+// كلمة التنبيه (wake word) محلية بالكامل بمكتبة Whisper الصغير (base). الواجهة بتبعت صوت المايك PCM16 16kHz
+// (دفعات 1280 عينة)، والـpython بيحكي "WAKE" لما يسمع «سعاد». ما في شي بيطلع من الجهاز.
 
 const PY = [
-  'import sys, os, time, subprocess, urllib.request',
-  'try:',
-  '    import openwakeword',
-  'except Exception:',
-  '    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "openwakeword", "--no-deps"], check=False)',
-  '    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "tqdm", "requests", "scikit-learn", "numpy", "onnxruntime"], check=False)',
-  '    import openwakeword',
+  'import sys, os, re, time',
   'import numpy as np',
-  'from openwakeword.utils import download_models',
-  'from openwakeword.model import Model',
-  'def make():',
-  '    return Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")',
-  'try:',
-  '    m = make()',
-  'except Exception:',
-  '    try:',
-  '        download_models(["hey_jarvis"])',
-  '    except Exception:',
-  '        pass',
-  '    d = os.path.join(os.path.dirname(openwakeword.__file__), "resources", "models", "melspectrogram.onnx")',
-  '    if not os.path.exists(d):',
-  '        urllib.request.urlretrieve("https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/melspectrogram.onnx", d)',
-  '    m = make()',
+  'from faster_whisper import WhisperModel',
+  'm = WhisperModel(os.environ.get("VOICE_WAKE_MODEL", "base"), device="cpu", compute_type="int8", cpu_threads=2)',
+  'PAT = re.compile("(\\\\u0633\\\\u0639\\\\u0627\\\\u062f|\\\\u0633\\\\u0648\\\\u0627\\\\u062f|\\\\u0633\\\\u0639\\\\u0627\\\\u062a|\\\\u0633\\\\u0648\\\\u0639\\\\u0627\\\\u062f|\\\\u0633\\\\u0639\\\\u062f|suad|souad|soad|su3ad|so3ad|swad)", re.I)',
   'print("READY", flush=True)',
-  'last = 0.0',
   'rd = sys.stdin.buffer',
+  'floor = 150.0',
+  'seg = []',
+  'sil = 0',
+  'last = 0.0',
   'while True:',
   '    b = rd.read(2560)',
   '    if not b or len(b) < 2560:',
   '        break',
-  '    p = m.predict(np.frombuffer(b, dtype=np.int16))',
-  '    if p.get("hey_jarvis", 0) > 0.5 and time.time() - last > 3:',
-  '        last = time.time()',
-  '        print("WAKE", flush=True)',
+  '    a = np.frombuffer(b, dtype=np.int16)',
+  '    r = float(np.sqrt(np.mean(a.astype(np.float32) ** 2)))',
+  '    thr = max(350.0, floor * 3.0)',
+  '    if r > thr:',
+  '        seg.append(a)',
+  '        sil = 0',
+  '    elif seg:',
+  '        seg.append(a)',
+  '        sil += 1',
+  '    else:',
+  '        floor = 0.95 * floor + 0.05 * min(r, 600.0)',
+  '    if seg and (sil >= 6 or len(seg) >= 40):',
+  '        n = len(seg) - sil',
+  '        if n >= 4 and time.time() - last > 3:',
+  '            x = np.concatenate(seg).astype(np.float32) / 32768.0',
+  '            try:',
+  '                ss, _ = m.transcribe(x, language="ar", beam_size=1, vad_filter=False, condition_on_previous_text=False)',
+  '                txt = " ".join(s.text for s in ss).strip()',
+  '                if txt and len(txt.split()) <= 8 and PAT.search(txt):',
+  '                    last = time.time()',
+  '                    print("WAKE", flush=True)',
+  '            except Exception:',
+  '                pass',
+  '        seg = []',
+  '        sil = 0',
 ].join('\n')
 
 let proc: ChildProcessWithoutNullStreams | null = null
@@ -59,14 +66,14 @@ export function registerWakeIpc(): void {
     stopWake()
     sender = e.sender
     return new Promise<{ ok: boolean; error?: string }>((resolve) => {
-      const py = process.platform === 'win32' ? 'python' : 'python3'
+      const py = pythons()[0] ?? (process.platform === 'win32' ? 'python' : 'python3')
       const p = spawn(py, ['-c', PY], { windowsHide: true, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } })
       proc = p
       let done = false
       let buf = ''
       let err = ''
       const fin = (r: { ok: boolean; error?: string }): void => { if (!done) { done = true; clearTimeout(t); resolve(r) } }
-      const t = setTimeout(() => { stopWake(); fin({ ok: false, error: 'انتهت المهلة وانا عم جهّز كلمة التنبيه (بايثون / openWakeWord)' }) }, 240000)
+      const t = setTimeout(() => { stopWake(); fin({ ok: false, error: 'انتهت المهلة وانا عم جهّز كلمة التنبيه (Whisper base، أول مرة بينزّل شي 140MB)' }) }, 240000)
       p.stdout.on('data', (d: Buffer) => {
         buf += d.toString('utf-8')
         let i: number
