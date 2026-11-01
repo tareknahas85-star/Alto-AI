@@ -327,6 +327,21 @@ const api = {
     import: (password: string) => ipcRenderer.invoke('transfer:import', password)
   },
   security: { status: () => ipcRenderer.invoke('security:status') },
+  nb: {
+    list: (): Promise<{ id: string; title: string; at: number; sources: number; notes: number }[]> => ipcRenderer.invoke('nb:list'),
+    get: (id: string) => ipcRenderer.invoke('nb:get', id),
+    create: (title: string) => ipcRenderer.invoke('nb:create', title),
+    rename: (id: string, title: string): Promise<boolean> => ipcRenderer.invoke('nb:rename', id, title),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('nb:delete', id),
+    addFiles: (id: string, paths?: string[]) => ipcRenderer.invoke('nb:addFiles', id, paths),
+    addText: (id: string, name: string, text: string) => ipcRenderer.invoke('nb:addText', id, name, text),
+    addLink: (id: string, url: string) => ipcRenderer.invoke('nb:addLink', id, url),
+    removeSource: (id: string, sid: string) => ipcRenderer.invoke('nb:removeSource', id, sid),
+    ask: (id: string, question: string) => ipcRenderer.invoke('nb:ask', id, question),
+    generate: (id: string, kind: string, focus: string) => ipcRenderer.invoke('nb:generate', id, kind, focus),
+    deleteNote: (id: string, noteId: string) => ipcRenderer.invoke('nb:deleteNote', id, noteId),
+    exportNote: (id: string, noteId: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:export', id, noteId)
+  },
   todo: {
     list: () => ipcRenderer.invoke('todo:list'),
     op: (op: unknown) => ipcRenderer.invoke('todo:op', op),

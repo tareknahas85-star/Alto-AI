@@ -87,6 +87,10 @@ export type RemoteEvent = { type: 'sas'; sas: string; name: string } | { type: '
 export type AgentSchedule = { time: string; days: 'all' | 'work'; task: string; tz: string }
 export type AgentInfo = { id: string; name: string; prompt: string; runOn: 'local' | 'cloud' | 'auto'; memory: 'basic' | 'none'; model: string; tool: 'text' | 'image' | 'video'; schedule: AgentSchedule | null; sources: string[] }
 export type AgentMemInfo = { blocked: string[]; projects: string[]; text: string; used: number; dropped: number }
+export type NbSourceInfo = { id: string; name: string; kind: 'file' | 'text' | 'link'; chars: number; ref?: string }
+export type NbNoteInfo = { id: string; kind: string; title: string; body: string; at: number }
+export type NbViewInfo = { id: string; title: string; at: number; sources: NbSourceInfo[]; notes: NbNoteInfo[] }
+export type NbResult = { ok: boolean; nb?: NbViewInfo | null; error?: string; added?: number; skipped?: string[] }
 export type TodoInfo = { id: string; text: string; done: boolean; at: number }
 export type GateInfo = { enabled: boolean; url: string; hasKey: boolean }
 export type TelegramInfo = { enabled: boolean; chatId: string; minSeconds: number; inbound: boolean; hasToken: boolean }
@@ -325,6 +329,21 @@ declare global {
         import: (password: string) => Promise<{ ok: boolean; error?: string; files?: number; skills?: number; at?: string }>
       }
       security: { status: () => Promise<{ keyStorage: 'os-protected' | 'legacy' | 'memory'; phoneApproval: boolean }> }
+    nb: {
+      list: () => Promise<{ id: string; title: string; at: number; sources: number; notes: number }[]>
+      get: (id: string) => Promise<NbViewInfo | null>
+      create: (title: string) => Promise<NbViewInfo>
+      rename: (id: string, title: string) => Promise<boolean>
+      remove: (id: string) => Promise<boolean>
+      addFiles: (id: string, paths?: string[]) => Promise<NbResult>
+      addText: (id: string, name: string, text: string) => Promise<NbResult>
+      addLink: (id: string, url: string) => Promise<NbResult>
+      removeSource: (id: string, sid: string) => Promise<NbViewInfo | null>
+      ask: (id: string, question: string) => Promise<NbResult>
+      generate: (id: string, kind: string, focus: string) => Promise<NbResult>
+      deleteNote: (id: string, noteId: string) => Promise<NbViewInfo | null>
+      exportNote: (id: string, noteId: string) => Promise<{ ok: boolean; path?: string; error?: string }>
+    }
     todo: {
       list: () => Promise<TodoInfo[]>
       op: (op: unknown) => Promise<TodoInfo[]>
