@@ -3,9 +3,19 @@ import { useEffect, useState } from 'react'
 export function ComputerPanel() {
   const [st, setSt] = useState<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>({ enabled: false, sessionAllowed: false, autoApprove: true, fullAccess: false })
 
+  const [apps, setApps] = useState<{ defaults: string[]; extra: string[] }>({ defaults: [], extra: [] })
+  const [newApp, setNewApp] = useState('')
   useEffect(() => {
     void window.api.computer.get().then(setSt)
+    void window.api.computer.appsGet().then(setApps)
   }, [])
+  const addApp = async (): Promise<void> => {
+    const v = newApp.trim()
+    if (!v) return
+    setApps(await window.api.computer.appsSet([...apps.extra, v]))
+    setNewApp('')
+  }
+  const delApp = async (a: string): Promise<void> => setApps(await window.api.computer.appsSet(apps.extra.filter((x) => x !== a)))
 
   const unsupported = !navigator.userAgent.includes('Windows') // PowerShell-based: Windows only for now
   const toggle = async (): Promise<void> => setSt(await window.api.computer.set(!st.enabled))
@@ -60,6 +70,25 @@ export function ComputerPanel() {
           )}
         </div>
       )}
+      <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800">
+        <div className="font-medium">التطبيقات المسموحة للكتابة والضغط</div>
+        <p className="mt-1 text-xs text-gray-500">أي تطبيق مو بالقائمة بيسألك قبل ما الوكيل يكتب أو يضغط فيه، حتى مع الصلاحية الكاملة. تطبيقات كلمات السر وregedit ممنوعة دايماً. اكتب اسم العملية (مثلاً telegram).</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {apps.defaults.map((a) => (
+            <span key={a} className="rounded-full bg-gray-200 px-2 py-0.5 text-xs dark:bg-gray-700">{a}</span>
+          ))}
+          {apps.extra.map((a) => (
+            <span key={a} className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-900 dark:bg-green-900 dark:text-green-100">
+              {a}
+              <button onClick={() => void delApp(a)} aria-label={'حذف ' + a} className="hover:text-red-600">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 flex gap-2">
+          <input value={newApp} onChange={(e) => setNewApp(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void addApp() }} placeholder="اسم التطبيق (مثلاً telegram)" className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-900" />
+          <button onClick={() => void addApp()} className="rounded bg-gray-600 px-3 py-1 text-xs text-white hover:bg-gray-700">ضيف</button>
+        </div>
+      </div>
       <ul className="mt-3 list-disc space-y-1 pr-5 text-xs text-gray-500">
         <li>الأوامر للقراءة بس (Get-*, dir...) بتشتغل مباشرة، وغيرها بيسألك.</li>
         <li>بدون الصلاحية الكاملة محجوب: الحذف، حذف الريجستري، التنزيل، وتغيير سياسات النظام. الإطفاء وإعادة التشغيل والسكون بأداة الطاقة وبتسألك قبل التنفيذ.</li>

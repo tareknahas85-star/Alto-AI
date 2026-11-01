@@ -177,7 +177,9 @@ declare global {
         set: (on: boolean) => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
         reset: () => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
         setAuto: (on: boolean) => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
-        setFull: (on: boolean) => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
+        appsGet: () => Promise<{ defaults: string[]; extra: string[] }>
+      appsSet: (l: string[]) => Promise<{ defaults: string[]; extra: string[] }>
+      setFull: (on: boolean) => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
       }
       onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void) => () => void
       status: () => Promise<{ key: boolean; ollama: boolean; localMaster: boolean; mcpOn: number; mcpTotal: number; free: { count: number; limit: number; limited: boolean } }>
