@@ -1,0 +1,3 @@
+// Guards for agent-driven browsing (pure, tested): which clicks need a hard confirmation, which fields the agent must never fill.
+export const RISKY_CLICK = /\b(send|submit|pay|buy|purchase|order|checkout|confirm|delete|remove|transfer|subscribe|sign ?up|post|publish)\b|ارسال|إرسال|ادفع|دفع|شراء|اشتر|حذف|تأكيد|تاكيد|طلب|تحويل|اشتراك|نشر/i
+export const SECRET_FIELD = /password|passwd|pwd|card|cc-|cvv|cvc|iban|ssn|otp|one-time|كلمة|بطاقة|سري/i

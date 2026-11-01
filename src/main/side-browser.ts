@@ -9,6 +9,9 @@ import { SIDE_DEFAULT_PARTITION, SIDE_SERVICES, partitionForUrl, partitionOfServ
 
 // Which session the open page uses: one per media service, a shared default for everything else.
 let partition = SIDE_DEFAULT_PARTITION
+// Agent-driven browsing uses its own throw-away session (no 'persist:' prefix = memory only), never the user's sign-ins.
+const AGENT_PARTITION = 'agent-browser'
+let agentMode = false
 // Must match the height of the toolbar the renderer draws (h-11 = 44px).
 export const TOOLBAR_HEIGHT = 44
 
@@ -142,7 +145,7 @@ async function migrateOnce(p: string): Promise<void> {
 
 // Switches the panel to the session that belongs to this address (recreates the page view when it differs).
 function switchPartition(win: BrowserWindow, url: string): void {
-  const p = partitionForUrl(url)
+  const p = agentMode ? AGENT_PARTITION : partitionForUrl(url)
   if (view && p !== partition) {
     if (!overlayHidden) { try { win.contentView.removeChildView(view) } catch { /* ignore */ } }
     view.webContents.close()
@@ -158,9 +161,40 @@ function loadIn(url: string): void {
   void migrateOnce(p).then(() => { if (view === v && v) return v.webContents.loadURL(url).catch(() => undefined); return undefined })
 }
 
+/** The agent opens a page in the visible panel, in its own temporary session. */
+export async function agentBrowse(win: BrowserWindow, url: string): Promise<{ ok: true; url: string; title: string } | { ok: false; error: string }> {
+  const checked = checkSideUrl(url)
+  if (!checked.ok) return { ok: false, error: checked.reason }
+  agentMode = true
+  switchPartition(win, checked.url)
+  ensureAttached(win)
+  currentUrl = checked.url
+  const wc = view!.webContents
+  await new Promise<void>((res) => {
+    let done = false
+    const f = (): void => { if (!done) { done = true; res() } }
+    wc.once('did-finish-load', f)
+    wc.on('did-fail-load', (_e, _c, _d, _u, main) => { if (main) f() })
+    void wc.loadURL(checked.url).catch(f)
+    setTimeout(f, 20000)
+  })
+  return { ok: true, url: wc.getURL(), title: wc.getTitle() }
+}
+
+export const agentWebContents = (): Electron.WebContents | null => (agentMode && view ? view.webContents : null)
+
+export async function agentCloseBrowser(): Promise<void> {
+  if (!agentMode) return
+  closeSide()
+  const sess = session.fromPartition(AGENT_PARTITION)
+  await sess.clearStorageData()
+  await sess.clearCache()
+}
+
 export function openSide(win: BrowserWindow, rawUrl: string): { ok: true; url: string } | { ok: false; error: string } {
   const checked = checkSideUrl(rawUrl)
   if (!checked.ok) return { ok: false, error: checked.reason }
+  agentMode = false
   switchPartition(win, checked.url)
   ensureAttached(win)
   currentUrl = checked.url
@@ -173,6 +207,7 @@ export function navigateSide(rawUrl: string): { ok: true; url: string } | { ok: 
   const checked = checkSideUrl(rawUrl)
   if (!checked.ok) return { ok: false, error: checked.reason }
   currentUrl = checked.url
+  agentMode = false
   const win = attachedTo
   if (win && !win.isDestroyed() && partitionForUrl(checked.url) !== partition) {
     switchPartition(win, checked.url)
@@ -226,6 +261,7 @@ export function closeSide(): SideState {
     view = null
   }
   currentUrl = null
+  agentMode = false
   return sideState()
 }
 
