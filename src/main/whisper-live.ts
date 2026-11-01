@@ -15,7 +15,7 @@ for line in sys.stdin:
     if not f:
         continue
     try:
-        segs, info = m.transcribe(f, beam_size=1, vad_filter=True, condition_on_previous_text=False)
+        segs, info = m.transcribe(f, language=os.environ.get("VOICE_WHISPER_LANG", "ar") or None, beam_size=1, vad_filter=True, condition_on_previous_text=False)
         out = {"text": " ".join(s.text.strip() for s in segs).strip(), "lang": info.language}
     except Exception as e:
         out = {"error": str(e)[:200]}

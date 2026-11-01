@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { ModelPicker } from './ModelPicker'
+import { startLiveAudio } from './live-audio'
 import { ArrowUp, AudioLines, Bot, Check, Copy, Headphones, Volume2, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
 import { MediaPanel } from './MediaPanel'
 import { MediaCard } from './MediaCard'
@@ -573,6 +574,7 @@ export function ChatWindow({
   const talkOn = useRef(false)
   const talkStream = useRef<MediaStream | null>(null)
   const skipSpeech = useRef<(() => void) | null>(null)
+  const liveStop = useRef<(() => void) | null>(null)
   const lastReplyRef = useRef('')
   const messagesRef = useRef(messages)
   messagesRef.current = messages
@@ -653,6 +655,8 @@ export function ChatWindow({
   }
   const stopTalk = (): void => {
     talkOn.current = false
+    liveStop.current?.()
+    liveStop.current = null
     skipSpeech.current?.()
     if (speaking) { speaking.pause(); speaking = null }
     talkStream.current?.getTracks().forEach((t) => t.stop())
@@ -666,6 +670,31 @@ export function ChatWindow({
       return
     }
     if (loading) return
+    if (await window.api.live.available()) {
+      setTalk('think')
+      const lr = await startLiveAudio({
+        onState: (s) => setTalk(s),
+        onTurn: (u, m) => {
+          const at = Date.now()
+          const add: ChatMessage[] = []
+          if (u) add.push({ role: 'user', content: u, at })
+          if (m) add.push({ role: 'assistant', content: m, at })
+          if (add.length) setMessages([...messagesRef.current, ...add])
+        },
+        onClose: (msg) => {
+          if (!talkOn.current) return
+          stopTalk()
+          setMessages([...messagesRef.current, { role: 'assistant', content: msg, at: Date.now() }])
+        },
+      })
+      if (lr.ok) {
+        talkOn.current = true
+        liveStop.current = lr.stop
+        return
+      }
+      setTalk('')
+      setMessages([...messagesRef.current, { role: 'assistant', content: 'تعذّر Gemini Live (' + (lr.error ?? '') + '). رح استعمل الوضع المحلي.', at: Date.now() }])
+    }
     try {
       talkStream.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
     } catch (e) {
@@ -676,7 +705,7 @@ export function ChatWindow({
     void window.api.voice.warm()
     void talkLoop()
   }
-  useEffect(() => () => { talkOn.current = false; talkStream.current?.getTracks().forEach((t) => t.stop()) }, [])
+  useEffect(() => () => { talkOn.current = false; liveStop.current?.(); talkStream.current?.getTracks().forEach((t) => t.stop()) }, [])
   const addAtts = (list: AttachmentInfo[]): void => setAtts((a) => [...a, ...list.filter((x) => !a.some((y) => y.path === x.path))])
   const pickFiles = async (): Promise<void> => {
     try {
