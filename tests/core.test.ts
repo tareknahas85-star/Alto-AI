@@ -1013,5 +1013,8 @@ test('gemini live: model pick, setup, parser', () => {
   assert.deepEqual(ev.map((e) => e.type), ['audio', 'modelText', 'turnComplete'])
   assert.deepEqual(parseLiveAll('{"setupComplete":{}}'), [{ type: 'ready' }])
   assert.deepEqual(parseLiveAll('x'), [{ type: 'ignore' }])
+  const tc = parseLiveAll(JSON.stringify({ toolCall: { functionCalls: [{ id: 'c1', name: 'run_task', args: { request: 'شو فاتح عالشاشة' } }] } }))
+  assert.deepEqual(tc, [{ type: 'toolCall', id: 'c1', name: 'run_task', request: 'شو فاتح عالشاشة' }])
+  assert.ok(JSON.stringify(s).includes('run_task'))
   assert.deepEqual(parseLiveAll('{"serverContent":{"interrupted":true}}'), [{ type: 'interrupted' }])
 })

@@ -677,6 +677,11 @@ export function ChatWindow({
     if (await window.api.live.available()) {
       setTalk('think')
       const lr = await startLiveAudio({
+        onTool: async (request) => {
+          lastReplyRef.current = ''
+          await sendVoiceRef.current(request)
+          return lastReplyRef.current || 'تم التنفيذ بدون ردّ نصي'
+        },
         onState: (s) => setTalk(s),
         onTurn: (u, m) => {
           const at = Date.now()

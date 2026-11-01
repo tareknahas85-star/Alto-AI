@@ -343,6 +343,7 @@ const api = {
     available: (): Promise<boolean> => ipcRenderer.invoke('live:available'),
     start: (): Promise<{ ok: boolean; model?: string; error?: string }> => ipcRenderer.invoke('live:start'),
     audio: (b64: string): void => ipcRenderer.send('live:audio', b64),
+    toolResponse: (id: string, name: string, result: string): void => ipcRenderer.send('live:toolResponse', { id, name, result }),
     stop: (): Promise<boolean> => ipcRenderer.invoke('live:stop'),
     onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void): (() => void) => {
       const h = (_e: unknown, ev: { type: string; [k: string]: unknown }): void => cb(ev)
