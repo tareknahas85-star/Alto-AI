@@ -5,9 +5,9 @@ import { newId, readJson, writeJson } from '../core/json-store'
 import { checkSideUrl } from '../core/side-url'
 import {
   MAX_SOURCE_CHARS, OUTPUT_KINDS, buildAskPrompt, buildOutputPrompt, csvOf, htmlToText, isPrivateHost, outputTitle, parseCsv, retrieve,
-  type Notebook, type NbSource, type OutputKind
-} from '../core/notebook'
+  type Notebook, type NbSource, type OutputKind, parseDeck, parseInfographic, parseDialogue, infographicHtml, type Deck, type DialogueLine } from '../core/notebook'
 import { prepareFile } from './attach'
+import { synthDialogue } from './voice-ipc'
 
 // «دفتر»: notebooks live in one JSON file. The chat pipeline answers; this file only prepares prompts and stores results.
 const FILE = 'notebooks.json'
@@ -45,6 +45,47 @@ async function run(prompt: string): Promise<string> {
   if (r.failed || !r.content.trim()) throw new Error(r.content?.trim() || 'ما وصلني رد من الموديل')
   // the chat pipeline appends a review footer to its answers; it isn't part of the notebook output
   return r.content.replace(/\r?\n+(?:[-—_]{3,}\s*\r?\n)?\s*[^\n]*مراجعة مستقلة[\s\S]*$/, '').trim()
+}
+
+const audioCache = new Map<string, Buffer>()
+const VOICE_A = 'ar-SY-AmanyNeural'
+const VOICE_B = 'ar-SY-LaithNeural'
+
+async function dialogueAudio(noteId: string, dlg: DialogueLine[]): Promise<Buffer> {
+  const hit = audioCache.get(noteId)
+  if (hit) return hit
+  const buf = await synthDialogue(dlg.map((l) => ({ text: l.text, voice: l.who === 'B' ? VOICE_B : VOICE_A })))
+  if (audioCache.size > 4) audioCache.delete(audioCache.keys().next().value as string)
+  audioCache.set(noteId, buf)
+  return buf
+}
+
+async function writeDeck(file: string, deck: Deck): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mod: any = await import('pptxgenjs')
+  const P = mod.default ?? mod
+  const pptx = new P()
+  pptx.layout = 'LAYOUT_WIDE'
+  pptx.rtlMode = true
+  pptx.title = deck.title
+  deck.slides.forEach((sd, idx) => {
+    const sl = pptx.addSlide()
+    if (idx === 0) {
+      sl.background = { color: '0F172A' }
+      sl.addText(deck.title, { x: 0.8, y: 2.3, w: 11.7, h: 1.6, fontSize: 40, bold: true, color: 'FFFFFF', align: 'right', rtlMode: true, fontFace: 'Arial', isTextBox: true })
+      if (sd.title && sd.title !== deck.title) sl.addText(sd.title, { x: 0.8, y: 4.0, w: 11.7, h: 0.8, fontSize: 22, color: '38BDF8', align: 'right', rtlMode: true, fontFace: 'Arial', isTextBox: true })
+      if (sd.bullets.length) sl.addText(sd.bullets.join(' • '), { x: 0.8, y: 5.0, w: 11.7, h: 1, fontSize: 16, color: '94A3B8', align: 'right', rtlMode: true, fontFace: 'Arial', isTextBox: true })
+    } else {
+      sl.background = { color: 'F8FAFC' }
+      sl.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: '0F172A' } })
+      sl.addText(sd.title, { x: 0.6, y: 0.15, w: 12.1, h: 0.9, fontSize: 30, bold: true, color: 'FFFFFF', align: 'right', rtlMode: true, fontFace: 'Arial', isTextBox: true })
+      if (sd.bullets.length)
+        sl.addText(sd.bullets.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < sd.bullets.length - 1 } })), { x: 0.8, y: 1.6, w: 11.7, h: 5.2, fontSize: 24, color: '0F172A', align: 'right', rtlMode: true, valign: 'top', paraSpaceAfter: 10, fontFace: 'Arial', isTextBox: true })
+      sl.slideNumber = { x: 0.4, y: 7.0, fontSize: 12, color: '64748B' }
+    }
+    if (sd.notes) sl.addNotes(sd.notes)
+  })
+  await pptx.writeFile({ fileName: file })
 }
 
 export function registerNotebookIpc(): void {
@@ -146,6 +187,17 @@ export function registerNotebookIpc(): void {
     n.notes = n.notes.filter((x) => x.id !== noteId); save(l); return view(n)
   })
 
+  ipcMain.handle('nb:audio', async (_e, id: unknown, noteId: unknown) => {
+    const n = find(all(), id)
+    const note = n?.notes.find((x) => x.id === noteId)
+    const dlg = note && note.kind === 'audio' ? parseDialogue(note.body) : []
+    if (!note || !dlg.length) return { ok: false, error: 'ما في حوار صالح بالملاحظة' }
+    try {
+      const buf = await dialogueAudio(note.id, dlg)
+      return { ok: true, url: 'data:audio/mpeg;base64,' + buf.toString('base64') }
+    } catch (e) { return { ok: false, error: (e as Error).message } }
+  })
+
   /** Saves a note to disk: tables become .xlsx (or .csv), everything else .md. */
   ipcMain.handle('nb:export', async (event, id: unknown, noteId: unknown) => {
     const n = find(all(), id)
@@ -154,13 +206,25 @@ export function registerNotebookIpc(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     const isTable = note.kind === 'table' && !!csvOf(note.body)
     const base = (note.title || 'دفتر').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
+    const deck = note.kind === 'slides' ? parseDeck(note.body) : null
+    const info = note.kind === 'infographic' ? parseInfographic(note.body) : null
+    const dlg = note.kind === 'audio' ? parseDialogue(note.body) : []
     const opts = isTable
       ? { defaultPath: base + '.xlsx', filters: [{ name: 'Excel', extensions: ['xlsx'] }, { name: 'CSV', extensions: ['csv'] }] }
-      : { defaultPath: base + '.md', filters: [{ name: 'Markdown', extensions: ['md'] }] }
+      : deck
+        ? { defaultPath: base + '.pptx', filters: [{ name: 'PowerPoint', extensions: ['pptx'] }] }
+        : info
+          ? { defaultPath: base + '.html', filters: [{ name: 'HTML', extensions: ['html'] }] }
+          : dlg.length
+            ? { defaultPath: base + '.mp3', filters: [{ name: 'MP3', extensions: ['mp3'] }] }
+            : { defaultPath: base + '.md', filters: [{ name: 'Markdown', extensions: ['md'] }] }
     const r = await (win ? dialog.showSaveDialog(win, opts) : dialog.showSaveDialog(opts))
     if (r.canceled || !r.filePath) return { ok: false, error: 'انلغى' }
     try {
-      if (isTable) {
+      if (deck) await writeDeck(r.filePath, deck)
+      else if (info) await fsp.writeFile(r.filePath, infographicHtml(info), 'utf8')
+      else if (dlg.length) await fsp.writeFile(r.filePath, await dialogueAudio(note.id, dlg))
+      else if (isTable) {
         const rows = parseCsv(csvOf(note.body) as string)
         if (/\.csv$/i.test(r.filePath)) await fsp.writeFile(r.filePath, '﻿' + rows.map((x) => x.map((c) => (/[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c)).join(',')).join('\r\n'), 'utf8')
         else {

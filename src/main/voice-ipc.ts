@@ -61,6 +61,34 @@ async function edgeSegments(text: string, out: string): Promise<string> {
   return ''
 }
 
+/** Dialogue / long text to one mp3 buffer: each line gets its own voice; Latin runs get the English voice; 4 edge-tts calls at a time. */
+export async function synthDialogue(lines: { text: string; voice: string }[]): Promise<Buffer> {
+  const jobs: { text: string; voice: string }[][] = lines.map((l) => {
+    const t = cleanForSpeech(l.text)
+    return splitSegments(t).map((sg) => ({ text: sg.text, voice: sg.lang === 'en' ? VOICE_EN : l.voice }))
+  })
+  const flat = jobs.flat()
+  const base = path.join(os.tmpdir(), 'trl-dlg-' + Date.now())
+  const bufs: Buffer[] = new Array(flat.length)
+  let next = 0
+  let fail = ''
+  await Promise.all(
+    Array.from({ length: 4 }, async () => {
+      while (!fail) {
+        const i = next++
+        if (i >= flat.length) return
+        const f = base + '.' + i
+        const err = await edgeTts(flat[i].text, flat[i].voice, f)
+        if (err) { fail = err; return }
+        bufs[i] = await fsp.readFile(f)
+        fsp.rm(f, { force: true }).catch(() => undefined)
+      }
+    })
+  )
+  if (fail) throw new Error('توليد الصوت فشل: ' + fail.split('\n').filter(Boolean).slice(-1)[0]?.slice(0, 120))
+  return Buffer.concat(bufs)
+}
+
 export function registerVoiceIpc(): void {
   ipcMain.handle('voice:warm', () => { warmWhisper(); return true })
   ipcMain.handle('voice:transcribe', async (_e, data: unknown) => {

@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, Download, FileText, Link2, Plus, Trash2, X } from 'lucide-react'
+import { BookOpen, Download, FileText, Link2, Loader2, Play, Plus, Trash2, X } from 'lucide-react'
 import { Empty, PageShell, cardCls, ghostBtn, inputCls, primaryBtn } from './components/ui'
 import { Markdown } from './Markdown'
 import { askConfirm } from './components/confirm'
-import { extractMermaid, csvOf, parseCsv, parseFlashcards, parseQuiz } from '../core/notebook'
+import { extractMermaid, csvOf, parseCsv, parseDeck, parseDialogue, parseFlashcards, parseInfographic, parseQuiz } from '../core/notebook'
 
 type NbView = NonNullable<Awaited<ReturnType<typeof window.api.nb.get>>>
 type Note = NbView['notes'][number]
-type Kind = 'report' | 'table' | 'mindmap' | 'flashcards' | 'quiz'
+type Kind = 'report' | 'table' | 'mindmap' | 'flashcards' | 'quiz' | 'slides' | 'infographic' | 'audio'
 
 const KINDS: { id: Kind; label: string }[] = [
   { id: 'report', label: 'تقرير' },
   { id: 'table', label: 'جدول بيانات' },
   { id: 'mindmap', label: 'خريطة ذهنية' },
   { id: 'flashcards', label: 'بطاقات مراجعة' },
-  { id: 'quiz', label: 'اختبار' }
+  { id: 'quiz', label: 'اختبار' },
+  { id: 'slides', label: 'عرض تقديمي' },
+  { id: 'infographic', label: 'إنفوغرافيك' },
+  { id: 'audio', label: 'ملخّص صوتي' }
 ]
 
 // Mermaid mindmap text -> nested list (no external library): indentation gives the depth.
@@ -111,6 +114,68 @@ function MindMap({ body }: { body: string }) {
   return <ul className="text-sm"><Tree n={tree} /></ul>
 }
 
+function Slides({ body }: { body: string }) {
+  const d = parseDeck(body)
+  if (!d) return <Markdown text={body} />
+  return (
+    <div className="space-y-2">
+      {d.slides.map((s, i) => (
+        <div key={i} className="rounded-lg border border-outline p-3 text-sm">
+          <div className="mb-1 font-medium">{i + 1}. {s.title}</div>
+          {s.bullets.length > 0 && <ul className="list-disc pr-5 text-muted">{s.bullets.map((b, j) => <li key={j}>{b}</li>)}</ul>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Info({ body }: { body: string }) {
+  const i = parseInfographic(body)
+  if (!i) return <Markdown text={body} />
+  return (
+    <div className="space-y-3 text-sm">
+      {i.stats.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {i.stats.map((s, k) => (
+            <div key={k} className="rounded-lg bg-surface2 p-3 text-center"><div className="text-2xl font-bold text-primary">{s.value}</div><div className="text-xs text-muted">{s.label}</div></div>
+          ))}
+        </div>
+      )}
+      {i.sections.map((s, k) => (
+        <div key={k} className="rounded-lg border border-outline p-3"><div className="mb-1 font-medium">{s.heading}</div><ul className="list-disc pr-5 text-muted">{s.points.map((p, j) => <li key={j}>{p}</li>)}</ul></div>
+      ))}
+      {i.takeaway && <div className="rounded-lg bg-surface2 p-3 font-medium">{i.takeaway}</div>}
+    </div>
+  )
+}
+
+function AudioNote({ nbId, noteId, body }: { nbId: string; noteId: string; body: string }) {
+  const lines = parseDialogue(body)
+  const [url, setUrl] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  if (!lines.length) return <Markdown text={body} />
+  const make = async (): Promise<void> => {
+    setBusy(true); setErr('')
+    const r = await window.api.nb.audio(nbId, noteId)
+    setBusy(false)
+    if (r.ok && r.url) setUrl(r.url); else setErr(r.error ?? 'فشل توليد الصوت')
+  }
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        {url ? <audio controls autoPlay src={url} className="w-full" /> : (
+          <button className={ghostBtn + ' border border-outline'} disabled={busy} onClick={() => void make()}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} {busy ? 'عم يتجهّز الصوت...' : 'شغّل الملخّص'}</button>
+        )}
+        {err && <div className="mt-1 text-xs text-danger">{err}</div>}
+      </div>
+      <div className="max-h-64 space-y-1 overflow-auto">
+        {lines.map((l, i) => <div key={i}><span className="font-medium">{l.who === 'A' ? 'أمل' : 'ليث'}: </span><span className="text-muted">{l.text}</span></div>)}
+      </div>
+    </div>
+  )
+}
+
 function NoteCard({ nb, note, onChange }: { nb: NbView; note: Note; onChange: (v: NbView | null) => void }) {
   const [msg, setMsg] = useState('')
   return (
@@ -122,7 +187,7 @@ function NoteCard({ nb, note, onChange }: { nb: NbView; note: Note; onChange: (v
           <button title="حذف" className={ghostBtn} onClick={() => void window.api.nb.deleteNote(nb.id, note.id).then(onChange)}><Trash2 size={16} /></button>
         </div>
       </div>
-      {note.kind === 'table' ? <Table body={note.body} /> : note.kind === 'mindmap' ? <MindMap body={note.body} /> : note.kind === 'flashcards' ? <Cards body={note.body} /> : note.kind === 'quiz' ? <Quiz body={note.body} /> : <Markdown text={note.body} />}
+      {note.kind === 'table' ? <Table body={note.body} /> : note.kind === 'mindmap' ? <MindMap body={note.body} /> : note.kind === 'flashcards' ? <Cards body={note.body} /> : note.kind === 'quiz' ? <Quiz body={note.body} /> : note.kind === 'slides' ? <Slides body={note.body} /> : note.kind === 'infographic' ? <Info body={note.body} /> : note.kind === 'audio' ? <AudioNote nbId={nb.id} noteId={note.id} body={note.body} /> : <Markdown text={note.body} />}
       {msg && <div className="mt-2 text-xs text-muted">{msg}</div>}
     </div>
   )

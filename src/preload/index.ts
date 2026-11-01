@@ -347,7 +347,8 @@ const api = {
     ask: (id: string, question: string) => ipcRenderer.invoke('nb:ask', id, question),
     generate: (id: string, kind: string, focus: string) => ipcRenderer.invoke('nb:generate', id, kind, focus),
     deleteNote: (id: string, noteId: string) => ipcRenderer.invoke('nb:deleteNote', id, noteId),
-    exportNote: (id: string, noteId: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:export', id, noteId)
+    exportNote: (id: string, noteId: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:export', id, noteId),
+    audio: (id: string, noteId: string): Promise<{ ok: boolean; url?: string; error?: string }> => ipcRenderer.invoke('nb:audio', id, noteId)
   },
   todo: {
     list: () => ipcRenderer.invoke('todo:list'),
