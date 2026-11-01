@@ -82,6 +82,12 @@ export function registerLiveIpc(): void {
     ws.send(JSON.stringify({ realtimeInput: { audio: { data: b64, mimeType: 'audio/pcm;rate=16000' } } }))
   })
 
+  ipcMain.on('live:toolResponse', (_e, p: unknown) => {
+    const x = p as { id?: string; name?: string; result?: string }
+    if (!ws || ws.readyState !== WebSocket.OPEN || !x?.id || !x.name) return
+    ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: x.id, name: x.name, response: { result: String(x.result ?? '').slice(0, 6000) } }] } }))
+  })
+
   ipcMain.handle('live:stop', () => { closeLive(); return true })
   ipcMain.handle('live:available', () => !!getApiKey('GEMINI_API_KEY'))
 }

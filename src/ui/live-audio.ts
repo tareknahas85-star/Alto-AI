@@ -5,6 +5,7 @@ export interface LiveCallbacks {
   onState: (s: 'listen' | 'speak') => void
   onTurn: (user: string, model: string) => void
   onClose: (msg: string) => void
+  onTool: (request: string) => Promise<string>
 }
 
 function b64ToInt16(b64: string): Int16Array {
@@ -91,6 +92,15 @@ export async function startLiveAudio(cb: LiveCallbacks): Promise<{ ok: boolean; 
       case 'userText': userBuf += ev.text as string; break
       case 'modelText': modelBuf += ev.text as string; break
       case 'turnComplete': flush(); break
+      case 'toolCall': {
+        const id = String(ev.id)
+        const name = String(ev.name)
+        void cb.onTool(String(ev.request)).then(
+          (res) => { if (!stopped) window.api.live.toolResponse(id, name, res) },
+          (err) => { if (!stopped) window.api.live.toolResponse(id, name, 'فشل التنفيذ: ' + String((err as Error).message ?? err)) },
+        )
+        break
+      }
       case 'goAway': cb.onClose('Gemini Live عم يسكّر الجلسة (حد الوقت). دوس زر المحادثة لتفتحها من جديد.'); break
       case 'error': cb.onClose('خطأ بـGemini Live: ' + String(ev.error)); break
       case 'closed': cb.onClose('انسكرت جلسة Gemini Live (' + String(ev.code) + ' ' + String(ev.reason ?? '') + ')'); break

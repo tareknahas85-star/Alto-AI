@@ -341,6 +341,7 @@ declare global {
       available: () => Promise<boolean>
       start: () => Promise<{ ok: boolean; model?: string; error?: string }>
       audio: (b64: string) => void
+      toolResponse: (id: string, name: string, result: string) => void
       stop: () => Promise<boolean>
       onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void) => () => void
     }
