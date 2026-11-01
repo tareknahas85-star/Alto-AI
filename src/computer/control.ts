@@ -9,6 +9,7 @@ import { BUILD_ENV_PS } from './build-env'
 import { addOfficeTools } from './office'
 import { addExtraTools } from './extras'
 import { addDevTools } from './devtools'
+import { addEyesTools } from './eyes'
 import { readState } from '../core/state'
 import { isUnattended, currentMode } from '../core/progress'
 import { buildProject } from '../core/workspace'
@@ -530,6 +531,7 @@ export function addComputerTools(
   addExtraTools({ def, runPs, gate, handlers })
   const devOff = readState().disabledTools
   addDevTools(((nm: string, ...r: unknown[]) => { if (!devOff.includes(nm)) (def as (...a: unknown[]) => void)(nm, ...r) }) as unknown as typeof def, handlers, getSignal)
+  addEyesTools(((nm: string, ...r: unknown[]) => { if (!devOff.includes(nm)) (def as (...a: unknown[]) => void)(nm, ...r) }) as unknown as typeof def, runPs)
   def('pc_windows', 'List the open windows (title + process).', {}, [], async () =>
     runPs(
       'Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object -First 40 ProcessName,Id,MainWindowTitle | Format-Table -AutoSize | Out-String -Width 200',
