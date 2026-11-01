@@ -17,6 +17,7 @@ import { looksLooping, ENDS_WITH_STALL, REFUSES_TOOLS, badReplyReason, BUILD_TES
 import { rotateLogFile, LOG_MAX_BYTES } from '../src/core/log-rotate'
 import { checkSideUrl, clampSideWidth, windowWidthFor } from '../src/core/side-url'
 import { partitionForUrl, serviceForUrl, SIDE_DEFAULT_PARTITION } from '../src/core/side-partition'
+import { buildAskPrompt, chunkText, csvOf, extractMermaid, htmlToText, isPrivateHost, parseCsv, parseFlashcards, parseQuiz, retrieve, type NbSource } from '../src/core/notebook'
 import { interpretRelease, interpretFailure, describeUpdate, isNewer, shouldPrompt, POSTPONE_MS } from '../src/core/update-state'
 import { isBuildDeleteCommand, reviewVerdict, findProjectByText } from '../src/core/build-guards'
 
@@ -910,4 +911,39 @@ test('5.18.3: كل خدمة وسائط الها جلسة منفصلة بالمت
   assert.equal(partitionForUrl('https://example.com/'), SIDE_DEFAULT_PARTITION)
   assert.equal(partitionForUrl('https://evilcanva.com/'), SIDE_DEFAULT_PARTITION)
   assert.equal(serviceForUrl('not a url'), null)
+})
+
+test('5.19.0: دفتر — تقطيع واسترجاع مع العربي', () => {
+  assert.equal(chunkText('').length, 0)
+  const long = Array.from({ length: 60 }, (_, i) => 'جملة رقم ' + i + ' عن الموضوع.').join(' ')
+  const ch = chunkText(long, 300, 40)
+  assert.ok(ch.length > 3 && ch.every((c) => c.length <= 310))
+  const src: NbSource[] = [
+    { id: 'a', name: 'سياسات', kind: 'text', at: 0, text: 'سياسة الإجازات: الموظف يحصل على ٢١ يوم إجازة سنوية. ' + 'حشو '.repeat(300) },
+    { id: 'b', name: 'مالية', kind: 'text', at: 0, text: 'ميزانية الشركة للعام القادم تبلغ مليون دولار. ' + 'نص '.repeat(300) }
+  ]
+  const r = retrieve(src, 'شو سياسه الاجازات؟', 2)
+  assert.equal(r[0].source, 1)
+  const p = buildAskPrompt('سؤال', r)
+  assert.ok(p.includes('<source n="1"') && p.includes('تجاهلها'))
+})
+
+test('5.19.0: دفتر — تحليل المخرجات', () => {
+  assert.equal(extractMermaid('x\n```mermaid\nmindmap\n  root((A))\n    B\n```'), 'mindmap\n  root((A))\n    B')
+  assert.equal(extractMermaid('```mermaid\ngraph TD\n```'), null)
+  assert.deepEqual(parseFlashcards('```json\n[{"q":"س","a":"ج"},{"x":1}]\n```'), [{ q: 'س', a: 'ج' }])
+  const qz = parseQuiz('[{"q":"س","options":["أ","ب"],"answer":9,"why":"ل"}]')
+  assert.equal(qz[0].answer, 1)
+  assert.deepEqual(parseCsv('a,b\n"x, y",2\n'), [['a', 'b'], ['x, y', '2']])
+  assert.equal(csvOf('```csv\na,b\n```'), 'a,b')
+  assert.equal(parseFlashcards('مو JSON').length, 0)
+})
+
+test('5.19.0: دفتر — روابط وHTML', () => {
+  assert.equal(isPrivateHost('localhost'), true)
+  assert.equal(isPrivateHost('192.168.1.5'), true)
+  assert.equal(isPrivateHost('172.20.0.1'), true)
+  assert.equal(isPrivateHost('8.8.8.8'), false)
+  assert.equal(isPrivateHost('example.com'), false)
+  assert.equal(htmlToText('<head><title>x</title></head><script>bad()</script><p>مرحبا &amp; أهلا</p>'), 'مرحبا & أهلا')
 })
