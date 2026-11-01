@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { ModelPicker } from './ModelPicker'
-import { ArrowUp, AudioLines, Bot, Check, Copy, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
+import { ArrowUp, AudioLines, Bot, Check, Copy, Volume2, FolderOpen, Image as ImageIcon, Loader2, Mic, Paperclip, Play, RotateCcw, Square, Video as VideoIcon, X } from 'lucide-react'
 import { MediaPanel } from './MediaPanel'
 import { MediaCard } from './MediaCard'
 import { encodeMediaMsg, parseMediaMsg, type MediaRef } from '../core/media-msg'
@@ -307,8 +307,25 @@ function tierChip(saved: string): { label: string; cls: string } {
   return { label: 'قوي', cls: 'bg-warning/20 text-warning' }
 }
 
+let speaking: HTMLAudioElement | null = null
+
 function MsgFooter({ text, at }: { text: string; at?: number }): ReactElement {
   const [ok, setOk] = useState(false)
+  const [say, setSay] = useState<'' | 'load' | 'play'>('')
+  const [sayErr, setSayErr] = useState('')
+  const speak = async (): Promise<void> => {
+    if (speaking) { speaking.pause(); speaking = null; if (say === 'play') { setSay(''); return } }
+    setSay('load'); setSayErr('')
+    const r = await window.api.voice.speak(text)
+    if (!r.ok || !r.url) { setSay(''); setSayErr(r.error ?? 'ما قدرت أقرأ'); return }
+    const a = new Audio(r.url)
+    speaking = a
+    a.onended = () => { if (speaking === a) speaking = null; setSay('') }
+    a.onerror = () => { setSay(''); setSayErr('تعذّر تشغيل الصوت') }
+    if (r.note) setSayErr(r.note)
+    setSay('play')
+    void a.play().catch(() => setSay(''))
+  }
   const copy = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text)
@@ -328,6 +345,10 @@ function MsgFooter({ text, at }: { text: string; at?: number }): ReactElement {
       <button onClick={copy} title="انسخ الرسالة كاملة" aria-label="انسخ الرسالة كاملة" className="rounded-full p-1 hover:bg-surface2">
         {ok ? <Check size={13} /> : <Copy size={13} />}
       </button>
+      <button onClick={() => void speak()} title="اقرأ بصوت" aria-label="اقرأ بصوت" className="rounded-full p-1 hover:bg-surface2">
+        {say === 'load' ? <Loader2 size={13} className="animate-spin" /> : <Volume2 size={13} className={say === 'play' ? 'text-primary' : ''} />}
+      </button>
+      {sayErr ? <span className="text-warning">{sayErr}</span> : null}
       {at ? <span>{new Date(at).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' })}</span> : null}
     </div>
   )

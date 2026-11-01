@@ -10,6 +10,8 @@ import { addOfficeTools } from './office'
 import { addExtraTools } from './extras'
 import { addDevTools } from './devtools'
 import { addEyesTools } from './eyes'
+import { classifyApp } from '../core/hands-guard'
+import { readJson } from '../core/json-store'
 import { addBrowserTools } from './browser-agent'
 import { readState } from '../core/state'
 import { isUnattended, currentMode } from '../core/progress'
@@ -296,6 +298,12 @@ async function guardForeground(): Promise<string | null> {
   const f = await foreground()
   if (/^(consent|credentialuibroker|logonui|winlogon|securityhealth)/i.test(f.proc) || WIN_BLOCK.test(f.title))
     return `blocked: the foreground window ("${f.title}", ${f.proc}) is a security/credential prompt. Ask the user to handle it himself.`
+  // Desktop Copilot hands: apps outside the allowed list need a real confirmation every time, even in Full Access / auto-approve.
+  const extra = readJson<{ apps?: string[] }>('hands-allowed.json', {}).apps ?? []
+  const cls = classifyApp(f.proc, Array.isArray(extra) ? extra : [])
+  if (cls === 'blocked') return `blocked: ${f.proc} is a password manager / system tool; the agent never types or clicks in it. Ask the user to do it himself.`
+  if (cls === 'confirm' && !(await confirmAlways('الوكيل بدو يتحكم بتطبيق مو بقائمة المسموح', `${f.proc} — "${f.title}"`)))
+    return `Error: the user did not allow driving ${f.proc}.`
   return null
 }
 
