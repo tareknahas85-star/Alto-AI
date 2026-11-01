@@ -16,6 +16,7 @@ import { isOpenNow } from '../src/core/osm-hours'
 import { looksLooping, ENDS_WITH_STALL, REFUSES_TOOLS, badReplyReason, BUILD_TEST_CLAIM, hasBuildProof, WEAK_MODEL, claimedPorts } from '../src/core/reply-quality'
 import { rotateLogFile, LOG_MAX_BYTES } from '../src/core/log-rotate'
 import { checkSideUrl, clampSideWidth, windowWidthFor } from '../src/core/side-url'
+import { RISKY_CLICK, SECRET_FIELD } from '../src/core/browser-guard'
 import { partitionForUrl, serviceForUrl, SIDE_DEFAULT_PARTITION } from '../src/core/side-partition'
 import { buildAskPrompt, chunkText, csvOf, extractMermaid, htmlToText, isPrivateHost, parseCsv, parseFlashcards, parseQuiz, retrieve, type NbSource } from '../src/core/notebook'
 import { interpretRelease, interpretFailure, describeUpdate, isNewer, shouldPrompt, POSTPONE_MS } from '../src/core/update-state'
@@ -946,4 +947,11 @@ test('5.19.0: دفتر — روابط وHTML', () => {
   assert.equal(isPrivateHost('8.8.8.8'), false)
   assert.equal(isPrivateHost('example.com'), false)
   assert.equal(htmlToText('<head><title>x</title></head><script>bad()</script><p>مرحبا &amp; أهلا</p>'), 'مرحبا & أهلا')
+})
+
+test('5.19.2: حراس تحكم الوكيل بالمتصفح', () => {
+  for (const t of ['Send', 'Pay now', 'Delete account', 'Place order', 'إرسال', 'ادفع الآن', 'تأكيد الطلب']) assert.equal(RISKY_CLICK.test(t), true, t)
+  for (const t of ['Next', 'Read more', 'التالي', 'Search']) assert.equal(RISKY_CLICK.test(t), false, t)
+  for (const n of ['password', 'cc-number', 'card_cvv', 'otp-code', 'كلمة السر']) assert.equal(SECRET_FIELD.test(n), true, n)
+  for (const n of ['email', 'q search', 'name']) assert.equal(SECRET_FIELD.test(n), false, n)
 })
