@@ -629,8 +629,8 @@ export function ChatWindow({
     void ctx.close()
     if (!speechAt || !talkOn.current || !chunks.length) return ''
     const blob = new Blob(chunks, { type: 'audio/webm' })
-    const [a] = await window.api.attach.savePasted('voice-' + Date.now() + '.webm', await blob.arrayBuffer(), project?.id ?? null)
-    return a?.text?.trim() ?? ''
+    const r = await window.api.voice.transcribe(await blob.arrayBuffer())
+    return r.ok ? (r.text ?? '').trim() : ''
   }
   const talkLoop = async (): Promise<void> => {
     while (talkOn.current) {
@@ -673,6 +673,7 @@ export function ChatWindow({
       return
     }
     talkOn.current = true
+    void window.api.voice.warm()
     void talkLoop()
   }
   useEffect(() => () => { talkOn.current = false; talkStream.current?.getTracks().forEach((t) => t.stop()) }, [])

@@ -331,7 +331,11 @@ declare global {
         import: (password: string) => Promise<{ ok: boolean; error?: string; files?: number; skills?: number; at?: string }>
       }
       security: { status: () => Promise<{ keyStorage: 'os-protected' | 'legacy' | 'memory'; phoneApproval: boolean }> }
-    voice: { speak: (text: string) => Promise<{ ok: boolean; url?: string; note?: string; error?: string }> }
+    voice: {
+      speak: (text: string) => Promise<{ ok: boolean; url?: string; note?: string; error?: string }>
+      transcribe: (data: ArrayBuffer) => Promise<{ ok: boolean; text?: string; error?: string }>
+      warm: () => Promise<boolean>
+    }
     nb: {
       list: () => Promise<{ id: string; title: string; at: number; sources: number; notes: number }[]>
       get: (id: string) => Promise<NbViewInfo | null>

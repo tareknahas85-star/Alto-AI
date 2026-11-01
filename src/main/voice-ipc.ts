@@ -3,6 +3,7 @@ import { execFile } from 'child_process'
 import fsp from 'fs/promises'
 import os from 'os'
 import path from 'path'
+import { transcribeLive, warmWhisper } from './whisper-live'
 import { cleanForSpeech, pickVoice, splitSegments, VOICE_AR, VOICE_EN, SPEECH_RATE } from '../core/voice'
 
 // Read-aloud: edge-tts (free, no key; needs internet) with the Syrian voice; falls back to the Windows voice when it can't run.
@@ -47,19 +48,33 @@ async function edgeSegments(text: string, out: string): Promise<string> {
   const ar = await arVoice()
   const segs = splitSegments(text)
   if (!segs.length) return 'ما في نص يتقرأ'
+  // all segments are synthesized in parallel (each is a separate edge-tts call), then glued in order
+  const errs = await Promise.all(segs.map((sg, i) => edgeTts(sg.text, sg.lang === 'en' ? VOICE_EN : ar, out + '.' + i)))
+  const bad = errs.find((e) => e)
+  if (bad) { segs.forEach((_s, i) => fsp.rm(out + '.' + i, { force: true }).catch(() => undefined)); return bad }
   const bufs: Buffer[] = []
   for (let i = 0; i < segs.length; i++) {
-    const f = out + '.' + i
-    const err = await edgeTts(segs[i].text, segs[i].lang === 'en' ? VOICE_EN : ar, f)
-    if (err) { for (let j = 0; j <= i; j++) fsp.rm(out + '.' + j, { force: true }).catch(() => undefined); return err }
-    bufs.push(await fsp.readFile(f))
-    fsp.rm(f, { force: true }).catch(() => undefined)
+    bufs.push(await fsp.readFile(out + '.' + i))
+    fsp.rm(out + '.' + i, { force: true }).catch(() => undefined)
   }
   await fsp.writeFile(out, Buffer.concat(bufs))
   return ''
 }
 
 export function registerVoiceIpc(): void {
+  ipcMain.handle('voice:warm', () => { warmWhisper(); return true })
+  ipcMain.handle('voice:transcribe', async (_e, data: unknown) => {
+    if (!(data instanceof ArrayBuffer) && !ArrayBuffer.isView(data)) return { ok: false, error: 'بيانات صوت مو صالحة' }
+    const bytes = data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from((data as ArrayBufferView).buffer as ArrayBuffer)
+    const f = path.join(os.tmpdir(), 'trl-stt-' + Date.now() + '.webm')
+    try {
+      await fsp.writeFile(f, bytes)
+      const r = await transcribeLive(f)
+      return r.error ? { ok: false, error: r.error } : { ok: true, text: r.text ?? '' }
+    } finally {
+      fsp.rm(f, { force: true }).catch(() => undefined)
+    }
+  })
   ipcMain.handle('voice:getVoice', async () => ({ voice: await arVoice() }))
   ipcMain.handle('voice:setVoice', async (_e, v: unknown) => {
     if (typeof v !== 'string' || !/^ar-[A-Z]{2}-[A-Za-z]+Neural$/.test(v)) return { ok: false }
