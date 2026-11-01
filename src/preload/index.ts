@@ -327,6 +327,9 @@ const api = {
     import: (password: string) => ipcRenderer.invoke('transfer:import', password)
   },
   security: { status: () => ipcRenderer.invoke('security:status') },
+  voice: {
+    speak: (text: string): Promise<{ ok: boolean; url?: string; note?: string; error?: string }> => ipcRenderer.invoke('voice:speak', text)
+  },
   nb: {
     list: (): Promise<{ id: string; title: string; at: number; sources: number; notes: number }[]> => ipcRenderer.invoke('nb:list'),
     get: (id: string) => ipcRenderer.invoke('nb:get', id),

@@ -34,6 +34,7 @@ import { registerConnectorsHandlers } from './connectors-ipc'
 import { registerHealthCheck } from './healthcheck'
 import { registerLearnHandlers } from './learn-ipc'
 import { registerNotebookIpc, setNotebookRunner } from './notebook-ipc'
+import { registerVoiceIpc } from './voice-ipc'
 import { recordTurn as recordLearning } from '../core/learning'
 import { needsFreshInfo, needsLocation } from '../core/guidance'
 import { memoryPrompt } from '../core/memory'
@@ -342,6 +343,7 @@ export function registerIpcHandlers(): void {
     return (await runChat(fake, prompt, false, [], { tabId: 'notebook', projectId: null, mode: { kind: 'auto' } })) as { content: string; failed?: boolean }
   })
   registerNotebookIpc()
+  registerVoiceIpc()
   setScheduleRunner(async (prompt, projectId, mode, taskId) => {
     const fake = { send: () => undefined } as unknown as WebContents
     return (await runChat(fake, prompt, false, [], { tabId: 'sched-' + taskId, projectId, mode: mode === 'free' ? { kind: 'free' } : { kind: 'auto' } })) as { content: string; failed?: boolean; meta?: string }

@@ -16,6 +16,8 @@ import { isOpenNow } from '../src/core/osm-hours'
 import { looksLooping, ENDS_WITH_STALL, REFUSES_TOOLS, badReplyReason, BUILD_TEST_CLAIM, hasBuildProof, WEAK_MODEL, claimedPorts } from '../src/core/reply-quality'
 import { rotateLogFile, LOG_MAX_BYTES } from '../src/core/log-rotate'
 import { checkSideUrl, clampSideWidth, windowWidthFor } from '../src/core/side-url'
+import { cleanForSpeech, pickVoice, VOICE_AR, VOICE_EN } from '../src/core/voice'
+import { classifyApp } from '../src/core/hands-guard'
 import { RISKY_CLICK, SECRET_FIELD } from '../src/core/browser-guard'
 import { partitionForUrl, serviceForUrl, SIDE_DEFAULT_PARTITION } from '../src/core/side-partition'
 import { buildAskPrompt, chunkText, csvOf, extractMermaid, htmlToText, isPrivateHost, parseCsv, parseFlashcards, parseQuiz, retrieve, type NbSource } from '../src/core/notebook'
@@ -954,4 +956,21 @@ test('5.19.2: حراس تحكم الوكيل بالمتصفح', () => {
   for (const t of ['Next', 'Read more', 'التالي', 'Search']) assert.equal(RISKY_CLICK.test(t), false, t)
   for (const n of ['password', 'cc-number', 'card_cvv', 'otp-code', 'كلمة السر']) assert.equal(SECRET_FIELD.test(n), true, n)
   for (const n of ['email', 'q search', 'name']) assert.equal(SECRET_FIELD.test(n), false, n)
+})
+
+test('5.19.3: حارس الإيدين — تصنيف التطبيقات', () => {
+  assert.equal(classifyApp('notepad.exe'), 'allowed')
+  assert.equal(classifyApp('Chrome'), 'allowed')
+  assert.equal(classifyApp('KeePassXC'), 'blocked')
+  assert.equal(classifyApp('regedit'), 'blocked')
+  assert.equal(classifyApp('Telegram'), 'confirm')
+  assert.equal(classifyApp('Telegram', ['telegram.exe']), 'allowed')
+  assert.equal(classifyApp(''), 'confirm')
+})
+
+test('5.19.3: القراءة الصوتية — تنظيف واختيار الصوت', () => {
+  assert.equal(cleanForSpeech('## عنوان\n- نقطة **مهمة** [رابط](https://x.com) `code`\n```js\nbad()\n```'), 'عنوان نقطة مهمة رابط code')
+  assert.equal(pickVoice('مرحبا كيفك'), VOICE_AR)
+  assert.equal(pickVoice('Hello there, how are you'), VOICE_EN)
+  assert.ok(cleanForSpeech('أ'.repeat(5000)).length <= 2500)
 })
