@@ -9,6 +9,7 @@ import {
 import { prepareFile } from './attach'
 import { synthDialogue } from './voice-ipc'
 import { geminiSpeak } from './gemini-tts'
+import { driveConnect, driveDisconnect, driveFetch, driveSearch, driveStatus, importClientFile, type DriveFile } from './google-drive'
 
 // «دفتر»: notebooks live in one JSON file. The chat pipeline answers; this file only prepares prompts and stores results.
 const FILE = 'notebooks.json'
@@ -152,6 +153,29 @@ export function registerNotebookIpc(): void {
     const l = all(); const n = find(l, id)
     if (!n) return null
     n.sources = n.sources.filter((s) => s.id !== sid); save(l); return view(n)
+  })
+
+  // مصادر Drive (قراءة بس، OAuth)
+  ipcMain.handle('nb:driveStatus', () => driveStatus())
+  ipcMain.handle('nb:driveImportClient', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const opts = { properties: ['openFile' as const], filters: [{ name: 'JSON', extensions: ['json'] }] }
+    const r = await (win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts))
+    if (r.canceled || !r.filePaths[0]) return { ok: false, error: 'انلغى' }
+    try { await importClientFile(r.filePaths[0]); return { ok: true } } catch (e) { return { ok: false, error: (e as Error).message } }
+  })
+  ipcMain.handle('nb:driveConnect', async () => { try { await driveConnect(); return { ok: true } } catch (e) { return { ok: false, error: (e as Error).message } } })
+  ipcMain.handle('nb:driveDisconnect', () => { driveDisconnect(); return { ok: true } })
+  ipcMain.handle('nb:driveSearch', async (_e, q: unknown) => {
+    try { return { ok: true, files: await driveSearch(typeof q === 'string' ? q : '') } } catch (e) { return { ok: false, error: (e as Error).message, files: [] as DriveFile[] } }
+  })
+  ipcMain.handle('nb:driveAdd', async (_e, id: unknown, f: unknown) => {
+    const x = f as { id?: unknown; name?: unknown; mime?: unknown } | null
+    if (!x || typeof x.id !== 'string' || typeof x.name !== 'string' || typeof x.mime !== 'string') return { ok: false, error: 'ملف مو صالح' }
+    try {
+      const d = await driveFetch(x.id, x.name, x.mime)
+      return { ok: true, nb: addSource(id, { name: d.name.slice(0, 120), kind: 'file', text: d.text, ref: 'drive:' + x.id }) }
+    } catch (e) { return { ok: false, error: (e as Error).message } }
   })
 
   const addNote = (id: string, note: Omit<Notebook['notes'][number], 'id' | 'at'>): unknown => {

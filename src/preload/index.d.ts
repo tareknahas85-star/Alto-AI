@@ -361,6 +361,12 @@ declare global {
       addText: (id: string, name: string, text: string) => Promise<NbResult>
       addLink: (id: string, url: string) => Promise<NbResult>
       removeSource: (id: string, sid: string) => Promise<NbViewInfo | null>
+      driveStatus: () => Promise<{ client: boolean; connected: boolean }>
+      driveImportClient: () => Promise<{ ok: boolean; error?: string }>
+      driveConnect: () => Promise<{ ok: boolean; error?: string }>
+      driveDisconnect: () => Promise<{ ok: boolean }>
+      driveSearch: (q: string) => Promise<{ ok: boolean; error?: string; files: { id: string; name: string; mime: string; modified: string }[] }>
+      driveAdd: (id: string, f: { id: string; name: string; mime: string }) => Promise<NbResult>
       ask: (id: string, question: string) => Promise<NbResult>
       generate: (id: string, kind: string, focus: string) => Promise<NbResult>
       deleteNote: (id: string, noteId: string) => Promise<NbViewInfo | null>

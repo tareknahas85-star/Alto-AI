@@ -226,6 +226,61 @@ function NoteCard({ nb, note, onChange }: { nb: NbView; note: Note; onChange: (v
   )
 }
 
+function DrivePanel({ nbId, onAdded }: { nbId: string; onAdded: (v: NbView | null) => void }) {
+  const [st, setSt] = useState<{ client: boolean; connected: boolean } | null>(null)
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [files, setFiles] = useState<{ id: string; name: string; mime: string; modified: string }[]>([])
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState('')
+  const reload = (): void => void window.api.nb.driveStatus().then(setSt)
+  useEffect(reload, [])
+  const run = async (label: string, f: () => Promise<{ ok: boolean; error?: string }>): Promise<boolean> => {
+    setBusy(label); setMsg('')
+    try { const r = await f(); if (!r.ok) setMsg(r.error ?? 'صار خطأ'); return r.ok } finally { setBusy(''); reload() }
+  }
+  const search = (): Promise<boolean> => run('search', async () => { const r = await window.api.nb.driveSearch(q); setFiles(r.files); return r })
+  return (
+    <div className="space-y-2">
+      <button className={ghostBtn + ' w-full border border-outline'} onClick={() => { setOpen(!open); if (!open) reload() }}>ملفات من Google Drive</button>
+      {open && st && (
+        <div className="space-y-2 rounded-lg bg-surface2 p-2 text-sm">
+          {!st.client && (
+            <>
+              <div className="text-muted">لازم تستورد ملف الاعتماد (client_secret_….json) من Google Cloud مرة وحدة. بيتخزّن مشفّر عندك.</div>
+              <button disabled={!!busy} className={primaryBtn} onClick={() => void run('import', () => window.api.nb.driveImportClient())}>استورد ملف الاعتماد</button>
+            </>
+          )}
+          {st.client && !st.connected && (
+            <>
+              <div className="text-muted">بيفتح المتصفح وبتوافق على قراءة ملفاتك بس (بدون تعديل أو حذف).</div>
+              <button disabled={!!busy} className={primaryBtn} onClick={() => void run('connect', () => window.api.nb.driveConnect())}>{busy === 'connect' ? 'بانتظار موافقتك…' : 'اربط Drive'}</button>
+            </>
+          )}
+          {st.connected && (
+            <>
+              <div className="flex gap-1">
+                <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !busy) void search() }} placeholder="دوّر بالمحتوى أو الاسم (فاضي = الأحدث)" />
+                <button className={ghostBtn + ' border border-outline'} disabled={!!busy} onClick={() => void search()}>{busy === 'search' ? <Loader2 size={14} className="animate-spin" /> : 'دوّر'}</button>
+              </div>
+              <ul className="max-h-56 space-y-1 overflow-auto">
+                {files.map((f) => (
+                  <li key={f.id} className="flex items-center justify-between gap-1 rounded bg-surface px-2 py-1">
+                    <span className="truncate" title={f.name}>{f.name}</span>
+                    <button disabled={!!busy} className="shrink-0 text-primary" onClick={() => void run('add' + f.id, async () => { const r = await window.api.nb.driveAdd(nbId, f); if (r.nb) onAdded(r.nb); return r })}>{busy === 'add' + f.id ? '…' : 'ضيف'}</button>
+                  </li>
+                ))}
+              </ul>
+              <button className="text-xs text-muted hover:text-red-500" onClick={() => void window.api.nb.driveDisconnect().then(() => { setFiles([]); reload() })}>افصل Drive</button>
+            </>
+          )}
+          {msg && <div className="text-red-500">{msg}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function NotebookPage() {
   const [list, setList] = useState<{ id: string; title: string; sources: number; notes: number }[]>([])
   const [nb, setNb] = useState<NbView | null>(null)
@@ -309,6 +364,7 @@ export function NotebookPage() {
                 <input className={inputCls} dir="ltr" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
                 <button className={ghostBtn + ' border border-outline'} disabled={!link.trim() || !!busy} onClick={() => void wrap('link', () => window.api.nb.addLink(nb.id, link)).then(() => setLink(''))}><Link2 size={14} /></button>
               </div>
+              <DrivePanel nbId={nb.id} onAdded={apply} />
             </div>
           </div>
           <div className={cardCls}>
