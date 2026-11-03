@@ -373,7 +373,9 @@ const api = {
     generate: (id: string, kind: string, focus: string) => ipcRenderer.invoke('nb:generate', id, kind, focus),
     deleteNote: (id: string, noteId: string) => ipcRenderer.invoke('nb:deleteNote', id, noteId),
     exportNote: (id: string, noteId: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:export', id, noteId),
-    audio: (id: string, noteId: string): Promise<{ ok: boolean; url?: string; error?: string }> => ipcRenderer.invoke('nb:audio', id, noteId)
+    audio: (id: string, noteId: string): Promise<{ ok: boolean; url?: string; error?: string }> => ipcRenderer.invoke('nb:audio', id, noteId),
+    slideAudio: (id: string, noteId: string): Promise<{ ok: boolean; urls?: string[]; error?: string }> => ipcRenderer.invoke('nb:slideAudio', id, noteId),
+    saveVideo: (name: string, b64: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:saveVideo', name, b64)
   },
   todo: {
     list: () => ipcRenderer.invoke('todo:list'),
