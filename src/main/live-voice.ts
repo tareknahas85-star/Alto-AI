@@ -2,8 +2,9 @@ import { app, ipcMain, type WebContents } from 'electron'
 import fsp from 'fs/promises'
 import path from 'path'
 import WebSocket from 'ws'
+import { setOrbTrust } from './orb'
 import { getApiKey } from '../store/secure-store'
-import { pickLiveModel, liveSetup, parseLiveAll, type LiveModelInfo } from '../core/live-voice'
+import { pickLiveModel, liveSetup, parseLiveAll, type LiveModelInfo, trustCommand } from '../core/live-voice'
 import { liveToolDecls, runLiveTool } from './live-tools'
 
 // محادثة صوتية مباشرة عبر Gemini Live (أونلاين، بمفتاح Gemini تبع المستخدم).
@@ -35,6 +36,22 @@ let ws: WebSocket | null = null
 const YES = /(^|\s)(أوكي|اوكي|أوكيه|اوكيه|أوكى|اوكى|اوكيي|okay|okey|ok|o\.k|إي|اي|ايه|إيه|أيوا|ايوا|أيوه|ايوه|نعم|موافق|yes)(\s|$|[.!،,؟?])/i
 const NO = /(^|\s)(لا|لأ|لاء|ما بدي|بلاش|وقف|no|nope)(\s|$|[.!،,؟?])/i
 let pendingAt = 0
+// الصلاحية الكاملة: بتتفعّل بس لما نسمع الكلمة من تفريغ صوت المستخدم نفسو (مو لما الموديل يقول)، وبتنتهي بعد 30 دقيقة أو بإلغاء أو بسكر الجلسة.
+const TRUST_MS = 30 * 60 * 1000
+let trustUntil = 0
+let trustTimer: NodeJS.Timeout | null = null
+let heardBuf = ''
+function isTrusted(): boolean { return Date.now() < trustUntil }
+function setTrust(on: boolean): void {
+  trustUntil = on ? Date.now() + TRUST_MS : 0
+  if (trustTimer) { clearTimeout(trustTimer); trustTimer = null }
+  if (on) trustTimer = setTimeout(() => { trustUntil = 0; setOrbTrust(false); emit({ type: 'trust', on: false }); sayToModel('انتهت الصلاحية الكاملة (30 دقيقة). رجعي تسألي قبل كل إجراء، وبلغي المستخدم بجملة قصيرة.') }, TRUST_MS)
+  setOrbTrust(on)
+  emit({ type: 'trust', on })
+}
+function sayToModel(text: string): void {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ realtimeInput: { text: '[النظام] ' + text } }))
+}
 let lastYesAt = 0
 async function heardYes(): Promise<boolean> {
   for (let i = 0; i < 8; i++) {
@@ -52,6 +69,8 @@ function emit(ev: Record<string, unknown>): void {
 function closeLive(): void {
   const w = ws
   ws = null
+  if (isTrusted()) setTrust(false)
+  heardBuf = ''
   try { w?.close() } catch { /* ignore */ }
 }
 
@@ -76,11 +95,18 @@ export function registerLiveIpc(): void {
             if (ev.type === 'userText') {
               const tx = ev.text
               if (YES.test(tx) && !NO.test(tx)) lastYesAt = Date.now()
+              heardBuf = (heardBuf + ' ' + tx).slice(-200)
+              const tc = trustCommand(heardBuf)
+              if (tc) {
+                heardBuf = ''
+                if (tc === 'on' && !isTrusted()) { setTrust(true); sayToModel('المستخدم فعّل الصلاحية الكاملة لمدة 30 دقيقة: نفّذي الأوامر العادية مباشرة بدون ما تسألي «أوكي». الإجراءات الحسّاسة لسا بتحتاج تأكيد من الشاشة. أكّدي بجملة قصيرة.') }
+                else if (tc === 'off' && isTrusted()) { setTrust(false); sayToModel('المستخدم ألغى الصلاحية الكاملة. رجعي تسألي «أوكي» قبل كل إجراء. أكّدي بجملة قصيرة.') }
+              }
             }
             if (ev.type === 'toolCall' && ev.name !== 'run_task') {
               const id = ev.id
               const name = ev.name
-              void runLiveTool(name, ev.args, heardYes).then((res) => {
+              void runLiveTool(name, ev.args, heardYes, isTrusted()).then((res) => {
                 if (res.startsWith('{"needs_confirmation"')) pendingAt = Date.now()
                 if (ws === sock && sock.readyState === WebSocket.OPEN) {
                   sock.send(JSON.stringify({ toolResponse: { functionResponses: [{ id, name, response: { result: res.slice(0, 6000) } }] } }))

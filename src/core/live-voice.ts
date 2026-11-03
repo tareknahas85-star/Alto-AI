@@ -90,3 +90,26 @@ export function parseLiveAll(raw: string): LiveEvent[] {
   }
   return out.length ? out : [{ type: 'ignore' }]
 }
+
+// الصلاحية الكاملة بالصوت: «انتِ المسؤولة هلأ» بتفعّلها، و«رجّعيلي الصلاحية» بتلغيها. بنطبّع الحكي (تشكيل/همزات/تاء مربوطة) لأنو التفريغ بيتغيّر.
+export function normAr(t: string): string {
+  return t
+    .replace(/[\u064b-\u0652\u0640]/g, '')
+    .replace(/[\u0623\u0625\u0622]/g, '\u0627')
+    .replace(/\u0624/g, '\u0648')
+    .replace(/\u0626/g, '\u064a')
+    .replace(/\u0649/g, '\u064a')
+    .replace(/\u0629/g, '\u0647')
+    .replace(/[^\u0600-\u06ffa-z0-9 ]+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+const TRUST_OFF = /\u0631\u062c\u0639.{0,3}\u0644\u064a\s*(\u0627\u0644)?\u0635\u0644\u0627\u062d/
+const TRUST_ON = /\u0627\u0646[\u062a\u0637]\u064a?\s*(\u0627\u0644)?\u0645\u0633[\u0648\u064a]+\u0644[\u0647\u0629]?\s*(\u0647\u0644\u0627|\u0647\u0644\u0642|\u0627\u0644\u0627\u0646)/
+export function trustCommand(text: string): 'on' | 'off' | null {
+  const n = normAr(text)
+  if (TRUST_OFF.test(n)) return 'off'
+  if (TRUST_ON.test(n)) return 'on'
+  return null
+}

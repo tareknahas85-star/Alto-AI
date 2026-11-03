@@ -32,12 +32,12 @@ export function liveToolDecls(): Record<string, unknown>[] {
   return out
 }
 
-export async function runLiveTool(name: string, args: Record<string, unknown>, heardYes: () => Promise<boolean>): Promise<string> {
+export async function runLiveTool(name: string, args: Record<string, unknown>, heardYes: () => Promise<boolean>, trusted = false): Promise<string> {
   if (!computerEnabled()) return 'التحكم بالجهاز مطفي. بيتفعّل من صفحة الإضافات (التحكم بالجهاز).'
   const h = ALLOWED.includes(name) ? registry().handlers.get(name) : undefined
   if (!h) return 'Error: أداة غير معروفة: ' + name
-  const confirmed = args.confirmed === true
-  if (confirmed && !(await heardYes())) return 'ما سمعت موافقة المستخدم. اسأليه من جديد وانتظري جوابو قبل ما تنادي الأداة.'
+  const confirmed = trusted || args.confirmed === true
+  if (confirmed && !trusted && !(await heardYes())) return 'ما سمعت موافقة المستخدم. اسأليه من جديد وانتظري جوابو قبل ما تنادي الأداة.'
   const rest = { ...args }
   delete rest.confirmed
   try {
