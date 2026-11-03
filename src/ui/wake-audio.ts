@@ -1,5 +1,5 @@
 // بيلتقط المايك PCM16 16kHz بدفعات 1280 عينة وبيبعتها للـmain (openWakeWord). لما يسمع كلمة التنبيه بينادي onWake.
-export async function startWake(onWake: () => void): Promise<{ ok: boolean; error?: string; stop: () => void }> {
+export async function startWake(onWake: () => void, onInfo?: (t: string) => void): Promise<{ ok: boolean; error?: string; stop: () => void }> {
   const nop = (): void => undefined
   const r = await window.api.wake.start()
   if (!r.ok) return { ok: false, error: r.error, stop: nop }
@@ -11,6 +11,7 @@ export async function startWake(onWake: () => void): Promise<{ ok: boolean; erro
     return { ok: false, error: 'ما قدرت افتح المايك: ' + String((e as Error).message ?? e), stop: nop }
   }
   const ctx = new AudioContext({ sampleRate: 16000 })
+  try { await ctx.resume() } catch { /* ignore */ }
   const src = ctx.createMediaStreamSource(stream)
   const proc = ctx.createScriptProcessor(2048, 1, 1)
   const mute = ctx.createGain()
@@ -31,7 +32,7 @@ export async function startWake(onWake: () => void): Promise<{ ok: boolean; erro
   src.connect(proc)
   proc.connect(mute)
   mute.connect(ctx.destination)
-  const off = window.api.wake.onEvent((ev) => { if (ev.type === 'wake') onWake() })
+  const off = window.api.wake.onEvent((ev) => { if (ev.type === 'wake') onWake(); else if (ev.type === 'heard') onInfo?.('سمعت: ' + String((ev as { text?: string }).text)); else if (ev.type === 'level') onInfo?.('مستوى المايك/العتبة: ' + String((ev as { text?: string }).text)) })
   let stopped = false
   const stop = (): void => {
     if (stopped) return
