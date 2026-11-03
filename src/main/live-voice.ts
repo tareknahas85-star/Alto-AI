@@ -32,8 +32,8 @@ async function resolveModel(key: string, forced?: string): Promise<LiveModelInfo
 
 let ws: WebSocket | null = null
 // موافقة بالصوت: بنسجّل آخر وقت سمعنا فيه "إي" من المستخدم، ووقت آخر طلب تأكيد.
-const YES = /(^|\s)(إي|اي|ايه|إيه|أيوا|ايوا|أيوه|ايوه|اه|آه|نعم|موافق|yes|ok)(\s|$|[.!،,؟?])/i
-const NO = /(^|\s)(لا|لأ|لاء|ما بدي|بلاش|وقف|no)(\s|$|[.!،,؟?])/i
+const YES = /(^|\s)(أوكي|اوكي|أوكيه|اوكيه|أوكى|اوكى|اوكيي|okay|okey|ok|o\.k|إي|اي|ايه|إيه|أيوا|ايوا|أيوه|ايوه|نعم|موافق|yes)(\s|$|[.!،,؟?])/i
+const NO = /(^|\s)(لا|لأ|لاء|ما بدي|بلاش|وقف|no|nope)(\s|$|[.!،,؟?])/i
 let pendingAt = 0
 let lastYesAt = 0
 async function heardYes(): Promise<boolean> {
