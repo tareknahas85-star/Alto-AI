@@ -366,7 +366,7 @@ declare global {
       deleteNote: (id: string, noteId: string) => Promise<NbViewInfo | null>
       exportNote: (id: string, noteId: string) => Promise<{ ok: boolean; path?: string; error?: string }>
       audio: (id: string, noteId: string) => Promise<{ ok: boolean; url?: string; error?: string }>
-      slideAudio: (id: string, noteId: string) => Promise<{ ok: boolean; urls?: string[]; error?: string }>
+      slideAudio: (id: string, noteId: string) => Promise<{ ok: boolean; urls?: string[]; engine?: string; error?: string }>
       saveVideo: (name: string, b64: string) => Promise<{ ok: boolean; path?: string; error?: string }>
     }
     todo: {

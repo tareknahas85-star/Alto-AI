@@ -128,7 +128,8 @@ function Slides({ nbId, noteId, body }: { nbId: string; noteId: string; body: st
     try {
       const a = await window.api.nb.slideAudio(nbId, noteId)
       if (!a.ok || !a.urls) throw new Error(a.error ?? 'تعذّر تجهيز الصوت')
-      const blob = await renderSlideVideo(d, a.urls, (k, t) => setProg('عم سجّل الفيديو بالوقت الحقيقي: ' + k + ' / ' + t))
+      const eng = a.engine === 'edge' ? ' (صوت احتياطي: Gemini مو متاح)' : ''
+      const blob = await renderSlideVideo(d, a.urls, (k, t) => setProg(eng + ' ' +'عم سجّل الفيديو بالوقت الحقيقي: ' + k + ' / ' + t))
       if (vurl) URL.revokeObjectURL(vurl)
       setVblob(blob); setVurl(URL.createObjectURL(blob)); setProg('')
     } catch (e) { setProg(''); setVerr((e as Error).message) }
