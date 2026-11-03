@@ -1,4 +1,6 @@
-import { ipcMain, type WebContents } from 'electron'
+import { app, ipcMain, type WebContents } from 'electron'
+import fs from 'fs'
+import path from 'path'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { pythons } from './whisper-live'
 
@@ -10,20 +12,28 @@ const PY = [
   'import numpy as np',
   'from faster_whisper import WhisperModel',
   'm = WhisperModel(os.environ.get("VOICE_WAKE_MODEL", "base"), device="cpu", compute_type="int8", cpu_threads=2)',
-  'PAT = re.compile("(\\\\u0633\\\\u0639\\\\u0627\\\\u062f|\\\\u0633\\\\u0648\\\\u0627\\\\u062f|\\\\u0633\\\\u0639\\\\u0627\\\\u062a|\\\\u0633\\\\u0648\\\\u0639\\\\u0627\\\\u062f|\\\\u0633\\\\u0639\\\\u062f|suad|souad|soad|su3ad|so3ad|swad)", re.I)',
+  'PAT = re.compile("^(\\u064a\\u0627)?\\u0633[\\u0648\\u0639]{1,2}[\\u0627\\u0623\\u0622]?[\\u062f\\u062a\\u0637\\u0636]$|^(suad|souad|soad|su3ad|so3ad|swad|sawad|saad)$", re.I)',
+  'SPL = re.compile("[\\\\s,.!?\\u061f\\u060c:;]+")',
   'print("READY", flush=True)',
   'rd = sys.stdin.buffer',
   'floor = 150.0',
   'seg = []',
   'sil = 0',
   'last = 0.0',
+  'cnt = 0',
+  'mx = 0.0',
   'while True:',
   '    b = rd.read(2560)',
   '    if not b or len(b) < 2560:',
   '        break',
   '    a = np.frombuffer(b, dtype=np.int16)',
   '    r = float(np.sqrt(np.mean(a.astype(np.float32) ** 2)))',
-  '    thr = max(350.0, floor * 3.0)',
+  '    thr = max(220.0, floor * 2.5)',
+  '    cnt += 1',
+  '    mx = max(mx, r)',
+  '    if cnt % 25 == 0:',
+  '        print("LEVEL:%d:%d" % (int(mx), int(thr)), flush=True)',
+  '        mx = 0.0',
   '    if r > thr:',
   '        seg.append(a)',
   '        sil = 0',
@@ -39,7 +49,9 @@ const PY = [
   '            try:',
   '                ss, _ = m.transcribe(x, language="ar", beam_size=1, vad_filter=False, condition_on_previous_text=False)',
   '                txt = " ".join(s.text for s in ss).strip()',
-  '                if txt and len(txt.split()) <= 8 and PAT.search(txt):',
+  '                if txt:',
+  '                    print("HEARD:" + txt, flush=True)',
+  '                if txt and len(txt.split()) <= 8 and any(PAT.match(w) for w in SPL.split(txt)):',
   '                    last = time.time()',
   '                    print("WAKE", flush=True)',
   '            except Exception:',
@@ -47,6 +59,10 @@ const PY = [
   '        seg = []',
   '        sil = 0',
 ].join('\n')
+
+function dbg(m: string): void {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'wake-debug.log'), new Date().toISOString() + ' ' + m + '\n') } catch { /* ignore */ }
+}
 
 let proc: ChildProcessWithoutNullStreams | null = null
 let sender: WebContents | null = null
@@ -82,6 +98,8 @@ export function registerWakeIpc(): void {
           buf = buf.slice(i + 1)
           if (line === 'READY') fin({ ok: true })
           else if (line === 'WAKE') emit({ type: 'wake' })
+          else if (line.startsWith('HEARD:')) { emit({ type: 'heard', text: line.slice(6) }); dbg('HEARD ' + line.slice(6)) }
+          else if (line.startsWith('LEVEL:')) emit({ type: 'level', text: line.slice(6) })
         }
       })
       p.stderr.on('data', (d: Buffer) => { err = (err + d.toString('utf-8')).slice(-400) })

@@ -578,6 +578,7 @@ export function ChatWindow({
   const liveStop = useRef<(() => void) | null>(null)
   const [wakeOn, setWakeOn] = useState<boolean>(() => { try { return localStorage.getItem('wakeWord') === '1' } catch { return false } })
   const [wakeErr, setWakeErr] = useState('')
+  const [wakeInfo, setWakeInfo] = useState('')
   const toggleTalkRef = useRef<() => Promise<void>>(async () => undefined)
   const lastReplyRef = useRef('')
   const messagesRef = useRef(messages)
@@ -720,7 +721,7 @@ export function ChatWindow({
     if (!wakeOn || !active || talk) return
     let stop: (() => void) | null = null
     let dead = false
-    void startWake(() => { if (!talkOn.current) void toggleTalkRef.current() }).then((r) => {
+    void startWake(() => { if (!talkOn.current) void toggleTalkRef.current() }, setWakeInfo).then((r) => {
       if (dead) { r.stop(); return }
       if (!r.ok) { setWakeErr(r.error ?? 'تعذّر تشغيل كلمة التنبيه'); setWakeOn(false); try { localStorage.setItem('wakeWord', '0') } catch { /* ignore */ } return }
       setWakeErr('')
@@ -1278,7 +1279,7 @@ export function ChatWindow({
           )}
           <button
             onClick={() => { const v = !wakeOn; setWakeOn(v); setWakeErr(''); try { localStorage.setItem('wakeWord', v ? '1' : '0') } catch { /* ignore */ } }}
-            title={wakeErr || (wakeOn ? 'كلمة التنبيه شغّالة: قول «سعاد» وبفتح المحادثة الصوتية (اضغط لتطفيها)' : 'شغّل كلمة التنبيه (محلي): قول «سعاد» لفتح المحادثة الصوتية')}
+            title={wakeErr || (wakeOn ? 'كلمة التنبيه شغّالة: قول «سعاد» وبفتح المحادثة الصوتية (اضغط لتطفيها)' + (wakeInfo ? ' — ' + wakeInfo : '') : 'شغّل كلمة التنبيه (محلي): قول «سعاد» لفتح المحادثة الصوتية')}
             aria-label="كلمة التنبيه"
             className={'mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (wakeErr ? 'text-danger' : wakeOn ? 'bg-green-500 text-white' : 'text-muted hover:bg-surface2')}
           >
