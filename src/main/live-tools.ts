@@ -26,7 +26,7 @@ export function liveToolDecls(): Record<string, unknown>[] {
     const params = (d.function.parameters ?? {}) as { properties?: Record<string, { type?: string; description?: string }>; required?: string[] }
     const props: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(params.properties ?? {})) props[k] = { type: String(v.type ?? 'string').toUpperCase(), ...(v.description ? { description: v.description } : {}) }
-    props.confirmed = { type: 'BOOLEAN', description: 'true فقط بعد ما سألتي المستخدم وقال «إي» بصوتو. ممنوع تحطيها بدون سؤال.' }
+    props.confirmed = { type: 'BOOLEAN', description: 'true فقط بعد ما سألتي المستخدم وقال «أوكي» بصوتو. ممنوع تحطيها بدون سؤال.' }
     out.push({ name: d.function.name, description: (d.function.description ?? '').slice(0, 400), parameters: { type: 'OBJECT', properties: props, required: params.required ?? [] } })
   }
   return out
@@ -47,7 +47,7 @@ export async function runLiveTool(name: string, args: Record<string, unknown>, h
       return JSON.stringify({
         needs_confirmation: true,
         action: pending.title + ' — ' + pending.detail,
-        instruction: 'اسألي المستخدم بجملة قصيرة إذا موافق. إذا قال إي نادي نفس الأداة بنفس الباراميترات مع confirmed=true. إذا قال لا، ما تنفذي.',
+        instruction: 'اسألي المستخدم بجملة قصيرة إذا موافق. قوليلو: قول «أوكي» إذا موافق. إذا قال «أوكي» نادي نفس الأداة بنفس الباراميترات مع confirmed=true. إذا قال لا، ما تنفذي.',
       })
     }
     return result
