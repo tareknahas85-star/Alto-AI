@@ -9,6 +9,7 @@ import { writeJson } from '../src/core/json-store'
 import { listCustomModels } from '../src/core/custom-models'
 import { workDir, quarantineEmptyFragments } from '../src/core/run-report'
 import { recordEngineRun, getEngineSeries } from '../src/core/usage-log'
+import { softenCheck } from '../src/core/check-soften'
 import { pickLiveModel, liveSetup, parseLiveAll, trustCommand, pickTtsModel, pcmToWav } from '../src/core/live-voice'
 import { splitArgs, KITS } from '../src/computer/devtools'
 import { estimateStrength, canonicalName } from '../src/core/model-rank'
@@ -1037,4 +1038,14 @@ test('5.19.25 صوت سعاد بالفيديو: اختيار موديل TTS وت
   assert.equal(String.fromCharCode(...w.slice(0, 4)), 'RIFF')
   assert.equal(String.fromCharCode(...w.slice(8, 12)), 'WAVE')
   assert.equal(new DataView(w.buffer).getUint32(40, true), 4)
+})
+
+test('softenCheck: quota 429 becomes skip, timeout stays fail with retry hint, others untouched', () => {
+  const q = softenCheck({ state: 'fail', message: '429 You exceeded your current quota, please check your plan and billing details' })
+  assert.equal(q.state, 'skip')
+  const t = softenCheck({ state: 'fail', message: 'Request timed out' })
+  assert.equal(t.state, 'fail')
+  assert.match(t.message, /أعد المحاولة/)
+  assert.deepEqual(softenCheck({ state: 'fail', message: 'Invalid API key' }), { state: 'fail', message: 'Invalid API key' })
+  assert.deepEqual(softenCheck({ state: 'ok', message: 'quota fine' }), { state: 'ok', message: 'quota fine' })
 })
