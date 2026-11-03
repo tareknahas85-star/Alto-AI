@@ -9,7 +9,7 @@ import { writeJson } from '../src/core/json-store'
 import { listCustomModels } from '../src/core/custom-models'
 import { workDir, quarantineEmptyFragments } from '../src/core/run-report'
 import { recordEngineRun, getEngineSeries } from '../src/core/usage-log'
-import { pickLiveModel, liveSetup, parseLiveAll } from '../src/core/live-voice'
+import { pickLiveModel, liveSetup, parseLiveAll, trustCommand } from '../src/core/live-voice'
 import { splitArgs, KITS } from '../src/computer/devtools'
 import { estimateStrength, canonicalName } from '../src/core/model-rank'
 import { createStreamBatcher } from '../src/core/stream-batch'
@@ -1018,4 +1018,11 @@ test('gemini live: model pick, setup, parser', () => {
   assert.ok(JSON.stringify(liveSetup('m', 'v', [{ name: 'pc_windows' }])).includes('pc_windows'))
   assert.ok(JSON.stringify(s).includes('run_task'))
   assert.deepEqual(parseLiveAll('{"serverContent":{"interrupted":true}}'), [{ type: 'interrupted' }])
+})
+
+test('5.19.22 الصلاحية الكاملة بالصوت: كلمة التفعيل والإلغاء بتنتعرف رغم اختلاف التفريغ', () => {
+  for (const t of ['انت المسؤولة هلأ', 'إنتِ المسؤولة هلا', 'انتي المسؤولة هلق', 'أنت المسئولة الآن', 'سعاد، انت المسولة هلأ.']) assert.equal(trustCommand(t), 'on', t)
+  for (const t of ['رجعيلي الصلاحية', 'رجّعيلي الصلاحيّة', 'رجعي لي الصلاحيه', 'سعاد رجعيلي الصلاحية']) assert.equal(trustCommand(t), 'off', t)
+  for (const t of ['صباح الخير', 'مين المسؤول عن الشغل', 'انت هلأ وين', 'سكري الواتساب', '']) assert.equal(trustCommand(t), null, t)
+  assert.equal(trustCommand('رجعيلي الصلاحية انت المسؤولة هلأ'), 'off')
 })
