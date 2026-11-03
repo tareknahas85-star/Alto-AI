@@ -374,7 +374,7 @@ const api = {
     deleteNote: (id: string, noteId: string) => ipcRenderer.invoke('nb:deleteNote', id, noteId),
     exportNote: (id: string, noteId: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:export', id, noteId),
     audio: (id: string, noteId: string): Promise<{ ok: boolean; url?: string; error?: string }> => ipcRenderer.invoke('nb:audio', id, noteId),
-    slideAudio: (id: string, noteId: string): Promise<{ ok: boolean; urls?: string[]; error?: string }> => ipcRenderer.invoke('nb:slideAudio', id, noteId),
+    slideAudio: (id: string, noteId: string): Promise<{ ok: boolean; urls?: string[]; engine?: string; error?: string }> => ipcRenderer.invoke('nb:slideAudio', id, noteId),
     saveVideo: (name: string, b64: string): Promise<{ ok: boolean; path?: string; error?: string }> => ipcRenderer.invoke('nb:saveVideo', name, b64)
   },
   todo: {

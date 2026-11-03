@@ -113,3 +113,32 @@ export function trustCommand(text: string): 'on' | 'off' | null {
   if (TRUST_ON.test(n)) return 'on'
   return null
 }
+
+// صوت سعاد بالفيديو: Gemini TTS بنفس أصوات Live (Aoede...). بنختار موديل tts من لائحة الموديلات، وبنلف الـPCM (24kHz, 16-bit, mono) بترويسة WAV.
+export function pickTtsModel(models: { name: string; supportedGenerationMethods?: string[] }[]): string | null {
+  const ok = models.filter((m) => /tts/i.test(m.name) && (m.supportedGenerationMethods ?? []).includes('generateContent'))
+  if (!ok.length) return null
+  const score = (n: string): number => {
+    const v = n.match(/(\d+(?:\.\d+)?)/)
+    let s = (v ? parseFloat(v[1]) : 0) * 100
+    if (/flash/i.test(n)) s += 30
+    if (/lite/i.test(n)) s -= 10
+    if (/pro/i.test(n)) s -= 20
+    return s
+  }
+  return [...ok].sort((a, b) => score(b.name) - score(a.name))[0].name
+}
+
+export function pcmToWav(pcm: Uint8Array, rate = 24000): Uint8Array {
+  const h = new Uint8Array(44)
+  const dv = new DataView(h.buffer)
+  const tag = (o: number, s: string): void => { for (let i = 0; i < s.length; i++) h[o + i] = s.charCodeAt(i) }
+  tag(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length, true); tag(8, 'WAVE'); tag(12, 'fmt ')
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true)
+  dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true)
+  tag(36, 'data'); dv.setUint32(40, pcm.length, true)
+  const out = new Uint8Array(44 + pcm.length)
+  out.set(h, 0)
+  out.set(pcm, 44)
+  return out
+}

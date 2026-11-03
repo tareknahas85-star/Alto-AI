@@ -9,7 +9,7 @@ import { writeJson } from '../src/core/json-store'
 import { listCustomModels } from '../src/core/custom-models'
 import { workDir, quarantineEmptyFragments } from '../src/core/run-report'
 import { recordEngineRun, getEngineSeries } from '../src/core/usage-log'
-import { pickLiveModel, liveSetup, parseLiveAll, trustCommand } from '../src/core/live-voice'
+import { pickLiveModel, liveSetup, parseLiveAll, trustCommand, pickTtsModel, pcmToWav } from '../src/core/live-voice'
 import { splitArgs, KITS } from '../src/computer/devtools'
 import { estimateStrength, canonicalName } from '../src/core/model-rank'
 import { createStreamBatcher } from '../src/core/stream-batch'
@@ -1025,4 +1025,16 @@ test('5.19.22 الصلاحية الكاملة بالصوت: كلمة التفع�
   for (const t of ['رجعيلي الصلاحية', 'رجّعيلي الصلاحيّة', 'رجعي لي الصلاحيه', 'سعاد رجعيلي الصلاحية']) assert.equal(trustCommand(t), 'off', t)
   for (const t of ['صباح الخير', 'مين المسؤول عن الشغل', 'انت هلأ وين', 'سكري الواتساب', '']) assert.equal(trustCommand(t), null, t)
   assert.equal(trustCommand('رجعيلي الصلاحية انت المسؤولة هلأ'), 'off')
+})
+
+test('5.19.25 صوت سعاد بالفيديو: اختيار موديل TTS وترويسة WAV', () => {
+  const g = ['generateContent']
+  assert.equal(pickTtsModel([{ name: 'models/gemini-2.5-flash', supportedGenerationMethods: g }]), null)
+  assert.equal(pickTtsModel([{ name: 'models/gemini-2.5-pro-preview-tts', supportedGenerationMethods: g }, { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: g }]), 'models/gemini-2.5-flash-preview-tts')
+  assert.equal(pickTtsModel([{ name: 'models/x-tts', supportedGenerationMethods: ['embedContent'] }]), null)
+  const w = pcmToWav(new Uint8Array([1, 2, 3, 4]))
+  assert.equal(w.length, 48)
+  assert.equal(String.fromCharCode(...w.slice(0, 4)), 'RIFF')
+  assert.equal(String.fromCharCode(...w.slice(8, 12)), 'WAVE')
+  assert.equal(new DataView(w.buffer).getUint32(40, true), 4)
 })

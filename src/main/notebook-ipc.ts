@@ -8,6 +8,7 @@ import {
   type Notebook, type NbSource, type OutputKind, parseDeck, parseInfographic, parseDialogue, infographicHtml, type Deck, type DialogueLine } from '../core/notebook'
 import { prepareFile } from './attach'
 import { synthDialogue } from './voice-ipc'
+import { geminiSpeak } from './gemini-tts'
 
 // «دفتر»: notebooks live in one JSON file. The chat pipeline answers; this file only prepares prompts and stores results.
 const FILE = 'notebooks.json'
@@ -195,12 +196,16 @@ export function registerNotebookIpc(): void {
     if (!deck) return { ok: false, error: 'ما في عرض صالح بالملاحظة' }
     try {
       const urls: string[] = []
+      let engine = 'gemini'
       for (const sd of deck.slides) {
-        const text = (sd.notes || '').trim() || [sd.title, ...sd.bullets].join('. ')
-        const buf = await synthDialogue([{ text: text.slice(0, 1200), voice: VOICE_A }])
+        const text = ((sd.notes || '').trim() || [sd.title, ...sd.bullets].join('. ')).slice(0, 1200)
+        if (engine === 'gemini') {
+          try { urls.push('data:audio/wav;base64,' + (await geminiSpeak(text)).toString('base64')); continue } catch { if (urls.length) throw new Error('انقطع صوت سعاد (Gemini) بنص الشغل، جرّب كمان شوي') ; engine = 'edge' }
+        }
+        const buf = await synthDialogue([{ text, voice: VOICE_A }])
         urls.push('data:audio/mpeg;base64,' + buf.toString('base64'))
       }
-      return { ok: true, urls }
+      return { ok: true, urls, engine }
     } catch (e) { return { ok: false, error: (e as Error).message } }
   })
   ipcMain.handle('nb:saveVideo', async (event, name: unknown, b64: unknown) => {
