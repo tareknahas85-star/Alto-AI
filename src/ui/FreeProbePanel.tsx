@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toneOf } from '../core/check-soften'
 import { Loader2 } from 'lucide-react'
 import { cardCls, ghostBtn } from './components/ui'
 
@@ -106,7 +107,7 @@ export function FreeProbePanel() {
             const r = res[m.id]
             return (
               <div key={m.id} className="flex items-center gap-2 border-b border-border py-1">
-                <span className="w-6 text-center">{busy === m.id ? <Loader2 size={12} className="animate-spin" /> : r ? (r.ok ? '✅' : '❌') : '·'}</span>
+                <span className="w-6 text-center">{busy === m.id ? <Loader2 size={12} className="animate-spin" /> : r ? (r.ok ? '✅' : toneOf(false, r.note).tone === 'soft' ? '➖' : '❌') : '·'}</span>
                 <span className="min-w-0 flex-1 truncate font-mono">{m.id}</span>
                 <span className="w-24 text-muted">{m.created} · {Math.round(m.ctx / 1000)}k</span>
                 <span className="w-16 text-end">{r ? r.score + '/100' : ''}</span>

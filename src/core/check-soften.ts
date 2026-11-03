@@ -14,3 +14,10 @@ export function softenCheck(r: { state: CheckState; message: string }): { state:
   }
   return r
 }
+export type Tone = 'ok' | 'soft' | 'fail'
+
+// Same rule for single-model test buttons: 429/quota -> neutral grey, timeout -> retry hint, real errors stay red.
+export function toneOf(ok: boolean, message: string): { tone: Tone; message: string } {
+  const r = softenCheck({ state: ok ? 'ok' : 'fail', message })
+  return { tone: r.state === 'ok' ? 'ok' : r.state === 'skip' ? 'soft' : 'fail', message: r.message }
+}

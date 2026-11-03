@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toneOf } from '../core/check-soften'
 import { Loader2 } from 'lucide-react'
 import { cardCls, ghostBtn, inputCls } from './components/ui'
 import { estimateStrength } from '../core/model-rank'
@@ -91,7 +92,7 @@ export function HfPanel() {
         </div>
       )}
       {chosen && <p dir="ltr" className="mt-1 text-start font-mono text-xs text-muted">المختار: {chosen}</p>}
-      {res && <p className={'mt-1 text-xs ' + (res.ok ? 'text-success' : 'text-danger')}>{res.ok ? '✅ ' : '❌ '}{res.message}</p>}
+      {res && (() => { const t = toneOf(res.ok, res.message); return <p className={'mt-1 text-xs ' + (t.tone === 'ok' ? 'text-success' : t.tone === 'soft' ? 'text-muted' : 'text-danger')}>{t.tone === 'ok' ? '✅ ' : t.tone === 'soft' ? '➖ ' : '❌ '}{t.message}</p> })()}
     </div>
   )
 }

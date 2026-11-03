@@ -9,7 +9,7 @@ import { writeJson } from '../src/core/json-store'
 import { listCustomModels } from '../src/core/custom-models'
 import { workDir, quarantineEmptyFragments } from '../src/core/run-report'
 import { recordEngineRun, getEngineSeries } from '../src/core/usage-log'
-import { softenCheck } from '../src/core/check-soften'
+import { softenCheck, toneOf } from '../src/core/check-soften'
 import { pickLiveModel, liveSetup, parseLiveAll, trustCommand, pickTtsModel, pcmToWav } from '../src/core/live-voice'
 import { splitArgs, KITS } from '../src/computer/devtools'
 import { estimateStrength, canonicalName } from '../src/core/model-rank'
@@ -1048,4 +1048,11 @@ test('softenCheck: quota 429 becomes skip, timeout stays fail with retry hint, o
   assert.match(t.message, /أعد المحاولة/)
   assert.deepEqual(softenCheck({ state: 'fail', message: 'Invalid API key' }), { state: 'fail', message: 'Invalid API key' })
   assert.deepEqual(softenCheck({ state: 'ok', message: 'quota fine' }), { state: 'ok', message: 'quota fine' })
+})
+
+test('toneOf: same rule for single-model tests', () => {
+  assert.equal(toneOf(false, '429 quota exceeded').tone, 'soft')
+  assert.equal(toneOf(false, 'Request timed out').tone, 'fail')
+  assert.equal(toneOf(false, '401 invalid key').tone, 'fail')
+  assert.equal(toneOf(true, 'ok').tone, 'ok')
 })
