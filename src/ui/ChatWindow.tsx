@@ -580,6 +580,7 @@ export function ChatWindow({
   const [wakeErr, setWakeErr] = useState('')
   const [wakeInfo, setWakeInfo] = useState('')
   const toggleTalkRef = useRef<() => Promise<void>>(async () => undefined)
+  useEffect(() => { try { window.api.orb.state(talk || (wakeOn ? 'wake' : '')) } catch { /* ignore */ } }, [talk, wakeOn])
   const lastReplyRef = useRef('')
   const messagesRef = useRef(messages)
   messagesRef.current = messages

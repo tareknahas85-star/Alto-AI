@@ -331,6 +331,7 @@ declare global {
         import: (password: string) => Promise<{ ok: boolean; error?: string; files?: number; skills?: number; at?: string }>
       }
       security: { status: () => Promise<{ keyStorage: 'os-protected' | 'legacy' | 'memory'; phoneApproval: boolean }> }
+    orb: { state: (s: string) => void }
     wake: {
       start: () => Promise<{ ok: boolean; error?: string }>
       audio: (b: Uint8Array) => void

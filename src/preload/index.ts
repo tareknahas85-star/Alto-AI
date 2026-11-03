@@ -329,6 +329,9 @@ const api = {
     import: (password: string) => ipcRenderer.invoke('transfer:import', password)
   },
   security: { status: () => ipcRenderer.invoke('security:status') },
+  orb: {
+    state: (s: string): void => ipcRenderer.send('orb:state', s)
+  },
   wake: {
     start: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('wake:start'),
     audio: (b: Uint8Array): void => ipcRenderer.send('wake:audio', b),
