@@ -301,6 +301,11 @@ public class W32 {
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+  [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool alt);
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool f);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, int extra);
 }
 "@
@@ -607,7 +612,8 @@ export function addComputerTools(
     if (!(await ask('بدو يعمل تركيز على نافذة', s(a.title)))) return 'Error: the user denied this.'
     return runPs(
       WIN32 +
-        "$p=Get-Process | Where-Object {$_.MainWindowTitle -like ('*'+$A.title+'*')} | Select-Object -First 1; if(-not $p){'Error: window not found'} else {[void][W32]::ShowWindow($p.MainWindowHandle,9); [void][W32]::SetForegroundWindow($p.MainWindowHandle); 'OK: focused '+$p.MainWindowTitle}",
+        "function Fg($h){ if([W32]::IsIconic($h)){[void][W32]::ShowWindow($h,9)}else{[void][W32]::ShowWindow($h,5)}; [W32]::keybd_event(0x12,0,0,0); [W32]::keybd_event(0x12,0,2,0); $cur=[W32]::GetForegroundWindow(); $pp=0; $t=[W32]::GetWindowThreadProcessId($cur,[ref]$pp); $me=[W32]::GetCurrentThreadId(); [void][W32]::AttachThreadInput($me,$t,$true); [void][W32]::BringWindowToTop($h); [void][W32]::SetForegroundWindow($h); [void][W32]::AttachThreadInput($me,$t,$false); Start-Sleep -Milliseconds 300; return ([W32]::GetForegroundWindow().ToInt64() -eq $h.ToInt64()) }; "
+        + "$q=$A.title; $ws=@(Get-Process | Where-Object {$_.MainWindowHandle -ne 0 -and ($_.MainWindowTitle -like ('*'+$q+'*') -or $_.ProcessName -like ('*'+$q+'*'))}); if(-not $ws){'Error: window not found (is it open? try pc_windows)'} else {$p=$ws | Sort-Object {if($_.MainWindowTitle -like ('*'+$q+'*')){0}else{1}} | Select-Object -First 1; $h=$p.MainWindowHandle; $ok=Fg $h; if(-not $ok){[void][W32]::SwitchToThisWindow($h,$true); Start-Sleep -Milliseconds 300; $ok=([W32]::GetForegroundWindow().ToInt64() -eq $h.ToInt64())}; if(-not $ok){[void][W32]::ShowWindow($h,6); Start-Sleep -Milliseconds 300; $ok=Fg $h}; $f=FgInfo; if($ok){'OK: focused and verified in front: '+$p.MainWindowTitle}else{'Error: could not bring '+$p.MainWindowTitle+' to the front; the foreground window is still: '+$f.title}}",
       { title: s(a.title) },
       20000
     )
