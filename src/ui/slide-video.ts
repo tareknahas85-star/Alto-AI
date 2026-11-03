@@ -71,6 +71,7 @@ export function drawSlide(ctx: CanvasRenderingContext2D, deck: Deck, i: number):
   ctx.fillStyle = '#94a3b8'
   ctx.font = '20px ' + FONT
   ctx.textAlign = 'left'
+  ctx.direction = 'ltr'
   ctx.fillText(String(i + 1) + ' / ' + deck.slides.length, 30, H - 40)
 }
 
