@@ -13,6 +13,7 @@ import { guessKind } from '../core/media-custom'
 import { nameColor } from './brandColor'
 import { HostField } from './HostField'
 import { FreeProbePanel } from './FreeProbePanel'
+import { toneOf } from '../core/check-soften'
 import { CheckButton, CheckPanel, useFullCheck } from './FullCheck'
 import { Chip, Empty, Modal, PageShell, TIER_LABEL, Toggle, cardCls, ghostBtn, inputCls, primaryBtn, useTab } from './components/ui'
 import { SpendPanel } from './SpendPanel'
@@ -251,7 +252,7 @@ export function ModelsPage() {
                     {m.model} · {m.baseURL || 'openrouter.ai'}
                   </div>
                   <PriceRow key={m.id + String(m.priceIn) + String(m.priceOut)} m={m} onSaved={load} />
-                  {r && <div className={`mt-1 text-xs ${r.ok ? 'text-success' : 'text-danger'}`}>{r.ok ? '✓ ' : '✗ '}{r.message}</div>}
+                  {r && (() => { const t = toneOf(r.ok, r.message); return <div className={`mt-1 text-xs ${t.tone === 'ok' ? 'text-success' : t.tone === 'soft' ? 'text-muted' : 'text-danger'}`}>{t.tone === 'ok' ? '✓ ' : t.tone === 'soft' ? '➖ ' : '✗ '}{t.message}</div> })()}
                 </div>
                 <div className="flex items-center gap-1">
                   {isLocal(m) && (
