@@ -11,6 +11,7 @@ import { hfVisionModels } from './hf'
 import { connectorsHealth } from './connectors-ipc'
 import { getPrefs } from '../core/prefs'
 import { getFix } from '../tools/place-tools'
+import { softenCheck } from '../core/check-soften'
 
 // "Full check" buttons: one click checks every item of a tab in parallel, each with its own short timeout.
 // Nothing runs automatically at startup; a check can be cancelled; items the user disabled by hand are not checked.
@@ -179,9 +180,9 @@ async function runCheck(sender: WebContents, kind: CheckKind): Promise<CheckResu
         const t0 = Date.now()
         let r: { state: CheckItem['state']; message: string }
         try {
-          r = await j.run()
+          r = softenCheck(await j.run())
         } catch (e) {
-          r = { state: 'fail', message: e instanceof Error ? e.message.slice(0, 120) : String(e).slice(0, 120) }
+          r = softenCheck({ state: 'fail', message: e instanceof Error ? e.message.slice(0, 120) : String(e).slice(0, 120) })
         }
         if (state.cancelled) return
         const item: CheckItem = { id: j.id, label: j.label, state: r.state, message: r.message, ms: Date.now() - t0 }

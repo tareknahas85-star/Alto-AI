@@ -89,7 +89,7 @@ export function CheckPanel({ c }: { c: FullCheck }) {
         {c.running ? 'عم يفحص…' : c.done?.cancelled ? 'انلغى الفحص' : 'انتهى الفحص'}
         <span className="text-muted">
           — {ok} تمام{fail ? `، ${fail} بدها مراجعة` : ''}
-          {skip ? `، ${skip} ما انفحصت (مطفية/مو مفعّلة)` : ''}
+          {skip ? `، ${skip} ما انفحصت (مطفية، مو مفعّلة، أو مو مجانية)` : ''}
         </span>
       </div>
       {sorted.length > 0 && (
