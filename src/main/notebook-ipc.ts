@@ -187,6 +187,32 @@ export function registerNotebookIpc(): void {
     n.notes = n.notes.filter((x) => x.id !== noteId); save(l); return view(n)
   })
 
+  // فيديو من الشرايح: تعليق صوتي لكل شريحة (النص من notes، وإذا فاضي بنقرا العنوان والنقاط)، والتركيب بيصير بالواجهة.
+  ipcMain.handle('nb:slideAudio', async (_e, id: unknown, noteId: unknown) => {
+    const n = find(all(), id)
+    const note = n?.notes.find((x) => x.id === noteId)
+    const deck = note && note.kind === 'slides' ? parseDeck(note.body) : null
+    if (!deck) return { ok: false, error: 'ما في عرض صالح بالملاحظة' }
+    try {
+      const urls: string[] = []
+      for (const sd of deck.slides) {
+        const text = (sd.notes || '').trim() || [sd.title, ...sd.bullets].join('. ')
+        const buf = await synthDialogue([{ text: text.slice(0, 1200), voice: VOICE_A }])
+        urls.push('data:audio/mpeg;base64,' + buf.toString('base64'))
+      }
+      return { ok: true, urls }
+    } catch (e) { return { ok: false, error: (e as Error).message } }
+  })
+  ipcMain.handle('nb:saveVideo', async (event, name: unknown, b64: unknown) => {
+    if (typeof b64 !== 'string' || !b64) return { ok: false, error: 'ما في فيديو' }
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const base = (typeof name === 'string' && name ? name : 'دفتر').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
+    const opts = { defaultPath: base + '.webm', filters: [{ name: 'WebM video', extensions: ['webm'] }] }
+    const r = await (win ? dialog.showSaveDialog(win, opts) : dialog.showSaveDialog(opts))
+    if (r.canceled || !r.filePath) return { ok: false, error: 'انلغى' }
+    try { await fsp.writeFile(r.filePath, Buffer.from(b64, 'base64')); return { ok: true, path: r.filePath } } catch (e) { return { ok: false, error: (e as Error).message } }
+  })
+
   ipcMain.handle('nb:audio', async (_e, id: unknown, noteId: unknown) => {
     const n = find(all(), id)
     const note = n?.notes.find((x) => x.id === noteId)

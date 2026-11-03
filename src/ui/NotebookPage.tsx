@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, Download, FileText, Link2, Loader2, Play, Plus, Trash2, X } from 'lucide-react'
 import { Empty, PageShell, cardCls, ghostBtn, inputCls, primaryBtn } from './components/ui'
 import { Markdown } from './Markdown'
+import { renderSlideVideo } from './slide-video'
 import { askConfirm } from './components/confirm'
 import { extractMermaid, csvOf, parseCsv, parseDeck, parseDialogue, parseFlashcards, parseInfographic, parseQuiz } from '../core/notebook'
 
@@ -114,11 +115,42 @@ function MindMap({ body }: { body: string }) {
   return <ul className="text-sm"><Tree n={tree} /></ul>
 }
 
-function Slides({ body }: { body: string }) {
+function Slides({ nbId, noteId, body }: { nbId: string; noteId: string; body: string }) {
   const d = parseDeck(body)
+  const [prog, setProg] = useState('')
+  const [vurl, setVurl] = useState('')
+  const [vblob, setVblob] = useState<Blob | null>(null)
+  const [verr, setVerr] = useState('')
+  const [saved, setSaved] = useState('')
   if (!d) return <Markdown text={body} />
+  const make = async (): Promise<void> => {
+    setVerr(''); setSaved(''); setProg('عم جهّز التعليق الصوتي...')
+    try {
+      const a = await window.api.nb.slideAudio(nbId, noteId)
+      if (!a.ok || !a.urls) throw new Error(a.error ?? 'تعذّر تجهيز الصوت')
+      const blob = await renderSlideVideo(d, a.urls, (k, t) => setProg('عم سجّل الفيديو بالوقت الحقيقي: ' + k + ' / ' + t))
+      if (vurl) URL.revokeObjectURL(vurl)
+      setVblob(blob); setVurl(URL.createObjectURL(blob)); setProg('')
+    } catch (e) { setProg(''); setVerr((e as Error).message) }
+  }
+  const save = async (): Promise<void> => {
+    if (!vblob) return
+    const buf = new Uint8Array(await vblob.arrayBuffer())
+    let bin = ''
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+    const r = await window.api.nb.saveVideo(d.title, btoa(bin))
+    setSaved(r.ok ? 'انحفظ: ' + r.path : r.error === 'انلغى' ? '' : r.error ?? '')
+  }
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={ghostBtn} disabled={!!prog} onClick={() => void make()}>{prog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} حوّلو لفيديو (مجاني، محلي)</button>
+        {vblob && <button className={ghostBtn} onClick={() => void save()}><Download className="h-4 w-4" /> احفظ الفيديو (webm)</button>}
+        {prog && <span className="text-xs text-muted">{prog}</span>}
+        {verr && <span className="text-xs text-danger">{verr}</span>}
+        {saved && <span className="text-xs text-muted">{saved}</span>}
+      </div>
+      {vurl && <video controls src={vurl} className="w-full rounded-lg" />}
       {d.slides.map((s, i) => (
         <div key={i} className="rounded-lg border border-outline p-3 text-sm">
           <div className="mb-1 font-medium">{i + 1}. {s.title}</div>
@@ -187,7 +219,7 @@ function NoteCard({ nb, note, onChange }: { nb: NbView; note: Note; onChange: (v
           <button title="حذف" className={ghostBtn} onClick={() => void window.api.nb.deleteNote(nb.id, note.id).then(onChange)}><Trash2 size={16} /></button>
         </div>
       </div>
-      {note.kind === 'table' ? <Table body={note.body} /> : note.kind === 'mindmap' ? <MindMap body={note.body} /> : note.kind === 'flashcards' ? <Cards body={note.body} /> : note.kind === 'quiz' ? <Quiz body={note.body} /> : note.kind === 'slides' ? <Slides body={note.body} /> : note.kind === 'infographic' ? <Info body={note.body} /> : note.kind === 'audio' ? <AudioNote nbId={nb.id} noteId={note.id} body={note.body} /> : <Markdown text={note.body} />}
+      {note.kind === 'table' ? <Table body={note.body} /> : note.kind === 'mindmap' ? <MindMap body={note.body} /> : note.kind === 'flashcards' ? <Cards body={note.body} /> : note.kind === 'quiz' ? <Quiz body={note.body} /> : note.kind === 'slides' ? <Slides nbId={nb.id} noteId={note.id} body={note.body} /> : note.kind === 'infographic' ? <Info body={note.body} /> : note.kind === 'audio' ? <AudioNote nbId={nb.id} noteId={note.id} body={note.body} /> : <Markdown text={note.body} />}
       {msg && <div className="mt-2 text-xs text-muted">{msg}</div>}
     </div>
   )
