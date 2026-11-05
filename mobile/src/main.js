@@ -177,7 +177,7 @@ function answerLoc(m) {
   const fail = (why) => sendHost({ k: 'loc.res', id: m.id, err: why })
   if (!navigator.geolocation) return fail('no geolocation in this app')
   const ok = (p) => sendHost({ k: 'loc.res', id: m.id, lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy })
-  const why = (e) => (e && e.code === 1 ? 'location permission denied: allow Location for TRL Agent in Android settings' : e && e.code === 3 ? 'GPS timed out' : e && e.message ? e.message : 'unknown')
+  const why = (e) => (e && e.code === 1 ? 'location permission denied: allow Location for Alto AI in Android settings' : e && e.code === 3 ? 'GPS timed out' : e && e.message ? e.message : 'unknown')
   // High accuracy first (the permission prompt can take a while), then a coarse network fix as a fallback.
   navigator.geolocation.getCurrentPosition(
     ok,
@@ -733,9 +733,9 @@ function render() {
   applyTheme()
   const app = $('#app'); if (!app) return
   if (S.view !== 'scan') stopScanner()
-  if (S.view === 'boot') { app.innerHTML = '<div class="center"><div class="logo">T</div><div class="spin"></div></div>'; return }
+  if (S.view === 'boot') { app.innerHTML = '<div class="center"><div class="logo">A</div><div class="spin"></div></div>'; return }
   if (S.view === 'pair') {
-    app.innerHTML = '<div class="center"><div class="logo">T</div><h1 style="margin:0">TRL Agent</h1>' +
+    app.innerHTML = '<div class="center"><div class="logo">A</div><h1 style="margin:0">Alto AI</h1>' +
       '<div class="mut">تحكّم ببرنامجك على الكمبيوتر من التلفون. الاتصال مشفّر من الطرفين.</div>' +
       (S.pairErr ? '<div class="card" style="border-color:var(--dng);width:100%">' + esc(S.pairErr) + '</div>' : '') +
       '<div class="card mut" style="width:100%;text-align:start">1) افتح البرنامج عالكمبيوتر ← الإعدادات ← «تطبيق الموبايل» وفعّل الربط.<br>2) دوس «ربط جهاز جديد» بيطلع QR.<br>3) امسحو من هون.</div>' +
@@ -747,7 +747,7 @@ function render() {
     return
   }
   if (S.view === 'pairing') {
-    app.innerHTML = '<div class="center"><div class="logo">T</div>' + (S.sas
+    app.innerHTML = '<div class="center"><div class="logo">A</div>' + (S.sas
       ? '<h2 style="margin:0">تأكد من الرمز</h2><div class="sas">' + esc(S.sas) + '</div><div class="mut">لازم يكون نفس الرمز الظاهر عالكمبيوتر. بعدين دوس «الرمز متطابق» هناك.</div><div class="spin"></div>'
       : '<div class="mut">عم نتصل بالكمبيوتر وبنأمّن الجلسة…</div><div class="spin"></div>') + '<button class="btn ghost" id="pairCancel">إلغاء</button></div>'
     return

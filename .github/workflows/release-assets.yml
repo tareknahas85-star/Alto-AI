@@ -23,7 +23,7 @@ jobs:
       - run: npx electron-builder --linux AppImage deb --publish never
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.inputs.tag }}" release/TRL_AI_Agent-*-linux.* --clobber
+        run: gh release upload "${{ github.event.inputs.tag }}" release/Alto-AI-*-linux.* --clobber
   windows:
     runs-on: windows-latest
     steps:
@@ -41,10 +41,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          f=$(ls release/TRL_AI_Agent-*-setup.exe | head -1)
-          v=$(echo "$f" | sed -E 's/.*TRL_AI_Agent-(.*)-setup.exe/\1/')
-          cp "$f" "release/TRL_AI_Agent-$v-windows-setup.exe"
-          gh release upload "${{ github.event.inputs.tag }}" "release/TRL_AI_Agent-$v-windows-setup.exe" --clobber
+          f=$(ls release/Alto-AI-*-setup.exe | head -1)
+          v=$(echo "$f" | sed -E 's/.*Alto-AI-(.*)-setup.exe/\1/')
+          cp "$f" "release/Alto-AI-$v-windows-setup.exe"
+          gh release upload "${{ github.event.inputs.tag }}" "release/Alto-AI-$v-windows-setup.exe" --clobber
   checksums:
     needs: [linux, windows]
     runs-on: ubuntu-latest
@@ -54,6 +54,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           mkdir dl && cd dl
-          gh release download "${{ github.event.inputs.tag }}" --pattern 'TRL_AI_Agent-*'
-          sha256sum TRL_AI_Agent-* > SHA256SUMS.txt
+          gh release download "${{ github.event.inputs.tag }}" --pattern 'Alto-AI-*'
+          sha256sum Alto-AI-* > SHA256SUMS.txt
           gh release upload "${{ github.event.inputs.tag }}" SHA256SUMS.txt --clobber

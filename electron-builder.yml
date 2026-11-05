@@ -1,5 +1,5 @@
 appId: com.myrouter.app
-productName: TRL_AI_Agent
+productName: Alto AI
 directories:
   buildResources: build
   output: release
@@ -23,16 +23,16 @@ extraResources:
 asarUnpack:
   - resources/**
 win:
-  executableName: my-ai-router
+  executableName: alto-ai
   target:
     - nsis
   icon: build/icon.png
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: TRL_AI_Agent-${version}-setup.${ext}
-  shortcutName: TRL_AI_Agent
-  uninstallDisplayName: TRL_AI_Agent
+  artifactName: Alto-AI-${version}-setup.${ext}
+  shortcutName: Alto AI
+  uninstallDisplayName: Alto AI
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
@@ -45,7 +45,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
-  executableName: my-ai-router
+  executableName: alto-ai
   target:
     - AppImage
     - deb
@@ -56,15 +56,15 @@ linux:
     - --no-sandbox
   desktop:
     entry:
-      Name: TRL_AI_Agent
+      Name: Alto AI
       Comment: Multi-model AI agent router with MCP connectors
       Categories: Utility;Development;
-  artifactName: TRL_AI_Agent-${version}-linux.${ext}
+  artifactName: Alto AI-${version}-linux.${ext}
 appImage:
-  artifactName: TRL_AI_Agent-${version}-linux.${ext}
+  artifactName: Alto AI-${version}-linux.${ext}
 npmRebuild: false
 publish:
   provider: github
   owner: tareknahas85-star
-  repo: TRL_AI_Agent
+  repo: Alto-AI
   releaseType: release

@@ -2,7 +2,7 @@
   "name": "trl-mobile",
   "version": "5.20.0",
   "private": true,
-  "description": "TRL_AI_Agent phone app (Capacitor shell over an encrypted link to the desktop app)",
+  "description": "Alto AI phone app (Capacitor shell over an encrypted link to the desktop app)",
   "scripts": {
     "bundle": "node build.mjs",
     "sync": "npm run bundle && cap sync android",

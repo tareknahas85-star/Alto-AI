@@ -10,6 +10,9 @@ import { onWindowResized } from './side-browser'
 import { closeAllMcp } from '../mcp/runtime'
 import { shutdownRemote } from '../remote/host'
 import { stopOwnedOllama } from '../core/ollama'
+import { setupUserData } from './data-migrate'
+
+setupUserData()
 
 let mainWin: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -27,10 +30,10 @@ function createTray(): void {
   if (tray) return
   const img = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
   tray = new Tray(img)
-  tray.setToolTip('TRL_AI_Agent')
+  tray.setToolTip('Alto AI')
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'فتح TRL_AI_Agent', click: showMain },
+      { label: 'فتح Alto AI', click: showMain },
       { type: 'separator' },
       {
         label: 'خروج',
@@ -90,7 +93,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.altoai.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

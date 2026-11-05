@@ -26,7 +26,7 @@ public class KeepAliveService extends Service {
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pi = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH) : new Notification.Builder(this);
-        Notification n = b.setContentTitle("TRL Agent")
+        Notification n = b.setContentTitle("Alto AI")
                 .setContentText("متصل بالكمبيوتر")
                 .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
                 .setOngoing(true)

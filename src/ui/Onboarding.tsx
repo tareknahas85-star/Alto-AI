@@ -116,7 +116,7 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
 
         {step === 0 && (
           <div className="space-y-3 text-sm">
-            <div className="text-lg font-semibold">أهلاً فيك في TRL_AI_Agent</div>
+            <div className="text-lg font-semibold">أهلاً فيك في Alto AI</div>
             <p className="text-muted">البرنامج بيشتغل بمفاتيح API من حسابك انت (OpenRouter أو Google أو Claude أو ChatGPT). كل شي بيبقى على جهازك.</p>
             <p className="rounded-card border border-warning/40 bg-warning/10 p-2 text-[11px] text-muted">
               البرنامج ما يستعمل حسابات الاشتراك الشخصية لتسجيل الدخول، لأن شروط هالخدمات تمنع ذلك. أنت مسؤول عن الالتزام بشروط كل مزوّد وبقوانين بلدك.

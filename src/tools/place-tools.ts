@@ -15,7 +15,7 @@ export function setPhoneLocationProvider(fn: typeof phoneProvider): void {
   phoneProvider = fn
 }
 
-const UA = 'TRL-AI-Agent/5.9 (personal desktop assistant)'
+const UA = 'Alto-AI/5.9 (personal desktop assistant)'
 
 function windowsFix(): Promise<Fix | null> {
   if (process.platform !== 'win32') return Promise.resolve(null)

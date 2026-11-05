@@ -140,7 +140,7 @@ async function webFetch(url: string, maxChars: number): Promise<string> {
   if (!/^https?:$/.test(u.protocol)) return 'Error: بس http/https'
   if (PRIVATE_HOST.test(u.hostname)) return 'Error: العناوين المحلية/الداخلية ممنوعة بهالأداة'
   try {
-    const r = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(25000), headers: { 'user-agent': 'Mozilla/5.0 TRL-Agent', accept: 'text/html,text/plain,application/json;q=0.9,*/*;q=0.5' } })
+    const r = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(25000), headers: { 'user-agent': 'Mozilla/5.0 Alto-AI', accept: 'text/html,text/plain,application/json;q=0.9,*/*;q=0.5' } })
     const fin = new URL(r.url)
     if (PRIVATE_HOST.test(fin.hostname)) return 'Error: التحويل راح لعنوان داخلي'
     const ct = r.headers.get('content-type') ?? ''
@@ -156,7 +156,7 @@ async function webFetch(url: string, maxChars: number): Promise<string> {
 
 async function webSearch(q: string, n: number): Promise<string> {
   try {
-    const r = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q), { signal: AbortSignal.timeout(20000), headers: { 'user-agent': 'Mozilla/5.0 TRL-Agent' } })
+    const r = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q), { signal: AbortSignal.timeout(20000), headers: { 'user-agent': 'Mozilla/5.0 Alto-AI' } })
     if (!r.ok) return `Error: HTTP ${r.status}`
     const html = await r.text()
     const out: string[] = []
