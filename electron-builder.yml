@@ -59,9 +59,9 @@ linux:
       Name: Alto AI
       Comment: Multi-model AI agent router with MCP connectors
       Categories: Utility;Development;
-  artifactName: Alto AI-${version}-linux.${ext}
+  artifactName: Alto-AI-${version}-linux.${ext}
 appImage:
-  artifactName: Alto AI-${version}-linux.${ext}
+  artifactName: Alto-AI-${version}-linux.${ext}
 npmRebuild: false
 publish:
   provider: github
