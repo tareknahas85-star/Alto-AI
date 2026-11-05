@@ -45,6 +45,7 @@ jobs:
           v=$(echo "$f" | sed -E 's/.*Alto-AI-(.*)-setup.exe/\1/')
           cp "$f" "release/Alto-AI-$v-windows-setup.exe"
           gh release upload "${{ github.event.inputs.tag }}" "release/Alto-AI-$v-windows-setup.exe" --clobber
+          gh release upload "${{ github.event.inputs.tag }}" docs/Alto-AI-Guide.html --clobber
   checksums:
     needs: [linux, windows]
     runs-on: ubuntu-latest
