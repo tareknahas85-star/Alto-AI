@@ -1080,3 +1080,29 @@ test('looksFusha also catches Egyptian/Gulf wording (not Shami)', async () => {
   assert.equal(looksFusha('مش هتضيع وقتك، كل حاجة في مكان واحد'), true)
   assert.equal(looksFusha('ما رح تضيّع وقتك، كل شي بمكان واحد وكتير منيح'), false)
 })
+
+test('speech text: links and markdown are dropped before Suaad reads it', async () => {
+  const { cleanForSpeech } = await import('../src/core/speech-text')
+  assert.equal(cleanForSpeech('## نتيجة\n- **أول** شي [هون](https://x.com) https://y.com\n```js\nx()\n```'), 'نتيجة أول شي هون')
+})
+
+test('speech text: chunks stay under the limit and keep every word', async () => {
+  const { speechChunks } = await import('../src/core/speech-text')
+  const s = Array.from({ length: 40 }, (_, i) => 'هاي جملة رقم ' + i + '.').join(' ')
+  const parts = speechChunks(s, 120)
+  assert.ok(parts.length > 3)
+  assert.ok(parts.every((p) => p.length <= 120))
+  assert.equal(parts.join(' ').replace(/\s+/g, ' '), s)
+  assert.ok(speechChunks('ا'.repeat(1000), 300).every((p) => p.length <= 300))
+})
+
+test('whats-new reads the newest CHANGELOG section', async () => {
+  const { latestNotes } = await import('../src/core/changelog')
+  const md = '# سجل\n\n## 5.20.1\n\n- أول **شي**\n  تكملة\n- تاني `كود`\n\n## 5.20.0\n\n- قديم\n'
+  assert.deepEqual(latestNotes(md), { version: '5.20.1', notes: ['أول شي تكملة', 'تاني كود'] })
+  assert.equal(latestNotes('no versions'), null)
+  const real = fs.readFileSync(path.join(process.cwd(), 'CHANGELOG.md'), 'utf8')
+  const r = latestNotes(real)
+  assert.ok(r && r.notes.length > 0)
+  assert.equal(r?.version, JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')).version)
+})

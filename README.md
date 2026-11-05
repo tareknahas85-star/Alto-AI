@@ -13,7 +13,7 @@
 
 | | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.0-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.0/Alto-AI-5.20.0-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.0/Alto-AI-5.20.0-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.0-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.1/Alto-AI-5.20.1-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.1/Alto-AI-5.20.1-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-android.apk) |
 
 All files, release notes and `SHA256SUMS.txt` are on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases/latest).
 كل الملفات وملاحظات الإصدار وملف `SHA256SUMS.txt` بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest).
@@ -210,7 +210,7 @@ phone is only a screen.**
 **Set it up (about 3 minutes)**
 
 1. Install the desktop app and make sure it works (steps above).
-2. Download **`Alto-AI-5.20.0-android.apk`** from the
+2. Download **`Alto-AI-5.20.1-android.apk`** from the
    [latest release](https://github.com/tareknahas85-star/Alto-AI/releases/latest)
    on your phone and install it (Android asks you to allow installing from this
    source once). It is a debug-signed build, not from the Play Store.
@@ -367,8 +367,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.20.0-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.20.0-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.20.1-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.20.1-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>
@@ -658,7 +658,7 @@ and the licenses of the libraries it uses are in
 **كيف تجهّزو (حوالي 3 دقايق):**
 
 1. ثبّت برنامج الكمبيوتر وتأكد إنو شغّال.
-2. نزّل ملف `Alto-AI-5.20.0-android.apk` من [صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest) عالتلفون وثبّتو. أندرويد بيطلب منك تسمح بالتثبيت من هالمصدر مرة وحدة. هاد ملف تجريبي موقّع debug، مو من متجر Play.
+2. نزّل ملف `Alto-AI-5.20.1-android.apk` من [صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest) عالتلفون وثبّتو. أندرويد بيطلب منك تسمح بالتثبيت من هالمصدر مرة وحدة. هاد ملف تجريبي موقّع debug، مو من متجر Play.
 3. عالكمبيوتر: **الإعدادات ← عام ← تطبيق الموبايل (ربط مشفّر)**. فعّل **فعّل الربط مع الموبايل**. إذا سألك جدار حماية ويندوز، اسمح عالشبكات **الخاصة (Private)**.
 4. دوس **ربط جهاز جديد**، بيطلع **QR**.
 5. افتح التطبيق عالتلفون، بيطلب الكاميرا وبيمسح الـ QR. بيظهر **رمز من 6 أرقام** عالشاشتين. إذا هنّي نفسهم، أكّد عالكمبيوتر.
