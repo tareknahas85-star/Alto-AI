@@ -24,6 +24,7 @@ import { tasksReport } from '../main/extras'
 import { listRuns, cancelRun, runHub } from '../core/progress'
 import { prepareFile, type Attachment } from '../main/attach'
 import { attachRelay } from './relay'
+import { suaadSpeak } from '../main/suaad-voice'
 import { approvalHash, approvalMsg, lib, PAIR_TTL_MS, type Lib, type QrPayload } from './protocol'
 import { HostLink } from './session'
 
@@ -371,6 +372,8 @@ const reportMsg = (): Json => {
   return { k: 'report', rows: rows.map((r) => ({ at: r.at, model: r.model, tier: r.tier, tokens: r.tokens, cost: r.cost, ck: r.costKnown, ms: r.totalMs, fails: r.failures, esc: r.escalated, prompt: r.prompt })) }
 }
 
+const ttsCancelled = new Set<string>()
+
 async function handle(dev: Device, m: Json): Promise<void> {
   let k = str(m.k, 30)
   if (k === 'agent.run') {
@@ -418,6 +421,34 @@ async function handle(dev: Device, m: Json): Promise<void> {
         const pv = r.ok && r.path ? await phonePreview(r.path) : { name: '', size: 0, preview: '' }
         const out: Json = { k: 'media.done', id, kind: kd, ok: r.ok, note: r.note, model: r.model ?? '', name: pv.name, size: pv.size, preview: pv.preview, q: prompt.slice(0, 200) }
         if (!send(dev.id, out)) stashMissed(dev.id, out)
+        return
+      }
+      case 'tts.say': {
+        // نتائج الوكلاء عالموبايل بتنقرا بصوت ولهجة سعاد: الكمبيوتر بيولّد الصوت وبيبعتو قطع (حدود حجم الرسالة).
+        const id = str(m.id, 60)
+        const text = typeof m.text === 'string' ? m.text.slice(0, 8000) : ''
+        if (!id || !text.trim()) return
+        let seq = 0
+        try {
+          for await (const a of suaadSpeak(text, () => ttsCancelled.has(id))) {
+            if (ttsCancelled.has(id)) break
+            const b64 = a.buf.toString('base64')
+            const SL = 340_000
+            const n = Math.ceil(b64.length / SL)
+            for (let i = 0; i < n; i++) if (!send(dev.id, { k: 'tts.part', id, seq, i, n, mime: a.mime, b64: b64.slice(i * SL, (i + 1) * SL) })) return
+            seq++
+          }
+          send(dev.id, { k: 'tts.end', id, parts: seq })
+        } catch (e) {
+          send(dev.id, { k: 'tts.end', id, parts: seq, error: String((e as Error).message ?? e).slice(0, 160) })
+        } finally {
+          ttsCancelled.delete(id)
+        }
+        return
+      }
+      case 'tts.stop': {
+        const id = str(m.id, 60)
+        if (id) { ttsCancelled.add(id); setTimeout(() => ttsCancelled.delete(id), 300_000) }
         return
       }
       case 'media.open': {

@@ -164,6 +164,13 @@ function onHost(m) {
     case 'done': return onDone(m)
     case 'media.models': S.media.models[m.kind] = m.list || []; if (S.tab === 'media') renderPage(); return
     case 'media.done': return onMediaDone(m)
+    case 'tts.part': {
+      const r = ttsReq.get(m.id); if (!r) return
+      let p = r.parts.get(m.seq); if (!p) { p = { mime: m.mime, n: m.n, got: 0, chunks: [] }; r.parts.set(m.seq, p) }
+      if (p.chunks[m.i] === undefined) { p.chunks[m.i] = m.b64 || ''; p.got++ }
+      r.lastAt = Date.now(); r.wake(); return
+    }
+    case 'tts.end': { const r = ttsReq.get(m.id); if (r) { r.ended = true; r.total = Number(m.parts) || 0; r.error = m.error || ''; r.wake() } return }
     case 'approval': return showApproval(m)
     case 'approval.cancel': if (S.approval && S.approval.id === m.id) { S.approval = null; renderApproval(); toast('اتجاوب عالكمبيوتر') } return
     case 'file.ok': case 'file.err': { const w = fileWait.get(m.fid); if (w) { fileWait.delete(m.fid); m.k === 'file.ok' ? w.res(m.att) : w.rej(new Error(m.error || 'فشل')) } return }
@@ -509,10 +516,46 @@ async function ttsLoad() {
   try { const r = await TextToSpeech.getSupportedVoices(); S.ttsVoices = (r.voices || []).map((v, i) => ({ i, uri: v.voiceURI || v.name, name: v.name || v.voiceURI, lang: v.lang || '' })).filter((v) => /^ar/i.test(v.lang)) } catch { S.ttsVoices = [] }
   return S.ttsVoices
 }
-function ttsStop() { ttsTok++; S.speaking = false; S.speakN = 0; try { void TextToSpeech.stop() } catch { /* ignore */ } renderPage() }
+// صوت ولهجة سعاد: الكمبيوتر بيحوّل النص لكلام شامي وبيحكيه بصوت سعاد، والتلفون بيشغّل القطع وحدة ورا التانية.
+// إذا الكمبيوتر مو موصول أو ما رد، منرجع لصوت التلفون.
+const ttsReq = new Map()
+let ttsAudio = null
+let ttsWarned = false
+function ttsPlay(mime, b64) {
+  return new Promise((res, rej) => {
+    const a = new Audio('data:' + mime + ';base64,' + b64)
+    a.playbackRate = S.ttsRate || 1
+    ttsAudio = a
+    a.onended = () => { if (ttsAudio === a) ttsAudio = null; res() }
+    a.onerror = () => { if (ttsAudio === a) ttsAudio = null; rej(new Error('audio')) }
+    a.play().catch(rej)
+  })
+}
+async function suaadSay(text, tok) {
+  const id = 'tts' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+  const r = { parts: new Map(), ended: false, total: 0, error: '', lastAt: Date.now(), wake: () => {} }
+  ttsReq.set(id, r)
+  if (!sendHost({ k: 'tts.say', id, text })) { ttsReq.delete(id); return 0 }
+  const waitNext = () => new Promise((res) => { r.wake = res; setTimeout(res, 1000) })
+  let seq = 0
+  try {
+    while (tok === ttsTok) {
+      const p = r.parts.get(seq)
+      if (p && p.got >= p.n) { r.parts.delete(seq); await ttsPlay(p.mime, p.chunks.join('')); seq++; continue }
+      if (r.ended && seq >= r.total) break
+      if (Date.now() - r.lastAt > 150000) throw new Error('timeout')
+      await waitNext()
+    }
+    if (tok !== ttsTok) sendHost({ k: 'tts.stop', id })
+    if (!seq && r.error) throw new Error(r.error)
+    return seq || (tok !== ttsTok ? 1 : 0)
+  } finally { ttsReq.delete(id) }
+}
+function ttsStop() { ttsTok++; S.speaking = false; S.speakN = 0; if (ttsAudio) { try { ttsAudio.pause() } catch { /* ignore */ } ttsAudio = null } try { void TextToSpeech.stop() } catch { /* ignore */ } renderPage() }
 async function ttsSpeak(items) {
   const tok = ++ttsTok
   try { await TextToSpeech.stop() } catch { /* ignore */ }
+  if (ttsAudio) { try { ttsAudio.pause() } catch { /* ignore */ } ttsAudio = null }
   S.speaking = true; renderPage()
   const voices = await ttsLoad(); const v = voices.find((x) => x.uri === S.ttsVoice)
   try {
@@ -520,6 +563,10 @@ async function ttsSpeak(items) {
       if (tok !== ttsTok) return
       S.speakN = it.n; renderPage()
       const text = ttsClean((it.agent ? it.agent + '. ' : '') + (it.text || ''))
+      if (conn.link && conn.link.isReady) {
+        try { if (await suaadSay(text, tok)) continue } catch { toast('صوت سعاد ما رد، عم اقرا بصوت التلفون') }
+      } else if (!ttsWarned) { ttsWarned = true; toast('صوت سعاد بدو اتصال بالكمبيوتر، عم اقرا بصوت التلفون') }
+      if (tok !== ttsTok) return
       for (const ch of ttsChunks(text)) {
         if (tok !== ttsTok) return
         await TextToSpeech.speak({ text: ch, lang: (v && v.lang) || 'ar-SA', rate: S.ttsRate, pitch: 1, volume: 1, category: 'playback', ...(v ? { voice: v.i } : {}) })
