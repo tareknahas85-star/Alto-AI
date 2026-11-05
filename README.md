@@ -1,4 +1,4 @@
-<h1 align="center">TRL_AI_Agent</h1>
+<h1 align="center">Alto AI</h1>
 
 <p align="center">
   <b>Desktop AI agent for Windows and Linux</b><br>
@@ -13,10 +13,10 @@
 
 | | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest/download/TRL_AI_Agent-5.19.30-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/download/v5.19.30/TRL_AI_Agent-5.19.30-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/download/v5.19.30/TRL_AI_Agent-5.19.30-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest/download/TRL_AI_Agent-5.20.0-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.0-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.0/Alto-AI-5.20.0-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.0/Alto-AI-5.20.0-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.0-android.apk) |
 
-All files, release notes and `SHA256SUMS.txt` are on the [releases page](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest).
-كل الملفات وملاحظات الإصدار وملف `SHA256SUMS.txt` بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest).
+All files, release notes and `SHA256SUMS.txt` are on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases/latest).
+كل الملفات وملاحظات الإصدار وملف `SHA256SUMS.txt` بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest).
 
 ---
 
@@ -32,7 +32,7 @@ in Arabic first, right to left.
 ### Status
 
 It works, but it is a personal project. Download the installer from the
-[latest release](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest),
+[latest release](https://github.com/tareknahas85-star/Alto-AI/releases/latest),
 or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
@@ -46,7 +46,7 @@ Every release has a `SHA256SUMS.txt` file so you can check your download.
 - **Platforms page.** One ranking of all the free models from every provider, with a button to test your key and pull the free ones.
 - **Fixes.** Window focus now checks that the window really came to the front, and the sidebar no longer overlaps on small windows.
 
-Every change is in [CHANGELOG.md](CHANGELOG.md). Every release is on the [releases page](https://github.com/tareknahas85-star/TRL_AI_Agent/releases).
+Every change is in [CHANGELOG.md](CHANGELOG.md). Every release is on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases).
 ### What it does
 
 - Sends every request to the best model: free first, then cheap, then expensive.
@@ -175,7 +175,7 @@ The app ships with **no keys, no accounts and no personal settings**. Everyone w
 downloads it adds their own. Nothing below needs a developer.
 
 1. **Install.** Download the installer from the
-   [latest release](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest)
+   [latest release](https://github.com/tareknahas85-star/Alto-AI/releases/latest)
    and run it. Windows SmartScreen may warn you (the installer is not signed):
    press **More info**, then **Run anyway**.
 2. **Add at least one model.** Open **الموديلات (Models)** in the side bar, pick a
@@ -202,7 +202,7 @@ Your keys and settings stay on your own computer, in the app's data folder.
 
 ### Phone app (Android)
 
-A small Android app that lets you use your computer's TRL_AI_Agent from your phone:
+A small Android app that lets you use your computer's Alto AI from your phone:
 chat, choose the model or mode, approve risky commands, watch long tasks, and send
 files, photos and voice notes to the app. **Everything runs on your computer. The
 phone is only a screen.**
@@ -210,8 +210,8 @@ phone is only a screen.**
 **Set it up (about 3 minutes)**
 
 1. Install the desktop app and make sure it works (steps above).
-2. Download **`TRL_AI_Agent-5.20.0-android.apk`** from the
-   [latest release](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest)
+2. Download **`Alto-AI-5.20.0-android.apk`** from the
+   [latest release](https://github.com/tareknahas85-star/Alto-AI/releases/latest)
    on your phone and install it (Android asks you to allow installing from this
    source once). It is a debug-signed build, not from the Play Store.
 3. On the computer: **Settings ← General ← Phone app**. Turn on **Enable phone
@@ -278,7 +278,7 @@ installers.
 
 ### License
 
-TRL_AI_Agent is free for personal, educational, research and non-profit use.
+Alto AI is free for personal, educational, research and non-profit use.
 It is **source-available, not open source**. You may not use it commercially,
 modify it, or republish it anywhere except this repository. Want to use it in
 a business? Write to tareknahas@live.com. Full terms are in [LICENSE](LICENSE),
@@ -298,7 +298,7 @@ and the licenses of the libraries it uses are in
 
 <div dir="rtl">
 
-**TRL_AI_Agent** برنامج ذكاء اصطناعي بيشتغل عكمبيوترك (ويندوز أو لينكس). إنت بتكتب طلب واحد، وفي "مايسترو" صغير بيقرا الطلب وبيقدّر قديش هو صعب، وبيختار أنسب موديل للشغلة وبيبدأ بالأرخص (وغالباً المجاني). وإذا موديل فشل، التاني بياخد مكانو لحالو. المحادثة بالعربي أولاً ومن اليمين لليسار.
+**Alto AI** برنامج ذكاء اصطناعي بيشتغل عكمبيوترك (ويندوز أو لينكس). إنت بتكتب طلب واحد، وفي "مايسترو" صغير بيقرا الطلب وبيقدّر قديش هو صعب، وبيختار أنسب موديل للشغلة وبيبدأ بالأرخص (وغالباً المجاني). وإذا موديل فشل، التاني بياخد مكانو لحالو. المحادثة بالعربي أولاً ومن اليمين لليسار.
 
 > هاد مشروع شخصي بس شغّال. كل شي بيضل عجهازك، ومفاتيحك وبياناتك ما بتنبعت لأي جهة غير المزوّدين اللي إنت بتختارهم.
 
@@ -332,7 +332,7 @@ and the licenses of the libraries it uses are in
 - **صفحة "المنصات".** ترتيب واحد لكل الموديلات المجانية من كل المزوّدين حسب القوة، مع زر لاختبار مفتاحك وسحب المجاني.
 - **إصلاحات.** تركيز النوافذ صار بيتأكد فعلياً إنو النافذة طلعت قدام، والشريط الجانبي ما عاد يتركّب على بعضو بالنافذة الصغيرة.
 
-كل التفاصيل بملف [CHANGELOG.md](CHANGELOG.md)، وكل نسخة بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/TRL_AI_Agent/releases).
+كل التفاصيل بملف [CHANGELOG.md](CHANGELOG.md)، وكل نسخة بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases).
 
 <a id="needs-ar"></a>
 
@@ -355,7 +355,7 @@ and the licenses of the libraries it uses are in
 <details open>
 <summary><b>ويندوز</b></summary>
 
-1. افتح [صفحة الإصدارات](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest) ونزّل الملف اللي آخرو `windows-setup.exe`.
+1. افتح [صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest) ونزّل الملف اللي آخرو `windows-setup.exe`.
 2. دوس عليه دبل كليك لتشغّلو.
 3. ممكن يطلعلك شاشة زرقاء من ويندوز اسمها **SmartScreen** وبتقول "Windows protected your PC". هاد عادي لأنو المثبّت مو موقّع (التوقيع بيكلّف مصاري). دوس **More info** وبعدين **Run anyway**.
 4. كمّل التثبيت وافتح البرنامج. بيطلعلك أيقونة بشريط النظام (جنب الساعة).
@@ -367,8 +367,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./TRL_AI_Agent-5.19.30-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x TRL_AI_Agent-5.19.30-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.20.0-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.20.0-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>
@@ -658,7 +658,7 @@ and the licenses of the libraries it uses are in
 **كيف تجهّزو (حوالي 3 دقايق):**
 
 1. ثبّت برنامج الكمبيوتر وتأكد إنو شغّال.
-2. نزّل ملف `TRL_AI_Agent-5.20.0-android.apk` من [صفحة الإصدارات](https://github.com/tareknahas85-star/TRL_AI_Agent/releases/latest) عالتلفون وثبّتو. أندرويد بيطلب منك تسمح بالتثبيت من هالمصدر مرة وحدة. هاد ملف تجريبي موقّع debug، مو من متجر Play.
+2. نزّل ملف `Alto-AI-5.20.0-android.apk` من [صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest) عالتلفون وثبّتو. أندرويد بيطلب منك تسمح بالتثبيت من هالمصدر مرة وحدة. هاد ملف تجريبي موقّع debug، مو من متجر Play.
 3. عالكمبيوتر: **الإعدادات ← عام ← تطبيق الموبايل (ربط مشفّر)**. فعّل **فعّل الربط مع الموبايل**. إذا سألك جدار حماية ويندوز، اسمح عالشبكات **الخاصة (Private)**.
 4. دوس **ربط جهاز جديد**، بيطلع **QR**.
 5. افتح التطبيق عالتلفون، بيطلب الكاميرا وبيمسح الـ QR. بيظهر **رمز من 6 أرقام** عالشاشتين. إذا هنّي نفسهم، أكّد عالكمبيوتر.

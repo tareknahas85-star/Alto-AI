@@ -74,7 +74,7 @@ export function registerTransferHandlers(): void {
         const dir = getSkillsDir()
         for (const rel of walk(dir)) b.skills[rel.split(path.sep).join('/')] = fs.readFileSync(path.join(dir, rel)).toString('base64')
       }
-      const r = await dialog.showSaveDialog({ title: 'احفظ ملف الإعدادات', defaultPath: 'TRL_AI_Agent-settings.trlx', filters: [{ name: 'TRL settings', extensions: ['trlx'] }] })
+      const r = await dialog.showSaveDialog({ title: 'احفظ ملف الإعدادات', defaultPath: 'Alto-AI-settings.altox', filters: [{ name: 'Alto AI settings', extensions: ['altox'] }] })
       if (r.canceled || !r.filePath) return { ok: false, error: 'انلغى' }
       fs.writeFileSync(r.filePath, encrypt(Buffer.from(JSON.stringify(b)), password))
       return { ok: true, path: r.filePath, files: Object.keys(b.files).length, skills: Object.keys(b.skills).length }
@@ -86,7 +86,7 @@ export function registerTransferHandlers(): void {
   ipcMain.handle('transfer:import', async (_e, password: unknown) => {
     try {
       if (typeof password !== 'string' || !password) return { ok: false, error: 'اكتب كلمة السر' }
-      const r = await dialog.showOpenDialog({ title: 'اختار ملف الإعدادات', properties: ['openFile'], filters: [{ name: 'TRL settings', extensions: ['trlx'] }] })
+      const r = await dialog.showOpenDialog({ title: 'اختار ملف الإعدادات', properties: ['openFile'], filters: [{ name: 'Alto AI settings', extensions: ['altox', 'trlx'] }] })
       if (r.canceled || !r.filePaths[0]) return { ok: false, error: 'انلغى' }
       const b = JSON.parse(decrypt(fs.readFileSync(r.filePaths[0]), password).toString('utf-8')) as Bundle
       if (b.v !== 1) throw new Error('إصدار الملف مو مدعوم')

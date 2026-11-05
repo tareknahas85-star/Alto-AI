@@ -7,7 +7,7 @@ import { interpretRelease, interpretFailure, shouldPrompt, POSTPONE_MS, type Upd
 // 1) A daily check against GitHub Releases (one anonymous GET, sends nothing about you).
 // 2) If a newer version exists, the app ASKS: "update now" or "later". Nothing is downloaded or installed without that yes.
 // 3) "Now": download the new version, then restart and install. "Later": asked again after 24 hours.
-const REPO = 'tareknahas85-star/TRL_AI_Agent'
+const REPO = 'tareknahas85-star/Alto-AI'
 const FILE = 'updates.json'
 type Cfg = { enabled: boolean; lastCheck: number; snoozeUntil: number }
 
@@ -27,7 +27,7 @@ export async function checkUpdate(): Promise<UpdateResult> {
   const current = app.getVersion()
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-      headers: { accept: 'application/vnd.github+json', 'user-agent': 'TRL_AI_Agent' },
+      headers: { accept: 'application/vnd.github+json', 'user-agent': 'Alto-AI' },
       signal: AbortSignal.timeout(10000)
     })
     let body: { tag_name?: unknown; html_url?: unknown } | null = null

@@ -200,7 +200,7 @@ ipcMain.handle('security:status', () => {
     return telegramState()
   })
   ipcMain.handle('telegram:detect', () => detectChatId())
-  ipcMain.handle('telegram:test', () => sendTelegram('✅ تجربة من TRL_AI_Agent — التنبيه شغّال'))
+  ipcMain.handle('telegram:test', () => sendTelegram('✅ تجربة من Alto AI — التنبيه شغّال'))
   ipcMain.handle('agents:list', () => listAgents())
   ipcMain.handle('agents:save', (_e, p: unknown) => {
     const l = saveAgent((p ?? {}) as never)

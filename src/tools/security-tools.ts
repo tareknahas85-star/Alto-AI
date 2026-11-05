@@ -9,7 +9,7 @@ import { getApiKey } from '../store/secure-store'
 //  - pwned_password_check: Have I Been Pwned "Pwned Passwords" with k-anonymity. Only the first 5 characters of the SHA-1 leave this machine, never the password.
 //  - virustotal_hash_lookup: looks a file up on VirusTotal by hash. The file itself is NEVER uploaded; needs the user's own free VirusTotal API key.
 
-const UA = 'TRL-AI-Agent/5.9 (personal desktop assistant)'
+const UA = 'Alto-AI/5.9 (personal desktop assistant)'
 type Handlers = Map<string, (a: Record<string, unknown>) => Promise<string>>
 
 const OFF = 'Error: security tools are switched off. Tell the user to enable them in Settings > General > Security checks.'

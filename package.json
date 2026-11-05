@@ -1,11 +1,11 @@
 {
-  "name": "TRL_AI_Agent",
-  "version": "5.19.30",
+  "name": "alto-ai",
+  "version": "5.20.0",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "Tarek Nahas <tareknahas@live.com>",
   "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://github.com/tareknahas85-star/TRL_AI_Agent",
+  "homepage": "https://github.com/tareknahas85-star/Alto-AI",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

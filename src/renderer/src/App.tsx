@@ -48,7 +48,7 @@ function AboutBadge({ onSetup }: { onSetup: () => void }): ReactElement {
       })
       .catch(() => undefined)
   }
-  const sys = info ? `TRL_AI_Agent v${info.version} | Electron ${info.electron} | Chromium ${info.chrome} | Node ${info.node} | ${info.platform}` : ''
+  const sys = info ? `Alto AI v${info.version} | Electron ${info.electron} | Chromium ${info.chrome} | Node ${info.node} | ${info.platform}` : ''
   return (
     <>
       <button
@@ -58,7 +58,7 @@ function AboutBadge({ onSetup }: { onSetup: () => void }): ReactElement {
       >
         <img src={appIcon} alt="" className="h-9 w-9 rounded-2xl shadow-card" />
         <div className="leading-tight">
-          <div className="text-base font-semibold">TRL_AI_Agent</div>
+          <div className="text-base font-semibold">Alto AI</div>
           <div className="text-[11px] text-muted">مايسترو الموديلات</div>
         </div>
       </button>
@@ -68,7 +68,7 @@ function AboutBadge({ onSetup }: { onSetup: () => void }): ReactElement {
             <div className="mb-4 flex items-start gap-3">
               <img src={appIcon} alt="" className="h-14 w-14 rounded-2xl shadow-card" />
               <div className="flex-1">
-                <div className="text-lg font-semibold">TRL_AI_Agent</div>
+                <div className="text-lg font-semibold">Alto AI</div>
                 <div className="text-xs text-muted" dir="ltr">
                   {info ? 'v' + info.version : '…'}
                 </div>
@@ -386,7 +386,7 @@ function Shell(): ReactElement {
     if (sound) beep()
     try {
       const title = tabsRef.current.find((x) => x.id === id)?.title ?? 'محادثة'
-      const n = new Notification('TRL_AI_Agent', { body: title + ' — خلصت المهمة', silent: true })
+      const n = new Notification('Alto AI', { body: title + ' — خلصت المهمة', silent: true })
       n.onclick = () => {
         void window.api.app.show()
         focusTab(id)

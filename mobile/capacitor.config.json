@@ -1,6 +1,6 @@
 {
   "appId": "app.trl.agent",
-  "appName": "TRL Agent",
+  "appName": "Alto AI",
   "webDir": "www",
   "server": {
     "androidScheme": "http",

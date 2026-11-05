@@ -1,9 +1,9 @@
 THIRD-PARTY NOTICES
 ===================
 
-TRL_AI_Agent includes or depends on the open source packages listed below.
+Alto AI includes or depends on the open source packages listed below.
 Each package is licensed by its own authors under its own license; the
-TRL_AI_Agent license (see LICENSE) does not apply to them. Copyright and
+Alto AI license (see LICENSE) does not apply to them. Copyright and
 license texts for each package are included in the package itself (in
 node_modules, or inside the installed app) and at the project links below.
 

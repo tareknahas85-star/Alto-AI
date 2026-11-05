@@ -58,7 +58,7 @@ function ensureWin(): BrowserWindow {
   })
   const wc = w.webContents
   // A plain Chrome user agent: Google refuses sign-in from agents that announce "Electron".
-  const ua = wc.getUserAgent().replace(/\s?Electron\/\S+/i, '').replace(/\s?(my-ai-router|TRL_AI_Agent)\/\S+/i, '')
+  const ua = wc.getUserAgent().replace(/\s?Electron\/\S+/i, '').replace(/\s?(alto-ai|Alto AI)\/\S+/i, '')
   wc.setUserAgent(ua)
   wc.session.setUserAgent(ua, 'en-US,en')
   wc.setWindowOpenHandler(({ url }) => {

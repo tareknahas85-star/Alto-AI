@@ -7,7 +7,7 @@ export const BLOCKED_APPS = /^(keepass|keepassxc|bitwarden|1password|lastpass|da
 /** Common apps where typing/clicking is low risk. Everything else asks every single time. */
 export const DEFAULT_ALLOWED = [
   'notepad', 'notepad++', 'calculator', 'calculatorapp', 'win32calc', 'calc', 'mspaint', 'paintstudio.view', 'wordpad', 'winword', 'excel', 'powerpnt', 'onenote',
-  'chrome', 'msedge', 'firefox', 'brave', 'explorer', 'code', 'snippingtool', 'screensketch', 'my-ai-router', 'claude'
+  'chrome', 'msedge', 'firefox', 'brave', 'explorer', 'code', 'snippingtool', 'screensketch', 'alto-ai', 'claude'
 ]
 
 export type AppClass = 'blocked' | 'allowed' | 'confirm'

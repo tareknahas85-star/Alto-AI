@@ -2,7 +2,7 @@
 // and POSTs plain text to the user's gate with a write-only key. It never sends, deletes or changes anything.
 export function mailScript(gateUrl: string, key: string, src: string): string {
   return [
-    '// TRL AI Agent - read-only mailbox link. Paste in script.google.com (signed in to the Gmail you want to link),',
+    '// Alto AI - read-only mailbox link. Paste in script.google.com (signed in to the Gmail you want to link),',
     '// run installTrigger() once and approve the permission. It checks new mail every minute.',
     "const GATE = '" + gateUrl + "';",
     "const KEY = '" + key + "';",
