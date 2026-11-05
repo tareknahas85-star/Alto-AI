@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, Download, FileText, Link2, Loader2, Play, Plus, Trash2, X } from 'lucide-react'
 import { Empty, PageShell, cardCls, ghostBtn, inputCls, primaryBtn } from './components/ui'
 import { Markdown } from './Markdown'
 import { renderSlideVideo } from './slide-video'
+import { drawSlide } from './slide-draw'
 import { askConfirm } from './components/confirm'
 import { extractMermaid, csvOf, parseCsv, parseDeck, parseDialogue, parseFlashcards, parseInfographic, parseQuiz } from '../core/notebook'
 
@@ -115,6 +116,16 @@ function MindMap({ body }: { body: string }) {
   return <ul className="text-sm"><Tree n={tree} /></ul>
 }
 
+function SlideThumb({ deck, index }: { deck: ReturnType<typeof parseDeck> & object; index: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const c = ref.current
+    const ctx = c?.getContext('2d')
+    if (ctx) drawSlide(ctx, deck, index)
+  }, [deck, index])
+  return <canvas ref={ref} width={1280} height={720} className="w-full rounded-md" />
+}
+
 function Slides({ nbId, noteId, body }: { nbId: string; noteId: string; body: string }) {
   const d = parseDeck(body)
   const [prog, setProg] = useState('')
@@ -153,9 +164,9 @@ function Slides({ nbId, noteId, body }: { nbId: string; noteId: string; body: st
       </div>
       {vurl && <video controls src={vurl} className="w-full rounded-lg" />}
       {d.slides.map((s, i) => (
-        <div key={i} className="rounded-lg border border-outline p-3 text-sm">
-          <div className="mb-1 font-medium">{i + 1}. {s.title}</div>
-          {s.bullets.length > 0 && <ul className="list-disc pr-5 text-muted">{s.bullets.map((b, j) => <li key={j}>{b}</li>)}</ul>}
+        <div key={i} className="rounded-lg border border-outline p-2 text-sm">
+          <SlideThumb deck={d} index={i} />
+          <div className="mt-1 text-xs text-muted">{i + 1}. {s.title}</div>
         </div>
       ))}
     </div>
