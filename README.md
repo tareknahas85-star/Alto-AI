@@ -6,14 +6,21 @@
 </p>
 
 <p align="center">
-  <a href="#english">English</a> &nbsp;·&nbsp; <a href="#arabic">بالعربي</a>
+  <img src="docs/Alto-AI-poster.png" alt="Alto AI: all your AI in one desktop app · كل الذكاء الاصطناعي بواجهة وحدة" width="100%">
+</p>
+
+<p align="center">
+  <a href="#english">English</a> &nbsp;·&nbsp; <a href="#arabic">بالعربي</a> &nbsp;·&nbsp; 📘 <a href="https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html">Interactive guide · الدليل التفاعلي</a>
 </p>
 
 ## Download · التحميل
 
-| | Windows | Linux / Ubuntu | Android |
-|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.1/Alto-AI-5.20.1-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.1/Alto-AI-5.20.1-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-android.apk) |
+| | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
+|---|---|---|---|---|
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.1/Alto-AI-5.20.1-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.1/Alto-AI-5.20.1-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-android.apk) |
+
+📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
+📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
 
 All files, release notes and `SHA256SUMS.txt` are on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases/latest).
 كل الملفات وملاحظات الإصدار وملف `SHA256SUMS.txt` بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest).
