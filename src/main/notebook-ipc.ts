@@ -5,10 +5,13 @@ import { newId, readJson, writeJson } from '../core/json-store'
 import { checkSideUrl } from '../core/side-url'
 import {
   MAX_SOURCE_CHARS, OUTPUT_KINDS, buildAskPrompt, buildOutputPrompt, csvOf, htmlToText, isPrivateHost, outputTitle, parseCsv, retrieve,
+  buildShamiFixPrompt, deckText, looksFusha,
   type Notebook, type NbSource, type OutputKind, parseDeck, parseInfographic, parseDialogue, infographicHtml, type Deck, type DialogueLine } from '../core/notebook'
 import { prepareFile } from './attach'
 import { synthDialogue } from './voice-ipc'
 import { geminiSpeak } from './gemini-tts'
+import { liveSpeak } from './live-narrate'
+import { shamiRewriteDeck } from './shami-fix'
 import { driveConnect, driveDisconnect, driveFetch, driveSearch, driveStatus, importClientFile, type DriveFile } from './google-drive'
 
 // «دفتر»: notebooks live in one JSON file. The chat pipeline answers; this file only prepares prompts and stores results.
@@ -202,7 +205,27 @@ export function registerNotebookIpc(): void {
     if (n.sources.length === 0) return { ok: false, error: 'ضيف مصدر واحد على الأقل أول' }
     const k = kind as OutputKind
     try {
-      const body = await run(buildOutputPrompt(k, n.sources, typeof focus === 'string' ? focus : ''))
+      let body = await run(buildOutputPrompt(k, n.sources, typeof focus === 'string' ? focus : ''))
+      if (k === 'slides') {
+        // الموديلات المجانية أوقات بتكتب فصحى رغم الطلب: إذا النص مايل للفصحى منعيد صياغتو بالشامي مرة وحدة (بنفس البنية).
+        // أول خيار: Gemini (نفس مفتاح سعاد) لأنو أقوى بالشامي؛ إذا ما اشتغل ونص الموديل مايل لغير الشامي منعيد بالموديل العادي.
+        const d = parseDeck(body)
+        if (d) {
+          let done = false
+          try {
+            const fixed = await shamiRewriteDeck(body)
+            const fd = parseDeck(fixed)
+            if (fd && fd.slides.length === d.slides.length) { body = fixed; done = true }
+          } catch { /* منجرب الموديل العادي */ }
+          if (!done && looksFusha(deckText(d))) {
+            try {
+              const fixed = await run(buildShamiFixPrompt(body))
+              const fd = parseDeck(fixed)
+              if (fd && fd.slides.length === d.slides.length) body = fixed
+            } catch { /* منكمّل بالأصل */ }
+          }
+        }
+      }
       return { ok: true, nb: addNote(n.id, { kind: k, title: outputTitle(k), body }) }
     } catch (e) { return { ok: false, error: (e as Error).message } }
   })
@@ -224,6 +247,7 @@ export function registerNotebookIpc(): void {
       for (const sd of deck.slides) {
         const text = ((sd.notes || '').trim() || [sd.title, ...sd.bullets].join('. ')).slice(0, 1200)
         if (engine === 'gemini') {
+          try { urls.push('data:audio/wav;base64,' + (await liveSpeak(text)).toString('base64')); continue } catch { /* سعاد Live ما رجّعت: منجرب Gemini TTS بنفس الصوت */ }
           try { urls.push('data:audio/wav;base64,' + (await geminiSpeak(text)).toString('base64')); continue } catch { if (urls.length) throw new Error('انقطع صوت سعاد (Gemini) بنص الشغل، جرّب كمان شوي') ; engine = 'edge' }
         }
         const buf = await synthDialogue([{ text, voice: VOICE_A }])

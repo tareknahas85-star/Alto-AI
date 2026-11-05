@@ -135,7 +135,7 @@ const OUT: Record<OutputKind, { title: string; ask: string }> = {
   },
   slides: {
     title: 'عرض تقديمي',
-    ask: 'اعمل عرض تقديمي من 6 إلى 10 شرايح. رجّع فقط JSON داخل كتلة ```json على شكل: {"title":"عنوان العرض","slides":[{"title":"عنوان الشريحة","bullets":["نقطة قصيرة","نقطة قصيرة"],"notes":"التعليق الصوتي لهالشريحة: جملتين لثلاث جمل بالشامي، منطوقة وبسيطة متل ما بتحكي مع حدا، بدون رموز أو أرقام معقدة"}]}. أول شريحة هي الغلاف (بدون نقاط أو بنقطة وحدة)، وآخر شريحة خلاصة. بين 3 و5 نقاط قصيرة بكل شريحة. بدون أي شرح خارج الكتلة.'
+    ask: 'اعمل عرض تقديمي بصري من 8 إلى 9 شرايح، مبني على المصادر. رجّع فقط JSON داخل كتلة ```json على شكل: {"title":"عنوان العرض","slides":[{"layout":"cover|cards|mindmap|steps|list","icon":"إيموجي واحد بيعبّر عن الشريحة","title":"عنوان قصير (4 كلمات أو أقل)","bullets":["عبارة قصيرة جداً (2 إلى 5 كلمات، مو جملة)"],"icons":["إيموجي لكل عبارة بنفس ترتيبها"],"notes":"التعليق الصوتي لهالشريحة: جملتين لثلاث بالشامي المحكي"}]}. الشريحة الأولى layout=cover (غلاف). نوّع التصاميم: شريحة وحدة mindmap (العنوان هو المركز والعبارات فروعو، من 4 لـ 6 فروع)، وشريحة أو اتنتين cards (3 لـ 6 مربعات)، وشريحة steps (خطوات مرقّمة من 3 لـ 5)، والباقي cards أو list. آخر شريحة: خلاصة أو الخطوة الجاية (مثلاً التحميل إذا المصادر فيها مكان التحميل). ممنوع تضيف أي معلومة أو خطوة مو مكتوبة بالمصادر (مثل تسجيل دخول أو أسعار). لازم icon وicons إيموجي حقيقي. بدون أي شرح خارج الكتلة.'
   },
   infographic: {
     title: 'إنفوغرافيك',
@@ -147,6 +147,42 @@ const OUT: Record<OutputKind, { title: string; ask: string }> = {
   }
 }
 
+const SHAMI_STRICT =
+  'اللهجة (مهم جداً): اكتب كل النصوص (العناوين والعبارات والتعليق الصوتي) بلهجة شامية سورية عامية دارجة، بالضبط متل ما بتحكي سعاد (المساعدة الصوتية) مع صاحبها. ' +
+  'استعمل: هلأ، شو، هيك، كتير، منيح، بدك، ليش، هاد، هاي، عم، رح، مشان، إلك، لسا، شوي، يلا، مو، شي، هون، بيخليك، بتقدر. ' +
+  'ممنوع الفصحى (يمكنك، سوف، حيث، الذي، التي، لذلك، أيضاً، يتيح، لكي، هذا) وممنوع اللهجة المصرية أو الخليجية (مش، هتـ، حاجة، كده، دلوقتي، إزاي، أوي، عشان، ده، دي، شلون، وايد). ' +
+  'مثال صح: «هلأ بتقدر تعمل كل شي بمكان واحد، وكتير منيح لأنو مجاني». مثال غلط: «مش هتضيع وقتك، كل حاجة في مكان واحد». ' +
+  'جمل قصيرة، بدون رموز أو أرقام معقّدة بالتعليق.'
+
+const FUSHA = new Set(['سوف', 'يمكنك', 'يمكن', 'حيث', 'الذي', 'التي', 'لذلك', 'أيضا', 'أيضاً', 'يتيح', 'يوفر', 'يوفّر', 'تمتلك', 'لكي', 'بحيث', 'هذا', 'هذه', 'ذلك', 'عندما', 'كما', 'لديك', 'يعتبر',
+  // مصري/خليجي: مو شامي
+  'مش', 'حاجة', 'كده', 'دلوقتي', 'ازاي', 'إزاي', 'أوي', 'عشان', 'ده', 'دي', 'دول', 'شلون', 'وايد', 'زين', 'بتاع', 'بتاعك', 'عايز', 'عايزك', 'عايزة', 'فين', 'لسه', 'برضه', 'جدا', 'جداً', 'قوي', 'كمان', 'ليه'])
+const EGYPT_FUTURE = /^هت[\u0600-\u06FF]{2,}$/
+const SHAMI_WORDS = new Set(['هلأ', 'شو', 'هيك', 'كتير', 'منيح', 'بدك', 'ليش', 'هاد', 'هاي', 'عم', 'رح', 'مشان', 'إلك', 'الك', 'لسا', 'شوي', 'يلا', 'بيخليك', 'بتخليك', 'بتقدر', 'بيقدر', 'هون', 'عندك', 'عنا', 'مو'])
+
+/** يعدّ كلمات الفصحى/المصري/الخليجي مقابل الشامي بنص: بيرجّع true إذا النص مو شامي (فيه كلمتين غريبتين على الأقل وأكتر من الشامي). */
+export function looksFusha(text: string): boolean {
+  const toks = text.split(/[^\u0600-\u06FF]+/).filter(Boolean)
+  let f = 0
+  let sh = 0
+  for (const t of toks) { if (FUSHA.has(t) || EGYPT_FUTURE.test(t)) f++; else if (SHAMI_WORDS.has(t)) sh++ }
+  return f >= 2 && f >= sh
+}
+
+export function deckText(deck: Deck): string {
+  return deck.slides.map((s) => [s.title, ...s.bullets, s.notes].join(' ')).join(' ')
+}
+
+export function buildShamiFixPrompt(deckBody: string): string {
+  return [
+    'أعد كتابة العرض التالي بنفس الـJSON بالضبط (نفس الحقول layout وicon وicons والترتيب وعدد الشرايح)، وغيّر بس النصوص (title وbullets وnotes) لتصير بلهجة شامية سورية عامية محكية.',
+    SHAMI_STRICT,
+    'رجّع فقط JSON داخل كتلة ```json بدون أي شرح.',
+    '',
+    deckBody
+  ].join('\n')
+}
+
 export const outputTitle = (k: OutputKind): string => OUT[k].title
 export const OUTPUT_KINDS: OutputKind[] = ['report', 'table', 'mindmap', 'flashcards', 'quiz', 'slides', 'infographic', 'audio']
 
@@ -155,7 +191,7 @@ export function buildOutputPrompt(kind: OutputKind, sources: NbSource[], focus =
     'اعتماداً على المصادر التالية فقط (بدون معلومات من برّا):',
     OUT[kind].ask,
     focus.trim() ? 'ركّز على: ' + focus.trim() : '',
-    SHAMI,
+    kind === 'slides' || kind === 'audio' ? SHAMI_STRICT : SHAMI,
     UNTRUSTED,
     '',
     sourcesBlock(sources)
@@ -256,7 +292,9 @@ export function isPrivateHost(host: string): boolean {
   return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
 }
 
-export interface Slide { title: string; bullets: string[]; notes: string }
+export type SlideLayout = 'cover' | 'cards' | 'mindmap' | 'steps' | 'list'
+const LAYOUTS: SlideLayout[] = ['cover', 'cards', 'mindmap', 'steps', 'list']
+export interface Slide { title: string; bullets: string[]; notes: string; layout?: SlideLayout; icon?: string; icons?: string[] }
 export interface Deck { title: string; slides: Slide[] }
 export interface Infographic { title: string; stats: { value: string; label: string }[]; sections: { heading: string; points: string[] }[]; takeaway: string }
 export interface DialogueLine { who: 'A' | 'B'; text: string }
@@ -280,7 +318,17 @@ export function parseDeck(text: string): Deck | null {
   if (!o) return null
   const slides = objs(o.slides)
     .filter((x) => typeof x.title === 'string' && String(x.title).trim())
-    .map((x) => ({ title: String(x.title).trim().slice(0, 140), bullets: strs(x.bullets).slice(0, 7).map((b) => b.slice(0, 220)), notes: typeof x.notes === 'string' ? x.notes.slice(0, 1000) : '' }))
+    .map((x): Slide => {
+      const lay = LAYOUTS.find((l) => l === String(x.layout ?? '').toLowerCase())
+      return {
+        title: String(x.title).trim().slice(0, 140),
+        bullets: strs(x.bullets).slice(0, 7).map((b) => b.slice(0, 220)),
+        notes: typeof x.notes === 'string' ? x.notes.slice(0, 1000) : '',
+        ...(lay ? { layout: lay } : {}),
+        ...(typeof x.icon === 'string' && x.icon.trim() ? { icon: x.icon.trim().slice(0, 8) } : {}),
+        ...(Array.isArray(x.icons) ? { icons: x.icons.map((v) => String(v ?? '').trim().slice(0, 8)) } : {})
+      }
+    })
     .slice(0, 20)
   if (!slides.length) return null
   return { title: typeof o.title === 'string' && o.title.trim() ? o.title.trim().slice(0, 140) : slides[0].title, slides }

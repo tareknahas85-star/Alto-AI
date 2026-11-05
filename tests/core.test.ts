@@ -1056,3 +1056,27 @@ test('toneOf: same rule for single-model tests', () => {
   assert.equal(toneOf(false, '401 invalid key').tone, 'fail')
   assert.equal(toneOf(true, 'ok').tone, 'ok')
 })
+
+test('notebook slides: visual layout fields, Shami prompt and fusha detector', async () => {
+  const { parseDeck, looksFusha, deckText, buildOutputPrompt, buildShamiFixPrompt } = await import('../src/core/notebook')
+  const body = '```json\n{"title":"ت","slides":[{"layout":"mindmap","icon":"🧠","title":"خريطة","bullets":["أ","ب"],"icons":["🔧","🎯"],"notes":"هلأ شو"},{"layout":"weird","title":"س","bullets":["x"],"notes":""}]}\n```'
+  const d = parseDeck(body)
+  assert.ok(d)
+  assert.equal(d.slides[0].layout, 'mindmap')
+  assert.equal(d.slides[0].icon, '🧠')
+  assert.deepEqual(d.slides[0].icons, ['🔧', '🎯'])
+  assert.equal(d.slides[1].layout, undefined)
+  const p = buildOutputPrompt('slides', [{ id: '1', name: 't', kind: 'text', text: 'x', at: 0 }], '')
+  assert.match(p, /mindmap/)
+  assert.match(p, /شامية سورية عامية/)
+  assert.equal(looksFusha('يمكنك استخدام البرنامج حيث يتيح لك الكثير'), true)
+  assert.equal(looksFusha('هلأ شو بدك تسوي كتير منيح هيك بيخليك'), false)
+  assert.ok(deckText(d).includes('هلأ'))
+  assert.match(buildShamiFixPrompt('{}'), /شامية سورية عامية/)
+})
+
+test('looksFusha also catches Egyptian/Gulf wording (not Shami)', async () => {
+  const { looksFusha } = await import('../src/core/notebook')
+  assert.equal(looksFusha('مش هتضيع وقتك، كل حاجة في مكان واحد'), true)
+  assert.equal(looksFusha('ما رح تضيّع وقتك، كل شي بمكان واحد وكتير منيح'), false)
+})
