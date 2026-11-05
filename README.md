@@ -5,6 +5,16 @@
   <b>وكيل ذكاء اصطناعي لسطح المكتب</b>
 </p>
 
+<div dir="rtl">
+
+> **ليش اسمو Alto؟** سنة 1973، بمختبر **Xerox PARC** بمدينة بالو ألتو (ومنها إجا الاسم)، طلع جهاز اسمو **Xerox Alto**. كان أول حاسوب شخصي مبني كلو على واجهة رسومية: شاشة فيها نوافذ وأيقونات، وماوس، وشبكة بين الأجهزة. ما انباع للناس، بس فكرتو غيّرت كلشي: منو استوحت Apple الـLisa والـMac، وبعدين إجا Windows. يعني Alto هو اللي خلّى الكمبيوتر يصير لكل الناس، مو بس للمختصين.
+>
+> **وشو علاقتنا فيه؟** نفس الفكرة بس للذكاء الاصطناعي. اليوم في عشرات الموديلات والمفاتيح والمواقع، وكل وحدة إلها طريقتها. **Alto AI** بيجمعهن بواجهة وحدة بسيطة عكمبيوترك: بتكتب أو بتحكي طلبك، والبرنامج بيختار الموديل المناسب وبيبدأ بالمجاني. هدفنا متل هدف Alto الأصلي: تقنية قوية تصير سهلة وقريبة من أي حدا.
+
+</div>
+
+> **Why "Alto"?** In 1973, at **Xerox PARC** in Palo Alto (where the name comes from), Xerox built the **Alto**: the first personal computer designed around a graphical interface, with windows, icons, a mouse and networking. It was never sold to the public, yet it inspired the Apple Lisa and Macintosh, and later Windows. **Alto AI** follows the same idea for AI: many models, keys and services behind one simple desktop app that picks the right model for you and starts with the free ones.
+
 <p align="center">
   <img src="docs/Alto-AI-poster.png" alt="Alto AI: all your AI in one desktop app · كل الذكاء الاصطناعي بواجهة وحدة" width="100%">
 </p>
