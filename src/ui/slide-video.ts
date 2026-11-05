@@ -15,6 +15,21 @@ function b64ToBytes(dataUrl: string): ArrayBuffer {
   return u.buffer
 }
 
+/** وقت بداية صوت كل شريحة على ساعة الصوت: ورا بعض مع فاصل gap. */
+export function schedule(durations: number[], t0: number, gap: number): number[] {
+  const out: number[] = []
+  let t = t0
+  for (const d of durations) { out.push(t); t += d + gap }
+  return out
+}
+
+/** أي شريحة لازم تكون عالشاشة بلحظة now (آخر شريحة بلّش وقتها). */
+export function slideAt(starts: number[], now: number): number {
+  let i = 0
+  while (i + 1 < starts.length && now >= starts[i + 1]) i++
+  return i
+}
+
 export async function renderSlideVideo(deck: Deck, audioUrls: string[], onProgress: (done: number, total: number) => void): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = W
@@ -33,24 +48,32 @@ export async function renderSlideVideo(deck: Deck, audioUrls: string[], onProgre
     const chunks: Blob[] = []
     rec.ondataavailable = (e): void => { if (e.data.size) chunks.push(e.data) }
     const stopped = new Promise<void>((res) => { rec.onstop = (): void => res() })
+    // التزامن: كل الصوت بينجدول على ساعة الـAudioContext (ما بتتأخر حتى لو النافذة مخفية)، والشريحة بتتبدّل
+    // حسب نفس الساعة، وبتطلع قبل صوتها بشوي (LEAD) مشان ما يسبق الصوت الصورة.
+    const LEAD = 0.4
+    const GAP = 0.7
+    const durs = deck.slides.map((_, i) => buffers[i]?.duration ?? 2)
+    const starts = schedule(durs, ac.currentTime + 0.6, GAP)
+    const end = starts[starts.length - 1] + durs[durs.length - 1] + GAP
+    buffers.forEach((buf, i) => {
+      if (!buf) return
+      const src = ac.createBufferSource()
+      src.buffer = buf
+      src.connect(dest)
+      src.start(starts[i])
+    })
     let cur = 0
     drawSlide(ctx, deck, 0)
-    const tick = setInterval(() => drawSlide(ctx, deck, cur), 200)
     rec.start(1000)
-    for (let i = 0; i < deck.slides.length; i++) {
-      cur = i
-      drawSlide(ctx, deck, i)
-      onProgress(i, deck.slides.length)
-      const buf = buffers[i]
-      if (buf) {
-        const src = ac.createBufferSource()
-        src.buffer = buf
-        src.connect(dest)
-        await new Promise<void>((res) => { src.onended = (): void => res(); src.start() })
-      }
-      await new Promise((r) => setTimeout(r, 700))
-    }
-    clearInterval(tick)
+    onProgress(0, deck.slides.length)
+    await new Promise<void>((res) => {
+      const tick = setInterval(() => {
+        const i = slideAt(starts, ac.currentTime + LEAD)
+        if (i !== cur) { cur = i; onProgress(i, deck.slides.length) }
+        drawSlide(ctx, deck, cur)
+        if (ac.currentTime >= end) { clearInterval(tick); res() }
+      }, 40)
+    })
     rec.stop()
     await stopped
     onProgress(deck.slides.length, deck.slides.length)

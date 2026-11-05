@@ -1106,3 +1106,13 @@ test('whats-new reads the newest CHANGELOG section', async () => {
   assert.ok(r && r.notes.length > 0)
   assert.equal(r?.version, JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')).version)
 })
+
+test('slide video: slides follow the audio clock (no voice ahead of its slide)', async () => {
+  const { schedule, slideAt } = await import('../src/ui/slide-video')
+  const s = schedule([3, 5, 2], 10, 0.7)
+  assert.deepEqual(s.map((x) => Math.round(x * 10) / 10), [10, 13.7, 19.4])
+  assert.equal(slideAt(s, 10), 0)
+  assert.equal(slideAt(s, 13.3 + 0.4), 1) // الشريحة بتطلع 0.4 ث قبل صوتها
+  assert.equal(slideAt(s, 13.2), 0)
+  assert.equal(slideAt(s, 99), 2)
+})
