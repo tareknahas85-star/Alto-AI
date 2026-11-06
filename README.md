@@ -20,8 +20,20 @@
 </p>
 
 <p align="center">
-  <a href="#english">English</a> &nbsp;·&nbsp; <a href="#arabic">بالعربي</a> &nbsp;·&nbsp; 📘 <a href="https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html">Interactive guide · الدليل التفاعلي</a>
+  <a href="#english">English</a> &nbsp;·&nbsp; <a href="#arabic">بالعربي</a> &nbsp;·&nbsp; 📘 <a href="https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html">Interactive guide · الدليل التفاعلي</a> &nbsp;·&nbsp; ▶️ <a href="https://www.youtube.com/@tanalabtech">YouTube</a>
 </p>
+
+<p align="center">
+  <a href="https://youtu.be/1pAgZwKZ9tk"><img src="https://img.youtube.com/vi/1pAgZwKZ9tk/maxresdefault.jpg" alt="▶️ Watch the full Alto AI walkthrough on YouTube · شوف شرح Alto AI الكامل على يوتيوب" width="70%"></a>
+</p>
+
+## Videos · الفيديوهات
+
+| | |
+|---|---|
+| ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
+| 📺 **Feature by feature · ميزة بميزة** (7 short episodes · 7 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
+| 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
 
