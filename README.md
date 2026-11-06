@@ -789,6 +789,6 @@ and the licenses of the libraries it uses are in
 
 ## Contribute · ساهم معنا
 
-Want to help? Read [CONTRIBUTING.md](CONTRIBUTING.md). Issues labelled [`good first issue`](../../labels/good%20first%20issue) are an easy start, and questions or ideas are welcome in [Discussions](../../discussions).
+Alto AI is source-available and does not take code pull requests. Bug reports, ideas and wording fixes are very welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), and use [Discussions](../../discussions) for questions.
 
-بدك تساعد؟ اقرا [CONTRIBUTING.md](CONTRIBUTING.md). المهام اللي عليها [`good first issue`](../../labels/good%20first%20issue) بداية سهلة، وأي سؤال أو فكرة احكيها بـ [Discussions](../../discussions).
+Alto AI مصدره مفتوح للقراءة بس وما بيقبل pull requests عالكود. بلاغات الأخطاء والأفكار وتصحيحات الصياغة مرحّب فيها كتير: اقرا [CONTRIBUTING.md](CONTRIBUTING.md)، والأسئلة احكيها بـ [Discussions](../../discussions).

@@ -2,62 +2,22 @@
 
 ## English
 
-Thanks for wanting to help. This is a small open project, and every bit of help counts.
+Alto AI is source-available under a personal and non-commercial license (see `LICENSE`). Because of that, this project does **not** take code pull requests, and the code may not be modified or republished. You can still help a lot:
 
-### Ways to help
-
-- **Report a bug.** Open an issue: what you did, what you expected, what happened.
+- **Report a bug.** Open an issue with: what you did, what you expected, what happened, the app version and your system (Windows or Linux). Never paste API keys or personal data.
 - **Suggest an idea.** Open an issue, or start a thread in Discussions.
-- **Improve the Arabic.** Arabic text in the app and docs is written in everyday Levantine (Shami) dialect, not formal Arabic.
-- **Translate** to a new language.
-- **Fix code or docs.** Send a pull request. Issues labelled `good first issue` are a good start.
+- **Suggest wording fixes.** The Arabic text is written in everyday Levantine (Shami) dialect, not formal Arabic. If a sentence sounds wrong, tell us in an issue and we will fix it.
+- **Share how you use it.** Questions, tips and feedback are welcome in Discussions.
 
-### Before you send a pull request
-
-- Big change? Open an issue first so we can talk about it.
-- Keep each PR small and about one thing.
-- Test your change before sending it.
-- Never put API keys, passwords or personal data in any file.
-
-### Build and run
-
-Install Node.js 20+, then `npm ci`. Run the app with `npm run dev`. Before a PR run `npm run lint`, `npm run typecheck` and `npm test`.
-
-### Commit messages
-
-One short sentence that says what changed, for example `Fix crash when the list is empty`.
-
-### License
-
-By contributing you agree that your work is released under this project's license (see `LICENSE`).
+Want to use Alto AI in a business or need other terms? Write to tareknahas@live.com.
 
 ## بالعربي
 
-شكراً إنك حابب تساعد! المشروع صغير ومفتوح، وأي مساعدة بتفرق.
+Alto AI مصدره مفتوح للقراءة بس، تحت رخصة للاستعمال الشخصي وغير التجاري (شوف `LICENSE`). عشان هيك المشروع **ما بيقبل pull requests عالكود**، وما بيصير تعدّل عالكود أو تعيد نشرو. بس لسا فيك تساعد كتير:
 
-### كيف بتقدر تساعد
-
-- **بلّغ عن مشكلة:** افتح issue وقلنا شو عملت، وشو كنت متوقع، وشو صار.
+- **بلّغ عن مشكلة:** افتح issue وقلنا شو عملت، وشو كنت متوقع، وشو صار، ونسخة البرنامج ونظامك (ويندوز أو لينكس). لا تحط مفاتيح API ولا معلومات شخصية.
 - **اقترح فكرة:** افتح issue أو ابدأ نقاش بـ Discussions.
-- **حسّن النص العربي:** النصوص العربية بالتطبيق والوثائق بتنكتب بلهجة شامية عادية، مو فصحى.
-- **ترجم** للغة جديدة.
-- **صلّح كود أو وثائق:** ابعتلنا pull request. المهام اللي عليها label اسمو `good first issue` بداية منيحة.
+- **اقترح تصحيح للصياغة:** النصوص العربية بتنكتب بلهجة شامية عادية، مو فصحى. إذا جملة سمعتها غريبة، احكينا عنها بـ issue ومنصلّحها.
+- **احكينا كيف بتستعملو:** الأسئلة والنصايح والملاحظات مرحّب فيها بـ Discussions.
 
-### قبل ما تبعت pull request
-
-- التغيير كبير؟ افتح issue أول وخلينا نحكي فيه.
-- خلّي كل PR صغير وبشي واحد.
-- جرّب تغييرك قبل ما ترسلو.
-- لا تحط مفاتيح API ولا كلمات سر ولا معلومات شخصية بأي ملف.
-
-### كيف بتبني وبتشغّل
-
-نزّل Node.js 20 أو أحدث، وبعدين `npm ci`. شغّل البرنامج بـ `npm run dev`. قبل ما تبعت PR شغّل `npm run lint` و`npm run typecheck` و`npm test`.
-
-### رسائل الـ commit
-
-جملة وحدة قصيرة بتقول شو تغيّر، مثلاً `Fix crash when the list is empty`.
-
-### الرخصة
-
-لما بتساهم، بتوافق إنو شغلك بينزل تحت رخصة المشروع (شوف `LICENSE`).
+بدك تستعمل Alto AI بشغل تجاري أو بدك شروط تانية؟ احكيني على tareknahas@live.com.
