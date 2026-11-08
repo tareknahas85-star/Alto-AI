@@ -1,3 +1,4 @@
+import { startAndroidEmulator } from './android-emulator'
 import { BrowserWindow, ipcMain, type WebContents } from 'electron'
 import { analyzeRequest, warmLocalMaster, type Analysis } from '../core/master'
 import { ensureOllama } from '../core/ollama'
@@ -407,6 +408,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('keys:get', (_event, key: unknown) => (isKeyName(key) ? getApiKey(key) : ''))
 
   ipcMain.handle('keys:set', (_event, key: unknown, value: unknown) => {
+    if (key === 'GEMINI_API_KEY' && typeof value === 'string' && value.trim()) void startAndroidEmulator()
     if (!isKeyName(key) || typeof value !== 'string') return false
     setApiKey(key, value)
     if (value) process.env[key] = value

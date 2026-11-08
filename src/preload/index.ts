@@ -71,6 +71,14 @@ const api = {
     appsSet: (l: string[]): Promise<{ defaults: string[]; extra: string[] }> => ipcRenderer.invoke('computer:apps:set', l),
     setFull: (on: boolean): Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }> => ipcRenderer.invoke('computer:setFull', on)
   },
+  android: {
+    status: () => ipcRenderer.invoke('android:status'),
+    start: () => ipcRenderer.invoke('android:start'),
+    screenshot: () => ipcRenderer.invoke('android:screenshot'),
+    tap: (x: number, y: number) => ipcRenderer.invoke('android:tap', x, y),
+    key: (k: string) => ipcRenderer.invoke('android:key', k),
+    text: (t: string) => ipcRenderer.invoke('android:text', t)
+  },
   onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void): (() => void) => {
     const h = (_e: unknown, tabId: string, k: 'chunk' | 'reset', t?: string): void => cb(tabId, k, t)
     ipcRenderer.on('chat:stream', h)

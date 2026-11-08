@@ -17,6 +17,7 @@ import { needsDocTools, needsLocation, needsSecurity } from '../core/guidance'
 import { addDocTools } from '../tools/doc-tools'
 import { addSecurityTools } from '../tools/security-tools'
 import { addSandboxTools, needsSandbox } from '../tools/sandbox-tools'
+import { addAndroidTools, needsAndroid } from '../tools/android-tools'
 import { addNotebookTools, needsNotebook } from '../tools/notebook-tools'
 import { addGoogleMediaTools, needsGoogleMedia } from '../tools/google-media-tools'
 import { toolPrior } from '../core/learning'
@@ -349,6 +350,8 @@ export async function buildToolset(userInput: string, projectPath?: string, opts
 
   // Isolated code sandbox (WSL Ubuntu): Windows only, every run needs approval, never in a confidential project.
   if (needsSandbox(userInput) && !opts.confidential && process.platform === 'win32') addSandboxTools(defs, handlers)
+  // Android emulator control (ADB): read tools are free, every tap/type/key/build needs approval.
+  if (needsAndroid(userInput) && !opts.confidential) addAndroidTools(defs, handlers)
 
   // Local PDF/image tools (merge, extract pages, convert/shrink): run on this PC only, so they are fine in confidential projects. Needs PC control because they write files.
   if (needsDocTools(userInput) && computerEnabled()) addDocTools(defs, handlers, projectPath)

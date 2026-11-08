@@ -181,6 +181,14 @@ declare global {
       appsSet: (l: string[]) => Promise<{ defaults: string[]; extra: string[] }>
       setFull: (on: boolean) => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
       }
+      android: {
+        status: () => Promise<{ ok: boolean; data?: { connected: boolean; serial?: string; size?: { w: number; h: number }; error?: string }; error?: string }>
+        start: () => Promise<{ ok: boolean; data?: boolean; error?: string }>
+        screenshot: () => Promise<{ ok: boolean; data?: string; error?: string }>
+        tap: (x: number, y: number) => Promise<{ ok: boolean; error?: string }>
+        key: (k: string) => Promise<{ ok: boolean; error?: string }>
+        text: (t: string) => Promise<{ ok: boolean; error?: string }>
+      }
       onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void) => () => void
       status: () => Promise<{ key: boolean; ollama: boolean; localMaster: boolean; mcpOn: number; mcpTotal: number; free: { count: number; limit: number; limited: boolean } }>
       onProgress: (cb: (tabId: string, text: string) => void) => () => void

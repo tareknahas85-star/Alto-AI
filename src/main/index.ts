@@ -6,6 +6,8 @@ import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers, hydrateEnvFromStore } from './ipc'
 import { installIpcSenderGuard } from './ipc-guard'
 import { registerSideIpc } from './side-ipc'
+import { registerAndroidHandlers } from './android-ipc'
+import { startAndroidEmulator, stopAndroidEmulator } from './android-emulator'
 import { onWindowResized } from './side-browser'
 import { closeAllMcp } from '../mcp/runtime'
 import { shutdownRemote } from '../remote/host'
@@ -116,6 +118,8 @@ app.whenReady().then(() => {
   hydrateEnvFromStore()
   registerIpcHandlers()
   registerSideIpc(() => mainWin)
+  registerAndroidHandlers()
+  if (process.env.GEMINI_API_KEY) void startAndroidEmulator()
   ipcMain.handle('app:show', () => showMain())
   ipcMain.handle('app:flash', () => {
     if (mainWin && !mainWin.isDestroyed() && !mainWin.isFocused()) mainWin.flashFrame(true)
@@ -136,6 +140,7 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('before-quit', () => {
+  void stopAndroidEmulator()
   quitting = true
   tray?.destroy()
   closeAllMcp()

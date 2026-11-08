@@ -9,6 +9,7 @@ import appIcon from './assets/icon.png'
 import syriaEagle from './assets/syria-eagle.svg'
 import { ChatWindow } from '../../ui/ChatWindow'
 import { SideBrowserPanel } from '../../ui/SideBrowserPanel'
+import { EmulatorPanel } from '../../ui/EmulatorPanel'
 import { DONE_KEY, Onboarding, readName } from '../../ui/Onboarding'
 import { MCPPage } from '../../ui/MCPPage'
 import { ModelsPage } from '../../ui/ModelsPage'
@@ -168,6 +169,14 @@ function Shell(): ReactElement {
   const [activeNav, setActiveNav] = useState<Nav>('chat')
   // F28: side browser panel. Its width is kept in sync with the main process (which owns the native view).
   const [sidePanel, setSidePanel] = useState<{ open: boolean; width: number }>({ open: false, width: 420 })
+  // Android emulator panel: same place as the side browser; opens by itself when the emulator is running.
+  const [emuOpen, setEmuOpen] = useState(false)
+  const EMU_WIDTH = 380
+  useEffect(() => {
+    void window.api.android.status().then((r) => {
+      if (r.ok && r.data?.connected) setEmuOpen(true)
+    })
+  }, [])
   const toggleSidePanel = async (): Promise<void> => {
     if (sidePanel.open) {
       closeSidePanel()
@@ -456,7 +465,7 @@ function Shell(): ReactElement {
   }, [])
 
   return (
-    <div className="flex h-screen w-full bg-bg text-fg" style={{ paddingLeft: sidePanel.open ? sidePanel.width : 0 }}>
+    <div className="flex h-screen w-full bg-bg text-fg" style={{ paddingLeft: sidePanel.open ? sidePanel.width : emuOpen ? EMU_WIDTH : 0 }}>
       <aside className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-e border-outline bg-surface p-3">
         <AboutBadge onSetup={() => setWizard(true)} />
 
@@ -562,7 +571,8 @@ function Shell(): ReactElement {
           <button onClick={toggleTheme} title={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button onClick={() => void toggleSidePanel()} title="المتصفح الجانبي" aria-label="المتصفح الجانبي" aria-pressed={sidePanel.open} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (sidePanel.open ? 'bg-surface2 text-primary' : '')}>
+          <button onClick={() => { if (sidePanel.open) closeSidePanel(); setEmuOpen((v) => !v) }} title="المحاكي" aria-label="المحاكي" aria-pressed={emuOpen} className="flex h-9 w-9 items-center justify-center rounded-lg text-lg">📱</button>
+            <button onClick={() => void toggleSidePanel()} title="المتصفح الجانبي" aria-label="المتصفح الجانبي" aria-pressed={sidePanel.open} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (sidePanel.open ? 'bg-surface2 text-primary' : '')}>
             <Globe size={18} />
           </button>
           <button onClick={togglePalette} title={palette === 'syrian' ? 'الألوان الافتراضية' : 'الهوية السورية'} aria-label={palette === 'syrian' ? 'الألوان الافتراضية' : 'الهوية السورية'} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (palette === 'syrian' ? 'bg-surface2' : '')}>
@@ -588,6 +598,7 @@ function Shell(): ReactElement {
         </div>
       </aside>
 
+      {emuOpen && !sidePanel.open && <EmulatorPanel width={EMU_WIDTH} onClose={() => setEmuOpen(false)} />}
       {sidePanel.open && <SideBrowserPanel width={sidePanel.width} onWidthChange={(w) => setSidePanel((p) => ({ ...p, width: w }))} onClose={closeSidePanel} />}
       <main className="flex min-w-0 flex-1 flex-col">
 

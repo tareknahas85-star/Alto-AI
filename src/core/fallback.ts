@@ -1,3 +1,4 @@
+import { takePendingImage } from '../tools/android-tools'
 import { hostOf } from './hosts'
 import { getApiKey } from '../store/secure-store'
 import OpenAI from 'openai'
@@ -654,6 +655,9 @@ async function executeWithFallbackInner(
             calls_.push({ name: c.function.name, key: c.function.name + JSON.stringify(args), out })
             messages.push({ role: 'tool', tool_call_id: c.id, content: out })
           }
+          // Android screenshot taken by a tool this round: attach it so the model can see the screen.
+          const shot = takePendingImage()
+          if (shot) messages.push({ role: 'user', content: [{ type: 'text', text: 'Current Android screen:' }, { type: 'image_url', image_url: { url: shot } }] })
           continue
         }
         content = msg?.content || ''
