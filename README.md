@@ -39,7 +39,7 @@
 
 | | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.2-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.2/Alto-AI-5.20.2-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.2/Alto-AI-5.20.2-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.0-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.2/Alto-AI-5.20.2-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.2/Alto-AI-5.20.2-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-android.apk) |
 
 📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
 📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
@@ -66,16 +66,16 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.19.30
+### What's new in 5.21.0
 
-- **Model checks speak one language.** When a model answers `429` (not in the free tier, or its quota ran out) it now shows as a grey "not free, your key is fine" instead of a red error. A timeout says "slow or busy, try again". A real error, like a wrong key, stays red. This is the same in the full check, the **Test** button next to each model, the Hugging Face check and the free-model probe.
-- **Notebook (new page).** Put your files, links, text and Google Drive files in a notebook, ask questions with cited answers, and turn them into a report, table, mind map, flashcards, quiz, slides (pptx), infographic, audio summary, or a **narrated video** (slides, voice and recording, all local and free).
-- **Google Drive in the notebook (read only).** Connect once with your own OAuth client. The app can search and read your files. It can never edit or delete.
-- **Suaad, the voice assistant.** Live voice chat with Gemini Live, a wake word, voice approvals ("okay"), a 30-minute "full trust" mode, and a small orb that shows what she is doing.
-- **Platforms page.** One ranking of all the free models from every provider, with a button to test your key and pull the free ones.
-- **Fixes.** Window focus now checks that the window really came to the front, and the sidebar no longer overlaps on small windows.
+- **Android emulator inside the app.** The phone screen streams live into a side panel next to the chat, no separate window. Drag down from the top to open notifications, drag up from the bottom to open the app drawer, scroll with the mouse wheel, tap and long-press.
+- **Smoother and faster.** The screen arrives as H.264 video and is decoded in the panel. The emulator runs on your GPU.
+- **Ask the chat to use the phone.** Screenshot, read the screen, tap, type, press buttons, install an APK, open an app, build a Gradle project. Anything that changes something asks for your approval first.
+- **Right-click copy and paste** in text fields.
+- The mouse cursor over the emulator is a normal arrow.
 
 Every change is in [CHANGELOG.md](CHANGELOG.md). Every release is on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases).
+
 ### What it does
 
 - Sends every request to the best model: free first, then cheap, then expensive.
@@ -352,14 +352,13 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.19.30)
+### شو الجديد بآخر نسخة (5.21.0)
 
-- **فحص الموديلات صار بلغة وحدة.** لما موديل يرجّع `429` (يعني مو مجاني أو خلصت حصتو) بيطلع **رمادي** وبيقلك "مو مجاني، المفتاح سليم" بدل خطأ أحمر. وإذا الموديل بطيء بيقلك "أعد المحاولة". أما الخطأ الحقيقي (مثلاً مفتاح غلط) فبيضل **أحمر**. هيك صار بالفحص الكامل، وبزر **اختبار** جنب كل موديل، وبفحص Hugging Face، وبفحص المجاني.
-- **صفحة "دفتر" جديدة.** بتحط مصادرك (ملفات، روابط، نصوص، وملفات من Google Drive) وبتسألها، والأجوبة معها اقتباس. وبتحوّلها لتقرير، جدول، خريطة ذهنية، بطاقات مراجعة، اختبار، عرض تقديمي، إنفوغرافيك، ملخّص صوتي، أو **فيديو بتعليق صوتي**.
-- **ملفات Google Drive بالدفتر (قراءة بس).** بتربط حسابك مرة وحدة، والبرنامج بيقدر يدوّر ويقرا، وما بيقدر يعدّل ولا يحذف أبداً.
-- **سعاد، المساعدة الصوتية.** محادثة صوتية مباشرة (Gemini Live)، كلمة تنبيه، موافقة بالصوت، "الصلاحية الكاملة" لمدة 30 دقيقة، ودايرة صغيرة (أورب) بتبيّن شو عم تعمل.
-- **صفحة "المنصات".** ترتيب واحد لكل الموديلات المجانية من كل المزوّدين حسب القوة، مع زر لاختبار مفتاحك وسحب المجاني.
-- **إصلاحات.** تركيز النوافذ صار بيتأكد فعلياً إنو النافذة طلعت قدام، والشريط الجانبي ما عاد يتركّب على بعضو بالنافذة الصغيرة.
+- **المحاكي جوّا البرنامج.** شاشة الأندرويد بتنبث مباشرة بلوحة جنب الشات، بدون نافذة منفصلة. اسحب من فوق لتحت لتفتح الإشعارات، ومن تحت لفوق لتفتح درج التطبيقات، وسكرول بعجلة الماوس، وضغط وضغط مطوّل.
+- **أنعم وأسرع.** الشاشة بتوصل فيديو H.264 بيتفك جوّا اللوحة، والمحاكي بيشتغل على كرت الشاشة.
+- **اطلب من الشات يستعمل التلفون.** لقطة شاشة، قراءة عناصر الشاشة، ضغط، كتابة، أزرار، تثبيت APK، فتح تطبيق، وبناء مشروع Gradle. أي شي بيغيّر شي بيطلب موافقتك أول.
+- **نسخ ولصق بالماوس اليمين** بخانات الكتابة.
+- مؤشر الماوس فوق شاشة المحاكي صار سهم عادي.
 
 كل التفاصيل بملف [CHANGELOG.md](CHANGELOG.md)، وكل نسخة بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases).
 
