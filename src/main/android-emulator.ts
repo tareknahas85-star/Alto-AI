@@ -58,7 +58,7 @@ export async function startAndroidEmulator(): Promise<boolean> {
       // On Windows, detached:true gives the emulator its own visible console window, so keep it attached there.
       child = spawn(
         exe,
-        ['-avd', avd, '-no-window', '-no-audio', '-no-boot-anim', '-no-snapshot-save', '-gpu', 'swiftshader_indirect'],
+        ['-avd', avd, '-no-window', '-no-audio', '-no-boot-anim', '-no-snapshot-save', '-gpu', 'host'],
         { detached: process.platform !== 'win32', stdio: 'ignore', windowsHide: true }
       )
       child.unref()

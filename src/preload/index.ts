@@ -77,7 +77,23 @@ const api = {
     screenshot: () => ipcRenderer.invoke('android:screenshot'),
     tap: (x: number, y: number) => ipcRenderer.invoke('android:tap', x, y),
     key: (k: string) => ipcRenderer.invoke('android:key', k),
-    text: (t: string) => ipcRenderer.invoke('android:text', t)
+    text: (t: string) => ipcRenderer.invoke('android:text', t),
+    swipe: (x1: number, y1: number, x2: number, y2: number, ms: number) =>
+      ipcRenderer.invoke('android:swipe', x1, y1, x2, y2, ms),
+    streamStart: () => ipcRenderer.invoke('android:stream-start'),
+    streamStop: () => ipcRenderer.invoke('android:stream-stop'),
+    touch: (action: number, x: number, y: number) => ipcRenderer.send('android:touch', action, x, y),
+    scroll: (x: number, y: number, dy: number) => ipcRenderer.send('android:scroll', x, y, dy),
+    onVideo: (cb: (chunk: Uint8Array) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, chunk: Uint8Array): void => cb(chunk)
+      ipcRenderer.on('android:video', listener)
+      return () => ipcRenderer.removeListener('android:video', listener)
+    },
+    onVideoEnd: (cb: () => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('android:video-end', listener)
+      return () => ipcRenderer.removeListener('android:video-end', listener)
+    }
   },
   onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void): (() => void) => {
     const h = (_e: unknown, tabId: string, k: 'chunk' | 'reset', t?: string): void => cb(tabId, k, t)

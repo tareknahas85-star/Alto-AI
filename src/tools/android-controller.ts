@@ -1,4 +1,4 @@
-import { execFile } from 'child_process'
+import { execFile, spawn, type ChildProcess } from 'child_process'
 import { existsSync } from 'fs'
 import { join } from 'path'
 
@@ -77,6 +77,10 @@ export async function resolveSerial(): Promise<string> {
   return (serialCache = online[0])
 }
 
+// Used by the live stream module: the adb executable and device-scoped adb calls.
+export const adbExecutable = (): string => adb()
+export const adbOnDevice = (args: string[], timeout?: number): Promise<Buffer> => sh(args, timeout)
+
 export function resetDeviceCache(): void {
   serialCache = null
   sizeCache = null
@@ -117,6 +121,26 @@ export async function screenshotPng(): Promise<Buffer> {
   return buf
 }
 
+// Raw RGBA frame from the device (no PNG encode on the emulator, so it is faster).
+// Header is width, height, format and a colour-space word; pixels follow as RGBA_8888.
+// Returns BGRA pixels, the byte order Electron's nativeImage.createFromBitmap expects on Windows.
+export async function screenshotBgra(): Promise<{ width: number; height: number; bgra: Buffer }> {
+  const buf = await sh(['exec-out', 'screencap'])
+  if (buf.length < 16) throw new Error('screenshot did not return frame data')
+  const width = buf.readUInt32LE(0)
+  const height = buf.readUInt32LE(4)
+  const offset = buf.length - width * height * 4
+  if (width <= 0 || height <= 0 || offset < 12)
+    throw new Error('screenshot frame has an unexpected size')
+  const bgra = Buffer.from(buf.subarray(offset))
+  for (let i = 0; i < bgra.length; i += 4) {
+    const r = bgra[i]
+    bgra[i] = bgra[i + 2]
+    bgra[i + 2] = r
+  }
+  return { width, height, bgra }
+}
+
 export async function screenshotDataUrl(): Promise<string> {
   return 'data:image/png;base64,' + (await screenshotPng()).toString('base64')
 }
@@ -151,6 +175,64 @@ export async function tap(x: number, y: number): Promise<void> {
   await sh(['shell', 'input', 'tap', String(x), String(y)])
 }
 
+// The side panel sends many taps and swipes. A new adb process per input is slow,
+// so the panel uses one long-lived `adb shell` that gets its commands on stdin.
+let inputShell: ChildProcess | null = null
+let inputShellSerial = ''
+async function sendInputCommand(cmd: string): Promise<void> {
+  const serial = await resolveSerial()
+  if (
+    !inputShell ||
+    inputShellSerial !== serial ||
+    !inputShell.stdin ||
+    inputShell.stdin.destroyed
+  ) {
+    inputShell?.kill()
+    const proc = spawn(adb(), ['-s', serial, 'shell'], {
+      stdio: ['pipe', 'ignore', 'ignore'],
+      windowsHide: true
+    })
+    proc.on('exit', () => {
+      if (inputShell === proc) inputShell = null
+    })
+    proc.on('error', () => {
+      if (inputShell === proc) inputShell = null
+    })
+    proc.stdin?.on('error', () => {
+      if (inputShell === proc) inputShell = null
+    })
+    inputShell = proc
+    inputShellSerial = serial
+  }
+  inputShell.stdin?.write(cmd + '\n')
+}
+
+function assertOnScreen(x: number, y: number, w: number, h: number): void {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= w || y >= h)
+    throw new Error(`coordinates out of range (screen is ${w}x${h})`)
+}
+
+// Tap from the side panel: same checks as tap(), but through the long-lived shell.
+export async function quickTap(x: number, y: number): Promise<void> {
+  const { w, h } = await screenSize()
+  assertOnScreen(x, y, w, h)
+  await sendInputCommand(`input tap ${x} ${y}`)
+}
+
+// Swipe (or long press when both points are equal). ms is the gesture duration.
+export async function swipe(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  ms: number
+): Promise<void> {
+  const { w, h } = await screenSize()
+  assertOnScreen(x1, y1, w, h)
+  assertOnScreen(x2, y2, w, h)
+  const d = Number.isFinite(ms) ? Math.min(2000, Math.max(80, Math.round(ms))) : 300
+  await sendInputCommand(`input swipe ${x1} ${y1} ${x2} ${y2} ${d}`)
+}
 // Only a small safe alphabet goes to `input text`; spaces become %s, which is what the device expects.
 export async function typeText(text: string): Promise<void> {
   if (!SAFE_TEXT.test(text))

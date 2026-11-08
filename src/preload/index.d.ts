@@ -186,6 +186,13 @@ declare global {
         start: () => Promise<{ ok: boolean; data?: boolean; error?: string }>
         screenshot: () => Promise<{ ok: boolean; data?: string; error?: string }>
         tap: (x: number, y: number) => Promise<{ ok: boolean; error?: string }>
+        swipe: (x1: number, y1: number, x2: number, y2: number, ms: number) => Promise<{ ok: boolean; error?: string }>
+        streamStart: () => Promise<{ ok: boolean; data?: boolean; error?: string }>
+        streamStop: () => Promise<{ ok: boolean }>
+        touch: (action: number, x: number, y: number) => void
+        scroll: (x: number, y: number, dy: number) => void
+        onVideo: (cb: (chunk: Uint8Array) => void) => () => void
+        onVideoEnd: (cb: () => void) => () => void
         key: (k: string) => Promise<{ ok: boolean; error?: string }>
         text: (t: string) => Promise<{ ok: boolean; error?: string }>
       }

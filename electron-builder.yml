@@ -20,6 +20,8 @@ extraResources:
     to: skills
   - from: src/mcp/config.json
     to: mcp/config.json
+  - from: resources/scrcpy-server.jar
+    to: scrcpy-server.jar
 asarUnpack:
   - resources/**
 win:
