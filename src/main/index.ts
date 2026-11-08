@@ -83,6 +83,28 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // Electron ما بيعرض قائمة الماوس اليمين تلقائياً، فمنعرض قائمة نسخ/لصق/قص بخانات الكتابة.
+  mainWindow.webContents.on('context-menu', (_e, params) => {
+    const ef = params.editFlags
+    const items: Electron.MenuItemConstructorOptions[] = []
+    if (params.isEditable) {
+      items.push(
+        { role: 'undo', enabled: ef.canUndo },
+        { type: 'separator' },
+        { role: 'cut', enabled: ef.canCut },
+        { role: 'copy', enabled: ef.canCopy },
+        { role: 'paste', enabled: ef.canPaste },
+        { type: 'separator' },
+        { role: 'selectAll', enabled: ef.canSelectAll }
+      )
+    } else if (params.selectionText) {
+      items.push({ role: 'copy', enabled: ef.canCopy })
+    } else {
+      return
+    }
+    Menu.buildFromTemplate(items).popup({ window: mainWindow })
+  })
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
