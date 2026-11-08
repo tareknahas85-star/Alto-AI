@@ -3,7 +3,8 @@ import type { ReactElement } from 'react'
 import { askConfirm } from '../../ui/components/confirm'
 import {
   BookOpen, Bot, Clock, Cpu, ListChecks, FolderKanban, FolderOpen, MessageSquare, Moon, Pin, PinOff, Plug, Plus, Settings as SettingsIcon, Layers,
-  Sun, Trash2, Download, Search, X, Bell, BellOff, Pencil, FolderPlus, Globe
+  Sun, Trash2, Download, Search, X, Bell, BellOff, Pencil, FolderPlus, Globe,
+  Smartphone,
 } from 'lucide-react'
 import appIcon from './assets/icon.png'
 import syriaEagle from './assets/syria-eagle.svg'
@@ -173,9 +174,17 @@ function Shell(): ReactElement {
   const [emuOpen, setEmuOpen] = useState(false)
   const EMU_WIDTH = 380
   useEffect(() => {
-    void window.api.android.status().then((r) => {
-      if (r.ok && r.data?.connected) setEmuOpen(true)
-    })
+    // The emulator boots after launch, so keep checking until it is up, then open the panel once.
+    const t = setInterval(() => {
+      void window.api.android.status().then((r) => {
+        if (r.ok && r.data?.connected) {
+          setEmuOpen(true)
+          clearInterval(t)
+        }
+      })
+    }, 3000)
+    const stop = setTimeout(() => clearInterval(t), 5 * 60 * 1000)
+    return () => { clearInterval(t); clearTimeout(stop) }
   }, [])
   const toggleSidePanel = async (): Promise<void> => {
     if (sidePanel.open) {
@@ -571,14 +580,15 @@ function Shell(): ReactElement {
           <button onClick={toggleTheme} title={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button onClick={() => { if (sidePanel.open) closeSidePanel(); setEmuOpen((v) => !v) }} title="المحاكي" aria-label="المحاكي" aria-pressed={emuOpen} className="flex h-9 w-9 items-center justify-center rounded-lg text-lg">📱</button>
-            <button onClick={() => void toggleSidePanel()} title="المتصفح الجانبي" aria-label="المتصفح الجانبي" aria-pressed={sidePanel.open} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (sidePanel.open ? 'bg-surface2 text-primary' : '')}>
-            <Globe size={18} />
-          </button>
           <button onClick={togglePalette} title={palette === 'syrian' ? 'الألوان الافتراضية' : 'الهوية السورية'} aria-label={palette === 'syrian' ? 'الألوان الافتراضية' : 'الهوية السورية'} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (palette === 'syrian' ? 'bg-surface2' : '')}>
             <img src={syriaEagle} alt="" className="h-[20px] w-[20px] object-contain" />
           </button>
-          <button
+          <button onClick={() => void toggleSidePanel()} title="المتصفح الجانبي" aria-label="المتصفح الجانبي" aria-pressed={sidePanel.open} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (sidePanel.open ? 'bg-surface2 text-primary' : '')}>
+            <Globe size={18} />
+          </button>
+          <button onClick={() => { if (sidePanel.open) closeSidePanel(); setEmuOpen((v) => !v) }} title="المحاكي" aria-label="المحاكي" aria-pressed={emuOpen} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (emuOpen ? 'bg-surface2 text-primary' : '')}>
+            <Smartphone size={18} />
+          </button>          <button
             onClick={() => {
               const v = !sound
               setSound(v)

@@ -55,10 +55,11 @@ export async function startAndroidEmulator(): Promise<boolean> {
       if (!exe) { lastError = 'Android SDK emulator not found'; return false }
       const avd = pickAvd()
       if (!avd) { lastError = 'no Android virtual device (AVD) found'; return false }
+      // On Windows, detached:true gives the emulator its own visible console window, so keep it attached there.
       child = spawn(
         exe,
         ['-avd', avd, '-no-window', '-no-audio', '-no-boot-anim', '-no-snapshot-save', '-gpu', 'swiftshader_indirect'],
-        { detached: true, stdio: 'ignore', windowsHide: true }
+        { detached: process.platform !== 'win32', stdio: 'ignore', windowsHide: true }
       )
       child.unref()
       ownStarted = true
