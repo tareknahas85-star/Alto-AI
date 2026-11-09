@@ -198,6 +198,15 @@ function Shell(): ReactElement {
     void window.api.side.close()
     setSidePanel((p) => ({ ...p, open: false }))
   }
+  // The side browser can also be opened (or closed) by the model: follow the main process so the chat makes room and the toolbar shows up.
+  useEffect(
+    () =>
+      window.api.side.onChanged((s) => {
+        setSidePanel((p) => (p.open === s.open && p.width === s.width ? p : { open: s.open, width: s.width }))
+        if (s.open) setEmuOpen(false)
+      }),
+    []
+  )
   // The media panel asks to open a generation site inside the side browser.
   useEffect(() => {
     const h = (e: Event): void => {

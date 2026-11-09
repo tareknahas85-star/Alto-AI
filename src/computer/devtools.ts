@@ -130,7 +130,60 @@ function htmlToText(html: string): string {
     .trim()
 }
 
-async function webFetch(url: string, maxChars: number): Promise<string> {
+// Publication date of a web page, so the model can tell how fresh a result is. Order: article meta tags, JSON-LD, <time>, then the Last-Modified header (labelled as such).
+const DATE_META = /<meta[^>]+(?:property|name|itemprop)=["'](?:article:published_time|og:article:published_time|datePublished|date|pubdate|publish[-_]?date|publication_date|dc\.date(?:\.issued)?|parsely-pub-date|sailthru\.date)["'][^>]*content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name|itemprop)=["'](?:article:published_time|og:article:published_time|datePublished|date|pubdate|publish[-_]?date|publication_date|dc\.date(?:\.issued)?|parsely-pub-date|sailthru\.date)["']/i
+const DATE_JSONLD = /"datePublished"\s*:\s*"([^"]+)"/i
+const DATE_TIME_TAG = /<time[^>]+datetime=["']([^"']+)["']/i
+const DATE_MODIFIED = /<meta[^>]+(?:property|name|itemprop)=["'](?:article:modified_time|og:updated_time|dateModified)["'][^>]*content=["']([^"']+)["']|"dateModified"\s*:\s*"([^"]+)"/i
+
+function normDate(raw: string | undefined): string {
+  if (!raw) return ''
+  const t = Date.parse(raw.trim())
+  if (Number.isNaN(t)) return ''
+  const y = new Date(t).getUTCFullYear()
+  if (y < 1995 || y > new Date().getUTCFullYear() + 1) return ''
+  return new Date(t).toISOString().slice(0, 10)
+}
+
+export function extractPageDate(html: string, lastModified?: string | null): string {
+  const pub = DATE_META.exec(html)
+  const d1 = normDate(pub?.[1] ?? pub?.[2]) || normDate(DATE_JSONLD.exec(html)?.[1]) || normDate(DATE_TIME_TAG.exec(html)?.[1])
+  if (d1) return `${d1} (تاريخ النشر)`
+  const mod = DATE_MODIFIED.exec(html)
+  const d2 = normDate(mod?.[1] ?? mod?.[2])
+  if (d2) return `${d2} (آخر تعديل)`
+  // A server date equal to today usually just means a dynamic page, so it says nothing about the content.
+  const d3 = normDate(lastModified ?? undefined)
+  if (d3 && d3 !== new Date().toISOString().slice(0, 10)) return `${d3} (آخر تعديل حسب السيرفر)`
+  return 'غير معروف'
+}
+
+// Many news sites put the date in the address (/2026/09/...): a weaker hint, so it is labelled as such.
+export function urlDate(url: string): string {
+  const m = /\/(20[12]\d)[/-](0[1-9]|1[0-2])(?:[/-](0[1-9]|[12]\d|3[01]))?(?:[/-]|$)/.exec(url)
+  return m ? `${m[1]}-${m[2]}${m[3] ? '-' + m[3] : ''} (من الرابط)` : ''
+}
+
+// Fetches just enough of a result page to read its date. Never throws.
+async function pageDateOf(url: string): Promise<string> {
+  try {
+    const u = new URL(url)
+    if (!/^https?:$/.test(u.protocol) || PRIVATE_HOST.test(u.hostname)) return 'غير معروف'
+    const hint = urlDate(url) || 'غير معروف' // used when the site blocks the request or has no date inside the page
+    const r = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(7000), headers: { 'user-agent': 'Mozilla/5.0 Alto-AI', accept: 'text/html;q=0.9,*/*;q=0.3' } })
+    if (!r.ok || !/html/i.test(r.headers.get('content-type') ?? '')) return hint
+    if (PRIVATE_HOST.test(new URL(r.url).hostname)) return 'غير معروف'
+    const head = Buffer.from(await r.arrayBuffer()).subarray(0, 400_000).toString('utf8')
+    const d = extractPageDate(head, r.headers.get('last-modified'))
+    return d === 'غير معروف' ? urlDate(url) || d : d
+  } catch {
+    return urlDate(url) || 'غير معروف'
+  }
+}
+
+const todayLine = (): string => `تاريخ اليوم: ${new Date().toISOString().slice(0, 10)}`
+
+export async function webFetch(url: string, maxChars: number): Promise<string> {
   let u: URL
   try {
     u = new URL(url)
@@ -147,28 +200,38 @@ async function webFetch(url: string, maxChars: number): Promise<string> {
     if (!r.ok) return `Error: HTTP ${r.status}`
     if (/^(image|video|audio)\//i.test(ct) || /zip|octet-stream|pdf/i.test(ct)) return `Error: نوع المحتوى ${ct} مو نصي (ما بنزّل ملفات بهالأداة).`
     const buf = Buffer.from(await r.arrayBuffer()).subarray(0, 2_000_000).toString('utf8')
-    const text = /html/i.test(ct) ? htmlToText(buf) : buf
-    return `[${r.url} · ${ct.split(';')[0]}]\n` + (text.length > maxChars ? text.slice(0, maxChars) + '\n…[cut]' : text)
+    const isHtml = /html/i.test(ct)
+    const text = isHtml ? htmlToText(buf) : buf
+    const dateLine = isHtml ? `📅 تاريخ الصفحة: ${extractPageDate(buf, r.headers.get('last-modified'))} · ${todayLine()}\n` : ''
+    return `[${r.url} · ${ct.split(';')[0]}]\n${dateLine}` + (text.length > maxChars ? text.slice(0, maxChars) + '\n…[cut]' : text)
   } catch (e) {
     return 'Error: ' + errMsg(e)
   }
 }
 
-async function webSearch(q: string, n: number): Promise<string> {
+const RECENT_DF: Record<string, string> = { day: 'd', week: 'w', month: 'm', year: 'y' }
+
+export async function webSearch(q: string, n: number, recent = ''): Promise<string> {
   try {
-    const r = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q), { signal: AbortSignal.timeout(20000), headers: { 'user-agent': 'Mozilla/5.0 Alto-AI' } })
+    const df = RECENT_DF[recent] ? '&df=' + RECENT_DF[recent] : ''
+    const r = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q) + df, { signal: AbortSignal.timeout(20000), headers: { 'user-agent': 'Mozilla/5.0 Alto-AI' } })
     if (!r.ok) return `Error: HTTP ${r.status}`
     const html = await r.text()
-    const out: string[] = []
+    const hits: { title: string; href: string; snippet: string }[] = []
     const re = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>)?/g
     let m: RegExpExecArray | null
-    while ((m = re.exec(html)) && out.length < n) {
+    while ((m = re.exec(html)) && hits.length < n) {
       let href = m[1]
       const ud = href.match(/[?&]uddg=([^&]+)/)
       if (ud) href = decodeURIComponent(ud[1])
-      out.push(`${out.length + 1}. ${htmlToText(m[2])}\n   ${href}\n   ${htmlToText(m[3] ?? '')}`)
+      if (/duckduckgo\.com\/y\.js/.test(href)) continue // sponsored result, not a real hit
+      hits.push({ title: htmlToText(m[2]), href, snippet: htmlToText(m[3] ?? '') })
     }
-    return out.length ? out.join('\n') : 'ما لقيت نتائج (أو المحرك رفض الطلب). جرّب صياغة تانية.'
+    if (!hits.length) return 'ما لقيت نتائج (أو المحرك رفض الطلب). جرّب صياغة تانية.'
+    // Each result gets its page date, so an old page can't pass as the latest news.
+    const dates = await Promise.all(hits.map((h) => pageDateOf(h.href)))
+    const lines = hits.map((h, i) => `${i + 1}. ${h.title}\n   ${h.href}\n   📅 ${dates[i]}\n   ${h.snippet}`)
+    return `${todayLine()}${recent && RECENT_DF[recent] ? ` · فلتر الحداثة: ${recent}` : ''}\n` + lines.join('\n')
   } catch (e) {
     return 'Error: ' + errMsg(e)
   }
@@ -312,12 +375,12 @@ export function addDevTools(def: Def, handlers: Map<string, Handler>, getSignal?
   cli('terraform', 'شغّل terraform (validate/plan/show/output للقراءة؛ apply/destroy بموافقة، destroy ممنوع ببناء المشروع).')
 
   // ---- 2) ويب ----
-  def('web_search', 'ابحث بالإنترنت (DuckDuckGo) وارجع عناوين ورابط وملخص لكل نتيجة. بعدها استعمل web_fetch لقراءة الصفحة.', { query: str, max_results: num }, ['query'], async (a) => {
+  def('web_search', 'ابحث بالإنترنت (DuckDuckGo) وارجع عناوين ورابط وملخص وتاريخ نشر لكل نتيجة (📅) مع تاريخ اليوم. لأسئلة "آخر/أحدث/جديد": صيغ البحث بكلمات الموضوع بدون ما تحط رقم إصدار من ذاكرتك (مثال: "Huawei Watch GT latest model" مش "GT 6")، جرّب صياغتين على الأقل، وانتبه لتاريخ كل نتيجة وقارنو بتاريخ اليوم. recent اختياري: day/week/month/year لتقييد النتائج بالأحدث. بعدها استعمل web_fetch لقراءة الصفحة.', { query: str, max_results: num, recent: str }, ['query'], async (a) => {
     const q = s(a.query).trim()
     if (!q) return 'Error: query فاضية'
-    return webSearch(q, Math.min(10, Math.max(1, Number(a.max_results) || 6)))
+    return webSearch(q, Math.min(10, Math.max(1, Number(a.max_results) || 6)), s(a.recent).trim().toLowerCase())
   })
-  def('web_fetch', 'اجلب صفحة ويب (http/https) وارجع نصها بدون HTML. ما بينزّل ملفات وما بيفتح عناوين محلية/داخلية.', { url: str, max_chars: num }, ['url'], async (a) =>
+  def('web_fetch', 'اجلب صفحة ويب (http/https) وارجع نصها بدون HTML مع تاريخ الصفحة (📅) وتاريخ اليوم. ما بينزّل ملفات وما بيفتح عناوين محلية/داخلية.', { url: str, max_chars: num }, ['url'], async (a) =>
     webFetch(s(a.url).trim(), Math.min(60000, Math.max(500, Number(a.max_chars) || 12000)))
   )
 

@@ -169,6 +169,8 @@ export async function agentBrowse(win: BrowserWindow, url: string): Promise<{ ok
   switchPartition(win, checked.url)
   ensureAttached(win)
   currentUrl = checked.url
+  // The model opened the page, not the user: tell the renderer now so it reserves room for the panel and draws its toolbar.
+  notifyChanged()
   const wc = view!.webContents
   await new Promise<void>((res) => {
     let done = false
@@ -185,7 +187,10 @@ export const agentWebContents = (): Electron.WebContents | null => (agentMode &&
 
 export async function agentCloseBrowser(): Promise<void> {
   if (!agentMode) return
+  const win = attachedTo
   closeSide()
+  // closeSide() clears the attached window first, so tell the renderer directly that the panel is gone.
+  if (win && !win.isDestroyed()) win.webContents.send('side:changed', sideState())
   const sess = session.fromPartition(AGENT_PARTITION)
   await sess.clearStorageData()
   await sess.clearCache()

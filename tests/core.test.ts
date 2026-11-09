@@ -1116,3 +1116,30 @@ test('slide video: slides follow the audio clock (no voice ahead of its slide)',
   assert.equal(slideAt(s, 13.2), 0)
   assert.equal(slideAt(s, 99), 2)
 })
+
+test('web search: page date is read from meta / JSON-LD / time tag / last-modified', async () => {
+  const { extractPageDate } = await import('../src/computer/devtools')
+  assert.equal(extractPageDate('<meta property="article:published_time" content="2026-08-05T10:00:00+00:00">'), '2026-08-05 (تاريخ النشر)')
+  assert.equal(extractPageDate('<meta content="2026-07-01" name="date">'), '2026-07-01 (تاريخ النشر)')
+  assert.equal(extractPageDate('<script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-06-02T08:00:00Z"}</script>'), '2026-06-02 (تاريخ النشر)')
+  assert.equal(extractPageDate('<p>x</p><time datetime="2025-09-19">19 Sep</time>'), '2025-09-19 (تاريخ النشر)')
+  assert.equal(extractPageDate('<meta property="article:modified_time" content="2026-05-01T00:00:00Z">'), '2026-05-01 (آخر تعديل)')
+  assert.equal(extractPageDate('<html></html>', 'Tue, 03 Nov 2026 10:00:00 GMT'), '2026-11-03 (آخر تعديل حسب السيرفر)')
+  assert.equal(extractPageDate('<html></html>'), 'غير معروف')
+  assert.equal(extractPageDate('<meta name="date" content="1970-01-01">'), 'غير معروف')
+})
+
+test('freshness rule: latest-questions must not seed the query from memory and must cite dates', async () => {
+  const { FRESH_HINT } = await import('../src/core/guidance')
+  assert.match(FRESH_HINT, /never put a version or model number from your own memory/)
+  assert.match(FRESH_HINT, /AGAINST your answer/)
+  assert.match(FRESH_HINT, /date of the source/)
+})
+test('web search: date hint from the address, and a server date equal to today is ignored', async () => {
+  const { urlDate, extractPageDate } = await import('../src/computer/devtools')
+  assert.equal(urlDate('https://www.androidheadlines.com/2026/09/huawei-watch-gt-7-watch-6-series-arrive.html'), '2026-09 (من الرابط)')
+  assert.equal(urlDate('https://example.com/news/2026/09/15/story'), '2026-09-15 (من الرابط)')
+  assert.equal(urlDate('https://example.com/specs/huawei/watch-gt-7/'), '')
+  const today = new Date().toUTCString()
+  assert.equal(extractPageDate('<html></html>', today), 'غير معروف')
+})
