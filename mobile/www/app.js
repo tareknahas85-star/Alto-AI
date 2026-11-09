@@ -41887,7 +41887,7 @@
   }
 
   // src/main.js
-  var VERSION = true ? "5.20.1" : "5.10";
+  var VERSION = true ? "5.21.2" : "5.10";
   var AirNative = registerPlugin("AirNative", {
     web: () => Promise.resolve({
       async info() {
@@ -42222,6 +42222,15 @@
       case "project.files":
         S2.projFiles[m.id] = m;
         if (S2.view === "main" && S2.tab === "proj") renderPage();
+        return;
+      case "notice":
+        if (m.title) {
+          notify(String(m.title), m.body || "");
+          try {
+            navigator.vibrate && navigator.vibrate(60);
+          } catch {
+          }
+        }
         return;
       case "tasks":
         S2.tasks = m.list || [];
