@@ -1,5 +1,5 @@
 import { setComputerBase } from '../computer/pathbase'
-import { addComputerTools, computerEnabled } from '../computer/control'
+import { addBrowserOnlyTools, addComputerTools, computerEnabled } from '../computer/control'
 import { currentSignal } from '../core/progress'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import path from 'path'
@@ -13,7 +13,7 @@ import { fenceUntrusted } from '../core/untrusted'
 import { shell } from 'electron'
 import { addPlaceTools } from '../tools/place-tools'
 import { getPrefs } from '../core/prefs'
-import { needsDocTools, needsLocation, needsSecurity } from '../core/guidance'
+import { needsBrowser, needsDocTools, needsLocation, needsSecurity } from '../core/guidance'
 import { addDocTools } from '../tools/doc-tools'
 import { addSecurityTools } from '../tools/security-tools'
 import { addSandboxTools, needsSandbox } from '../tools/sandbox-tools'
@@ -307,6 +307,8 @@ export async function buildToolset(userInput: string, projectPath?: string, opts
 
   setComputerBase(projectPath)
   if (computerEnabled()) addComputerTools(defs, handlers, currentSignal)
+  // The side browser works without full PC control: opening a page asks the user and uses a separate temporary session.
+  else if (needsBrowser(userInput) && !opts.confidential) addBrowserOnlyTools(defs, handlers)
 
   // Skills: the model can list and load any enabled skill, like Claude does.
   try {

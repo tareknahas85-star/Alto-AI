@@ -8,7 +8,7 @@ import type { Project } from '../core/workspace'
 import { currentMode, currentSignal } from '../core/progress'
 import { isTrivialChat, localSuitable, liveContext, tryLocalChat, preferGood, noteResult } from '../core/trivial'
 import { computerEnabled } from '../computer/control'
-import { FRESH_HINT, LOCATION_HINT, SHAMI_HINT, needsFreshInfo, needsLocation } from '../core/guidance'
+import { BROWSER_HINT, FRESH_HINT, LOCATION_HINT, SHAMI_HINT, needsBrowser, needsFreshInfo, needsLocation } from '../core/guidance'
 
 export async function executeWithSkill(userInput: string, analysis: Analysis, extraSystem?: string, exclude: string[] = [], history: { role: 'user' | 'assistant'; content: string }[] = [], project: Project | null = null) {
   let systemPrompt = 'You are a helpful assistant.'
@@ -39,7 +39,7 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
 
   if (extraSystem) systemPrompt += '\n\n' + extraSystem
   const fresh = needsFreshInfo(userInput)
-  systemPrompt += SHAMI_HINT + (fresh ? FRESH_HINT : '') + (needsLocation(userInput) && !project?.confidential ? LOCATION_HINT : '')
+  systemPrompt += SHAMI_HINT + (fresh ? FRESH_HINT : '') + (needsBrowser(userInput) && !project?.confidential ? BROWSER_HINT : '') + (needsLocation(userInput) && !project?.confidential ? LOCATION_HINT : '')
 
   const mode = currentMode()
   const buildReq = BUILD_REQ.test(userInput)
@@ -73,7 +73,7 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   if (!project && !picked1 && !buildReq && (!mode || mode.kind === 'free' || mode.kind === 'auto') && isTrivialChat(userInput)) {
     const live = await liveContext(userInput)
     // بدون أدوات: نشيل تعليمات "استدعِ أداة" (FRESH/LOCATION) لأنها بتضلّل الموديل، والمعلومة الحيّة جاية من البرنامج.
-    const sys = systemPrompt.replace(FRESH_HINT, '').replace(LOCATION_HINT, '') + live
+    const sys = systemPrompt.replace(FRESH_HINT, '').replace(LOCATION_HINT, '').replace(BROWSER_HINT, '') + live
     const loc = localSuitable(userInput) ? await tryLocalChat(userInput, history, sys, currentSignal()) : null
     if (loc) {
       const id = 'ollama:' + loc.model
@@ -87,7 +87,7 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   // With an active project, file tools are offered whenever the request looks project/file related, even if the master did not flag tools.
   const PROJECT_TOOLISH = /ملف|ملفات|مجلد|مشروع|افتح|اقرأ|راجع|حلل|شوف|file|folder|project|readme|open|read|review|analy[sz]e|\.[a-z0-9]{1,5}\b/i
   // Agent mode: whenever a project is open or PC control is on, the tools (and skills) are always offered.
-  if (analysis.need_tools || fresh || buildReq || project || computerEnabled() || PROJECT_TOOLISH.test(userInput) && !!project) {
+  if (analysis.need_tools || fresh || needsBrowser(userInput) || buildReq || project || computerEnabled() || PROJECT_TOOLISH.test(userInput) && !!project) {
     try {
       toolset = await buildToolset(userInput, project?.path, { fresh, confidential: !!project?.confidential })
     } catch (err) {

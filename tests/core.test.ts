@@ -1143,3 +1143,14 @@ test('web search: date hint from the address, and a server date equal to today i
   const today = new Date().toUTCString()
   assert.equal(extractPageDate('<html></html>', today), 'غير معروف')
 })
+import { needsBrowser, BROWSER_HINT } from '../src/core/guidance'
+import { isTrivialChat } from '../src/core/trivial'
+test('browser requests are detected, not treated as trivial chat, and the hint tells the model it has a browser', () => {
+  assert.ok(needsBrowser('افتح المتصفح تبعك الداخلي'))
+  assert.ok(needsBrowser('شيك على هدا الرابط https://www.huawei.com'))
+  assert.ok(needsBrowser('open the browser and read the page'))
+  assert.ok(!needsBrowser('كيفك اليوم'))
+  assert.equal(isTrivialChat('افتح المتصفح تبعك الداخلي'), false)
+  assert.match(BROWSER_HINT, /browser_open/)
+  assert.match(BROWSER_HINT, /browser_close/)
+})

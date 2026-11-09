@@ -1,6 +1,6 @@
 // 5.17.3: الطلبات الصغيرة (تحية، سؤال قصير، تاريخ اليوم، الطقس) ما بتحتاج أدوات ولا تفكير.
 // بتروح: المحلي (Ollama) أولاً، وإذا ما رد بسرعة أول موديل مجاني شغّال. التاريخ والطقس بيجيبهم البرنامج بنفسو.
-import { needsFreshInfo, needsLocation } from './guidance'
+import { needsBrowser, needsFreshInfo, needsLocation } from './guidance'
 import { listOllamaModelsDetailed, ollamaState, OLLAMA_BASE } from './ollama'
 import { localChatModel, LOCAL_AUTO } from './local-chat'
 
@@ -24,7 +24,7 @@ export function isTrivialChat(input: string): boolean {
   if (s.includes('[ملفات مرفقة')) return false
   if (ACTION_RE.test(s)) return false
   const handled = DATE_RE.test(s) || WEATHER_RE.test(s) || GREETING_RE.test(s)
-  if (!handled && (needsFreshInfo(s) || needsLocation(s))) return false
+  if (!handled && (needsFreshInfo(s) || needsLocation(s) || needsBrowser(s))) return false
   return true
 }
 
