@@ -149,6 +149,7 @@ function onHost(m) {
       return
     case 'learn': S.learn = m.v || null; if (S.view === 'main' && S.tab === 'more') renderPage(); return
     case 'project.files': S.projFiles[m.id] = m; if (S.view === 'main' && S.tab === 'proj') renderPage(); return
+    case 'notice': if (m.title) { notify(String(m.title), m.body || ''); try { navigator.vibrate && navigator.vibrate(60) } catch { /* */ } } return
     case 'tasks': S.tasks = m.list || []; if (S.view === 'main') { renderTabs(); if (S.tab === 'agents' && !document.activeElement.matches('textarea')) renderPage() } return
     case 'agents': S.agents = m.list || []; lsSet('trl.agents', S.agents); if (m.gate && m.gate.url && m.gate.key) { S.gate = m.gate; lsSet('trl.gate', m.gate); void pushInit() } if (S.tab === 'agents') renderPage(); return
     case 'todo': S.todo = Array.isArray(m.list) ? m.list : []; lsSet('trl.todo', S.todo); if (S.tab === 'todo' && !(document.activeElement && document.activeElement.id === 'todoIn')) renderPage(); return

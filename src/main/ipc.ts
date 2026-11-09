@@ -27,7 +27,7 @@ import { registerHfHandlers, hfFreeCached } from './hf'
 import { registerPlatformHandlers } from './platforms'
 import { registerProviderCheck } from './provider-check'
 import { registerRemoteHandlers } from './remote-ipc'
-import { setRemoteBridge } from '../remote/host'
+import { notifyPhones, setRemoteBridge } from '../remote/host'
 import { registerFreeProbeHandlers, startFreeWatch } from './freeprobe'
 import { notifyDone } from '../core/telegram'
 import { startTelegramInbound, TG_TAB } from '../core/telegram-in'
@@ -313,6 +313,9 @@ export function registerIpcHandlers(): void {
           } catch {
             /* learning is best-effort */
           }
+          // A task started on the PC also pings the paired phone app (tasks the phone started already get their own reply there).
+          if (o.tabId !== TG_TAB && !o.tabId.startsWith('phone-') && Date.now() - started >= 20000)
+            notifyPhones(result.modelUsed === 'none' ? 'ما خلصت المهمة' : 'خلصت المهمة على الكمبيوتر', project?.confidential ? 'مشروع سري — ما بنبعت تفاصيل' : userMsg.split('\n[ملفات مرفقة')[0].replace(/\s+/g, ' ').slice(0, 80))
           if (o.tabId !== TG_TAB) notifyDone({ unattended: isUnattended(), confidential: !!project?.confidential, ms: Date.now() - started, model: shownModel, preview: userMsg.split('\n[ملفات مرفقة')[0], failed: result.modelUsed === 'none' })
           // needsChoice: nothing answered (free chain exhausted or the picked model failed) -> the UI asks the user what to do.
           const warn = result.modelUsed === 'none' ? '' : claimsWarning(missingFileClaims(result.content, project?.path))
