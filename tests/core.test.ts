@@ -1134,6 +1134,8 @@ test('freshness rule: latest-questions must not seed the query from memory and m
   assert.match(FRESH_HINT, /never put a version or model number from your own memory/)
   assert.match(FRESH_HINT, /AGAINST your answer/)
   assert.match(FRESH_HINT, /date of the source/)
+  assert.match(FRESH_HINT, /\[1\], \[2\]/)
+  assert.match(FRESH_HINT, /غير مؤكد/)
 })
 test('web search: date hint from the address, and a server date equal to today is ignored', async () => {
   const { urlDate, extractPageDate } = await import('../src/computer/devtools')

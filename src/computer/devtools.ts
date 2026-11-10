@@ -230,7 +230,7 @@ export async function webSearch(q: string, n: number, recent = ''): Promise<stri
     if (!hits.length) return 'ما لقيت نتائج (أو المحرك رفض الطلب). جرّب صياغة تانية.'
     // Each result gets its page date, so an old page can't pass as the latest news.
     const dates = await Promise.all(hits.map((h) => pageDateOf(h.href)))
-    const lines = hits.map((h, i) => `${i + 1}. ${h.title}\n   ${h.href}\n   📅 ${dates[i]}\n   ${h.snippet}`)
+    const lines = hits.map((h, i) => `[${i + 1}] ${h.title}\n   ${h.href}\n   📅 ${dates[i]}\n   ${h.snippet}`)
     return `${todayLine()}${recent && RECENT_DF[recent] ? ` · فلتر الحداثة: ${recent}` : ''}\n` + lines.join('\n')
   } catch (e) {
     return 'Error: ' + errMsg(e)
