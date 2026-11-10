@@ -1154,3 +1154,13 @@ test('browser requests are detected, not treated as trivial chat, and the hint t
   assert.match(BROWSER_HINT, /browser_open/)
   assert.match(BROWSER_HINT, /browser_close/)
 })
+import { isTinyModelId } from '../src/core/model-size'
+test('tiny models are recognised by the real provider id, strong families never by size', () => {
+  assert.ok(isTinyModelId('qwen3:1.7b'))
+  assert.ok(isTinyModelId('llama3.2:1b'))
+  assert.ok(isTinyModelId('liquid/lfm-2.5-2.6b:free'))
+  assert.ok(!isTinyModelId('qwen3:4b'))
+  assert.ok(!isTinyModelId('open-mistral-nemo'))
+  assert.ok(!isTinyModelId('gemini-2.5-flash'))
+  assert.ok(!isTinyModelId('gpt-4o-mini'))
+})

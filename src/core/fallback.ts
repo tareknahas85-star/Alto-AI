@@ -16,6 +16,7 @@ import { rotateLogFile } from './log-rotate'
 import { buildProject, setRunProject } from './workspace'
 import { quarantineEmptyFragments, appendRunLog } from './run-report'
 import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel } from './custom-models'
+import { isTinyModelId } from './model-size'
 import { textProtocol, textToolLoop } from './text-tools'
 import { effortExtra, getEffort, type EffortRoute } from './effort'
 import { buildCliPrompt, cliModelAlias, isCliModel, runClaudeCliEx } from './cli-models'
@@ -356,7 +357,10 @@ async function executeWithFallbackInner(
       continue
     }
     // A tiny local model (<4B) cannot drive tools: skip it when other models are still queued (an explicit single choice stays).
-    if (toolset?.defs.length && !/gemini|gpt|claude|sonnet|opus|haiku/i.test(model) && /(?:^|[:/_-])(?:0?\.\d+|[1-3](?:\.\d+)?)b(?![a-z0-9])/i.test(model)) {
+    // 5.21.3: a custom entry has an opaque id (custom:abc123), so the size check must read the real provider model id behind it
+    // (a custom "qwen3:1.7b" on Ollama used to slip through and called Dropbox tools by itself).
+    const realId = model.startsWith(CUSTOM_PREFIX) ? getCustomModel(model.slice(CUSTOM_PREFIX.length))?.model ?? model : model
+    if (toolset?.defs.length && isTinyModelId(realId)) {
       failures.push({ model, reason: 'موديل صغير (أقل من 4B) ما بيمسك الأدوات، تخطّيناه (الموديلات الصغيرة بس للأوامر البسيطة بدون أدوات، مو للشغل الحقيقي)' })
       continue
     }

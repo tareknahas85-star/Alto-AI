@@ -8,7 +8,7 @@ import { listSkills, loadSkill } from '../skills/loader'
 import { loadMCPConfig, type MCPServer } from './client'
 import { readFile, listFiles } from '../tools/file-tools'
 import { readState } from '../core/state'
-import { approveNewTool, approveWrite, getAccounts } from '../core/accounts'
+import { approveNewTool, approveWrite, auditLog, getAccounts } from '../core/accounts'
 import { fenceUntrusted } from '../core/untrusted'
 import { shell } from 'electron'
 import { addPlaceTools } from '../tools/place-tools'
@@ -466,7 +466,10 @@ export async function buildToolset(userInput: string, projectPath?: string, opts
             out = 'Error: المستخدم رفض هذا الإجراء. لا تعيد المحاولة، وأخبره أن الإجراء لم يُنفَّذ.'
           } else if (!(await approveNewTool(info.server, info.name))) {
             out = 'Error: المستخدم ما وافق يستعمل هالأداة. لا تعيد المحاولة، وأخبره أنها ما اشتغلت.'
-          } else out = await callMcpTool(info, a)
+          } else {
+            if (RISKY.test(info.name)) auditLog(`mcp-run:${info.server}.${info.name}`)
+            out = await callMcpTool(info, a)
+          }
         }
       }
       const cut = out.length > MAX_RESULT ? out.slice(0, MAX_RESULT) + '\n…[truncated]' : out
