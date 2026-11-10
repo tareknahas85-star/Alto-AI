@@ -105,6 +105,12 @@ export async function status(): Promise<{
   error?: string
 }> {
   try {
+    // الكاش ما بينتبه إذا انسكّر المحاكي: نتأكد كل مرة إنو الجهاز المخزّن لسا online، وإلا منصفّر الكاش ومنعيد الاكتشاف.
+    if (serialCache) {
+      const list = (await run(['devices'])).toString('utf8')
+      const alive = list.split(/\r?\n/).slice(1).some((l) => { const p = l.trim().split(/\s+/); return p[0] === serialCache && p[1] === 'device' })
+      if (!alive) resetDeviceCache()
+    }
     const serial = await resolveSerial()
     return { connected: true, serial, size: await screenSize() }
   } catch (e) {

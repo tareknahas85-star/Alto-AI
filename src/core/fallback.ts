@@ -193,7 +193,8 @@ export async function executeWithFallback(
       // التصليح التلقائي بس لمنفّذ عنده أدوات (CLI/وكيل). الموديل النصي ما بيقدر يعدّل ملفات، فما منضيّع جولات عالفاضي.
       const canRepair = who.startsWith('cli:') || isCliModel(who) || isAgentEngine(who)
       let rounds = 0
-      for (let round = 1; canRepair && rv && (rv.verdict === 'FAIL' || rv.high > 0) && round <= MAX_REPAIR_ROUNDS; round++) {
+      // تصليح بس لما المراجع حدّد ملاحظات فعلية. "فشل" بدون ولا ملاحظة مفهومة = المراجعة ما حسمت، وإعادة تشغيل المنفّذ عالفاضي ضيّعت 49 دقيقة مرة.
+      for (let round = 1; canRepair && rv && rv.findings > 0 && (rv.verdict === 'FAIL' || rv.high > 0) && round <= MAX_REPAIR_ROUNDS; round++) {
         const fx = await repairFromReview(who, userInput, rv, ctx)
         if (!fx) break
         rounds = round
@@ -210,7 +211,10 @@ export async function executeWithFallback(
           '\n\n---\nمراجعة مستقلة (' + rv.reviewer + (rv.independent ? '' : '، مو مستقل') + '): ' + (rv.verdict === 'FAIL' ? '❌ فشل' : rv.verdict === 'PASS' ? '✅ نجح' : '❓ غير محسوم') +
           ' — ' + rv.findings + ' ملاحظة (' + rv.high + ' خطيرة)' + (rounds ? ' — بعد ' + rounds + ' دورة تصليح' : !canRepair && rv.verdict === 'FAIL' ? ' — بدون تصليح تلقائي (المنفّذ ما عنده أدوات)' : '') +
           (top.length ? '\n' + top.join('\n') : '')
-        if (rv.verdict === 'FAIL' || rv.high > 0) {
+        if (rv.verdict === 'FAIL' && rv.findings === 0 && rv.high === 0) {
+          r.failures = [...(r.failures || []), { model: rv.reviewer, reason: 'المراجعة المستقلة ما حسمت (فشل بدون ملاحظات واضحة)' }]
+          r.content = 'ℹ️ المراجعة المستقلة ما قدرت تحسم (رجّعت "فشل" بدون ولا ملاحظة واضحة)، فما عملت تصليح تلقائي. راجع الرد بنفسك.\n\n' + r.content
+        } else if (rv.verdict === 'FAIL' || rv.high > 0) {
           r.failures = [...(r.failures || []), { model: rv.reviewer, reason: 'المراجعة المستقلة: ' + rv.verdict + ' (' + rv.high + ' خطيرة)' }]
           r.content = '⚠️ تنبيه من البرنامج: المراجعة المستقلة فشّلت هالرد. أي "تم" أو "جاهز 100%" بالرد غير مؤكد، والتفاصيل بآخر الرد.\n\n' + r.content
         }
