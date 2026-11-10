@@ -134,6 +134,30 @@ export function addAndroidTools(defs: OpenAI.Chat.ChatCompletionTool[], handlers
     },
     ['package']
   )
+  fn(
+    'android_device_info',
+    'Read-only: model, Android version, screen size and connection state of the connected emulator or phone.',
+    {},
+    []
+  )
+  fn(
+    'android_logcat',
+    'Read-only: the last log lines from the device (Android logcat). Optional: package (only that app), level (V/D/I/W/E, default W), lines (default 200, max 500).',
+    {
+      package: { type: 'string' },
+      level: { type: 'string' },
+      lines: { type: 'number' }
+    },
+    []
+  )
+  fn(
+    'android_stop_app',
+    'Force-stop an app by its package name (example: com.example.app). The user must approve.',
+    {
+      package: { type: 'string' }
+    },
+    ['package']
+  )
 
   const gate = (tool: string, args: Record<string, unknown>): Promise<boolean> =>
     approveWrite('android#' + ++actionCounter, tool, args)
@@ -231,6 +255,53 @@ export function addAndroidTools(defs: OpenAI.Chat.ChatCompletionTool[], handlers
     try {
       await adb.launchPackage(pkg)
       return `Launched ${pkg}. Read the screen to check it opened.`
+    } catch (e) {
+      return errText(e)
+    }
+  })
+
+  const PKG_RE = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/
+
+  handlers.set('android_device_info', async () => {
+    try {
+      const st = await adb.status()
+      if (!st.connected) return 'No device connected: ' + (st.error ?? '')
+      const prop = async (k: string): Promise<string> => (await adb.adbOnDevice(['shell', 'getprop', k], 10000)).toString().trim()
+      const [model, release, sdk] = await Promise.all([prop('ro.product.model'), prop('ro.build.version.release'), prop('ro.build.version.sdk')])
+      return `Device ${st.serial}: ${model}, Android ${release} (API ${sdk}), screen ${st.size?.w}x${st.size?.h}.`
+    } catch (e) {
+      return errText(e)
+    }
+  })
+
+  handlers.set('android_logcat', async (a) => {
+    const pkg = String(a.package ?? '').trim()
+    const lvl = String(a.level ?? 'W').trim().toUpperCase().slice(0, 1)
+    const n = Math.min(500, Math.max(10, Number(a.lines) || 200))
+    if (pkg && !PKG_RE.test(pkg)) return 'Error: invalid package name.'
+    if (!'VDIWEF'.includes(lvl)) return 'Error: level must be V, D, I, W or E.'
+    try {
+      const raw = (await adb.adbOnDevice(['logcat', '-d', '-v', 'time', '*:' + lvl], 20000)).toString()
+      let lines = raw.split(/\r?\n/).filter(Boolean)
+      if (pkg) {
+        const pid = (await adb.adbOnDevice(['shell', 'pidof', pkg], 10000)).toString().trim().split(/\s+/)[0]
+        lines = lines.filter((l) => l.includes(pkg) || (pid !== '' && l.includes('(' + pid + ')') || (pid !== '' && new RegExp('\\b' + pid + '\\b').test(l))))
+      }
+      const tail = lines.slice(-n)
+      return tail.length ? tail.join('\n').slice(-20000) : 'No log lines at this level' + (pkg ? ' for ' + pkg : '') + '.'
+    } catch (e) {
+      return errText(e)
+    }
+  })
+
+  handlers.set('android_stop_app', async (a) => {
+    const pkg = String(a.package ?? '').trim()
+    if (!PKG_RE.test(pkg)) return 'Error: invalid package name.'
+    if (!(await gate('android_stop_app', { pkg })))
+      return 'The user declined this. Do not retry it.'
+    try {
+      await adb.adbOnDevice(['shell', 'am', 'force-stop', pkg], 15000)
+      return `Stopped ${pkg}.`
     } catch (e) {
       return errText(e)
     }
