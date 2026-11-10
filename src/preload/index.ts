@@ -5,6 +5,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 // runs in the main process; the UI only talks to it through these calls.
 type ChatMode = { kind: 'free' } | { kind: 'auto' } | { kind: 'council'; author?: string; critic?: string } | { kind: 'model'; id: string }
 type ChatOpts = { tabId: string; projectId: string | null; mode: ChatMode; allowWeaker?: boolean }
+type SpeechPartResult = { ok: boolean; id?: string; url?: string; done?: boolean; error?: string }
 type ChatResult = { content: string; meta?: string; cancelled?: boolean; failed?: boolean; needsChoice?: boolean; policyRefused?: boolean }
 type SideStateInfo = { open: boolean; url: string | null; width: number; canGoBack: boolean }
 
@@ -380,6 +381,9 @@ const api = {
   },
   voice: {
     speak: (text: string): Promise<{ ok: boolean; url?: string; note?: string; error?: string }> => ipcRenderer.invoke('voice:speak', text),
+    suaadStart: (text: string): Promise<SpeechPartResult> => ipcRenderer.invoke('voice:suaadStart', text),
+    suaadNext: (id: string): Promise<SpeechPartResult> => ipcRenderer.invoke('voice:suaadNext', id),
+    suaadStop: (id: string): Promise<boolean> => ipcRenderer.invoke('voice:suaadStop', id),
     transcribe: (data: ArrayBuffer): Promise<{ ok: boolean; text?: string; error?: string }> => ipcRenderer.invoke('voice:transcribe', data),
     warm: (): Promise<boolean> => ipcRenderer.invoke('voice:warm')
   },

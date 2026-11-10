@@ -363,6 +363,9 @@ declare global {
     }
     voice: {
       speak: (text: string) => Promise<{ ok: boolean; url?: string; note?: string; error?: string }>
+      suaadStart: (text: string) => Promise<{ ok: boolean; id?: string; url?: string; done?: boolean; error?: string }>
+      suaadNext: (id: string) => Promise<{ ok: boolean; id?: string; url?: string; done?: boolean; error?: string }>
+      suaadStop: (id: string) => Promise<boolean>
       transcribe: (data: ArrayBuffer) => Promise<{ ok: boolean; text?: string; error?: string }>
       warm: () => Promise<boolean>
     }
