@@ -7,8 +7,8 @@ android {
         applicationId "app.trl.agent"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 52104
-        versionName "5.21.4"
+        versionCode 52105
+        versionName "5.21.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
