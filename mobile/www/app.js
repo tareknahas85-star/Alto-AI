@@ -41887,7 +41887,7 @@
   }
 
   // src/main.js
-  var VERSION = true ? "5.21.2" : "5.10";
+  var VERSION = true ? "5.21.3" : "5.10";
   var AirNative = registerPlugin("AirNative", {
     web: () => Promise.resolve({
       async info() {
@@ -42499,7 +42499,7 @@
   }
   var pushOn = false;
   async function pushInit() {
-    if (pushOn || !S2.gate) return;
+    if (true) return;
     try {
       let p = await PushNotifications.checkPermissions();
       if (p.receive === "prompt" || p.receive === "prompt-with-rationale") p = await PushNotifications.requestPermissions();

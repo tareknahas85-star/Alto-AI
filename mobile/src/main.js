@@ -299,7 +299,8 @@ async function gateCall(path, body) {
 // Needs google-services.json in the APK build and the FCM_SA secret on the gate; without them registration just fails quietly.
 let pushOn = false
 async function pushInit() {
-  if (pushOn || !S.gate) return
+  // Without google-services.json in the build, PushNotifications.register() kills the app natively (FirebaseApp not initialized), so skip it entirely.
+  if (typeof __FCM__ === 'undefined' || !__FCM__ || pushOn || !S.gate) return
   try {
     let p = await PushNotifications.checkPermissions()
     if (p.receive === 'prompt' || p.receive === 'prompt-with-rationale') p = await PushNotifications.requestPermissions()
