@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent, type PointerEvent as ReactPointerE
 import { ArrowRight, RotateCw, Trash2, X } from 'lucide-react'
 import { askConfirm } from './components/confirm'
 import { clampSideWidth } from '../core/side-url'
+import { serviceForUrl } from '../core/side-partition'
 
 type SideState = { open: boolean; url: string | null; width: number; canGoBack: boolean }
 
@@ -72,7 +73,15 @@ export function SideBrowserPanel({ width, onWidthChange, onClose }: Props): Reac
   }
 
   const clearData = async (): Promise<void> => {
-    const ok = await askConfirm('تمسح بيانات المتصفح الجانبي؟ بتنمسح الكوكيز وتسجيلات الدخول.', { danger: true })
+    // 5.21.8: إذا الصفحة المفتوحة لخدمة إلها جلسة خاصة (Designer، Canva...)، منمسح هي بس وباقي الحسابات بتضل مسجّلة.
+    const svc = serviceForUrl(page.url ?? '')
+    if (svc) {
+      const host = svc.domains[0]
+      const ok = await askConfirm(`تمسح بيانات ${host} بس؟ بتنمسح كوكيز وتسجيل دخول هالخدمة، وباقي الخدمات بتضل مسجّلة.`, { danger: true })
+      if (ok) await window.api.side.clearService(svc.id)
+      return
+    }
+    const ok = await askConfirm('تمسح بيانات المتصفح الجانبي كلها؟ بتنمسح الكوكيز وتسجيلات الدخول لكل المواقع والخدمات.', { danger: true })
     if (ok) await window.api.side.clearData()
   }
 

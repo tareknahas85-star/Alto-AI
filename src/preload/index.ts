@@ -313,6 +313,7 @@ const api = {
     setWidth: (w: number): Promise<SideStateInfo> => ipcRenderer.invoke('side:setWidth', w),
     setOverlay: (on: boolean): Promise<SideStateInfo> => ipcRenderer.invoke('side:setOverlay', on),
     clearData: (): Promise<boolean> => ipcRenderer.invoke('side:clearData'),
+    clearService: (id: string): Promise<boolean> => ipcRenderer.invoke('side:clearService', id),
     state: (): Promise<SideStateInfo> => ipcRenderer.invoke('side:state'),
     onChanged: (cb: (s: SideStateInfo) => void): (() => void) => {
       const h = (_e: unknown, s: SideStateInfo): void => cb(s)

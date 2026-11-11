@@ -210,6 +210,8 @@ export function ModelsPage() {
     setForm(empty)
     setError('')
     load()
+    // 5.21.8: موديل على عنوان محلي (127.0.0.1/localhost) بينعرض بتبويب «محلي»، فمنروح عليه لحتى ما يبيّن إنو ما انحفظ.
+    if (/localhost|127\.0\.0\.1|:11434|:1234/i.test(form.baseURL)) pickProv('local')
   }
 
   const isGem = (m: CustomModelInfo): boolean => /generativelanguage|googleapis/i.test(m.baseURL ?? '')

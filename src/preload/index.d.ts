@@ -317,6 +317,7 @@ declare global {
         setWidth: (w: number) => Promise<SideStateInfo>
         setOverlay: (on: boolean) => Promise<SideStateInfo>
         clearData: () => Promise<boolean>
+      clearService: (id: string) => Promise<boolean>
         state: () => Promise<SideStateInfo>
         onChanged: (cb: (s: SideStateInfo) => void) => () => void
       }
