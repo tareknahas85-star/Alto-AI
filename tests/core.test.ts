@@ -1,3 +1,4 @@
+import { isGoAhead, isDelegated, routingInput, carriedRequest, delegationHint, DELEGATED_HINT, GO_AHEAD_HINT } from '../src/core/delegation'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
@@ -1165,4 +1166,40 @@ test('tiny models are recognised by the real provider id, strong families never 
   assert.ok(!isTinyModelId('open-mistral-nemo'))
   assert.ok(!isTinyModelId('gemini-2.5-flash'))
   assert.ok(!isTinyModelId('gpt-4o-mini'))
+})
+
+test('5.21.8 delegation: short approvals inherit the real request', () => {
+  const h = [
+    { role: 'user' as const, content: 'اعمل 3 خيارات للأيقونة واحفظهن بمجلد icons' },
+    { role: 'assistant' as const, content: 'هي الخيارات الثلاث... عندك أي تعديل قبل ما أبلش؟' }
+  ]
+  for (const yes of ['لا مافي تعديلات بلش شغلك', 'لا ماعندي يايا تعديل بلش', 'لا تمام هيك', 'اي', 'اوك نفذ', 'بلش و بس تخلص عطيني النتيجة']) {
+    assert.equal(isGoAhead(yes, h), true, yes)
+  }
+  for (const no of ['طيب شو بدك تساوي هلأ من وين بدك تبلش؟', 'لا تبلش لسا', 'استنى شوي', 'ليش بدك تثبت الابونتو؟']) {
+    assert.equal(isGoAhead(no, h), false, no)
+  }
+  assert.equal(isGoAhead('اي', []), false) // nothing to continue
+  assert.equal(carriedRequest(h), 'اعمل 3 خيارات للأيقونة واحفظهن بمجلد icons')
+  assert.match(routingInput('لا مافي تعديلات بلش', h), /icons/)
+  assert.equal(routingInput('شو أخبار الطقس', h), 'شو أخبار الطقس')
+  assert.ok(delegationHint('اي بلش', h).includes(GO_AHEAD_HINT))
+})
+
+test('5.21.8 delegation: full authority sticks to the whole conversation', () => {
+  const h = [
+    { role: 'user' as const, content: 'اوك عندك الصلاحية كاملة نفذ' },
+    { role: 'assistant' as const, content: 'تم فتح الصفحة' }
+  ]
+  assert.equal(isDelegated('كمّل', h), true)
+  assert.equal(isDelegated('كمّل', []), false)
+  assert.equal(isDelegated('كمل لحالك وما ترجعلي', []), true)
+  assert.ok(delegationHint('كمّل', h).includes(DELEGATED_HINT))
+  assert.ok(!delegationHint('مرحبا', []).includes(DELEGATED_HINT))
+})
+
+test('5.21.8 stall detector catches Shami re-asks', () => {
+  assert.ok(ENDS_WITH_STALL.test('هي الخطة كاملة. عندك أي تعديل قبل ما أبلش؟'))
+  assert.ok(ENDS_WITH_STALL.test('Here are the options. Shall I start?'))
+  assert.ok(!ENDS_WITH_STALL.test('خلصت وحفظت الملفات بمجلد icons.'))
 })

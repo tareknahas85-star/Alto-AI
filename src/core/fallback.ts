@@ -1,3 +1,4 @@
+import { isGoAhead } from './delegation'
 import { takePendingImage } from '../tools/android-tools'
 import { hostOf } from './hosts'
 import { getApiKey } from '../store/secure-store'
@@ -716,7 +717,7 @@ async function executeWithFallbackInner(
           continue
         }
         // 5.17.8: مهمة تنفيذ + أدوات جهاز + الرد انتهى بسؤال "هل تريد أن أبدأ؟/هل عندك مشكلة؟" بدل ما ينفّذ: مو إنجاز، نصعّد لموديل تاني.
-        if (pcMode && queue.length && opts.escalate !== false && ACTION_REQ.test(userInput) && ENDS_WITH_STALL.test(content.trim().slice(-220))) {
+        if (pcMode && queue.length && opts.escalate !== false && (ACTION_REQ.test(userInput) || isGoAhead(userInput, history)) && ENDS_WITH_STALL.test(content.trim().slice(-220))) {
           failures.push({ model, reason: 'وقف عند سؤال (هل تريد أن أبدأ؟) بدل ما ينفّذ المهمة' })
           queue.sort((a, b) => Number(/claude/i.test(b)) - Number(/claude/i.test(a)))
           handoff = '\n\nHANDOFF: a previous model (' + model + ') stopped and asked the user whether to start instead of doing the task. Do NOT ask for permission: execute the task now with your tools and report what you actually did, with evidence.'

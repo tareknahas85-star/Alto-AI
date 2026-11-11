@@ -49,6 +49,7 @@ import { apinexFreeIds, hasApinexKey } from '../core/apinex'
 import { badReplyReason } from '../core/reply-quality'
 import { CUSTOM_PREFIX, getCustomModel, listCustomModelViews } from '../core/custom-models'
 import { getApiKey, setApiKey } from '../store/secure-store'
+import { isGoAhead, routingInput } from '../core/delegation'
 
 const KEY_NAMES = ['OPENROUTER_API_KEY', 'APINEX_API_KEY', 'GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'HUGGINGFACE_API_KEY', 'VIRUSTOTAL_API_KEY'] as const
 type KeyName = (typeof KEY_NAMES)[number]
@@ -241,7 +242,12 @@ export function registerIpcHandlers(): void {
             // وضع المشاريع والمجلس: بدون مايسترو (المنفّذ والمراجع هنن يلي بتحددهم). المايسترو بس بالمحادثة العادية.
             // 5.18.0: مربع «شغّل المايسترو» لكل تبويب (o.master). الافتراضي: بناء مشروع = مطفي (قائمة المعقّد، الأقوى أولاً)، باقي الأوضاع = شغّال.
             const useMaster = o.master ?? o.mode.kind !== 'auto'
-            const analyzed = async (): Promise<Analysis> => analyzeRequest(userMsg, !!confP?.confidential)
+            // 5.21.8: الموافقة القصيرة («اي بلش») بتنحلّل مع طلبها الأصلي، ودايماً مع أدوات.
+            const goAhead = isGoAhead(userMsg, history)
+            const analyzed = async (): Promise<Analysis> => {
+              const a = await analyzeRequest(routingInput(userMsg, history), !!confP?.confidential)
+              return goAhead ? { ...a, need_tools: true, complexity: a.complexity === 'simple' ? 'medium' : a.complexity } : a
+            }
             if (o.mode.kind === 'model') analysis = await analyzed()
             else if (o.mode.kind === 'auto') {
               if (useMaster) {
