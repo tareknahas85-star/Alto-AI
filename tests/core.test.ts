@@ -1,4 +1,4 @@
-import { isGoAhead, isDelegated, routingInput, carriedRequest, delegationHint, DELEGATED_HINT, GO_AHEAD_HINT } from '../src/core/delegation'
+import { isGoAhead, isDelegated, routingInput, carriedRequest, delegationHint, modelInput, DELEGATED_HINT, GO_AHEAD_HINT } from '../src/core/delegation'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
@@ -1184,6 +1184,8 @@ test('5.21.8 delegation: short approvals inherit the real request', () => {
   assert.match(routingInput('لا مافي تعديلات بلش', h), /icons/)
   assert.equal(routingInput('شو أخبار الطقس', h), 'شو أخبار الطقس')
   assert.ok(delegationHint('اي بلش', h).includes(GO_AHEAD_HINT))
+  assert.match(modelInput('لا مافي تعديلات بلش', h), /APP NOTE[\s\S]*icons/)
+  assert.equal(modelInput('شو الطقس؟', h), 'شو الطقس؟')
 })
 
 test('5.21.8 delegation: full authority sticks to the whole conversation', () => {

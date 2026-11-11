@@ -398,7 +398,9 @@ async function executeWithFallbackInner(
           let ar: { text: string; model?: string; tools: string[] } | null = null
           // Executor role (Settings > roles): when set, the action engine runs first; the chat model is the fallback.
           const roleExec = getRoles().executor
-          const execEngine = roleExec !== 'auto' && isAgentEngine(roleExec) ? roleExec : model
+          // 5.21.8: إذا المستخدم اختار موديل/محرك بإيدو لهالتبويب، اختيارو بيمشي قبل دور «المنفّذ» بالإعدادات.
+          const pickedByHand = currentMode()?.kind === 'model' && isAgentEngine(model)
+          const execEngine = !pickedByHand && roleExec !== 'auto' && isAgentEngine(roleExec) ? roleExec : model
           let usedEng = execEngine
           let lastErr: unknown = null
           for (const eng of [execEngine, ...ENGINE_ORDER.filter((e) => e !== execEngine && !(e === 'cli:claude' && model.startsWith('cli:claude')))]) {

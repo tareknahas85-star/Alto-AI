@@ -63,6 +63,14 @@ export function routingInput(input: string, history: Turn[] = []): string {
   return prev ? prev + '\n' + input : input
 }
 
+/** الرسالة يلي بتوصل للموديل: الموافقة القصيرة + الطلب الأصلي صريح، لحتى ما يضيع ويروح يدوّر بالجهاز شو المطلوب. */
+export function modelInput(input: string, history: Turn[] = []): string {
+  if (!isGoAhead(input, history)) return input
+  const prev = carriedRequest(history)
+  if (!prev) return input
+  return input + '\n\n[APP NOTE: this reply approves the earlier request. The task to execute now is exactly this one, nothing else: «' + prev + '». Follow the plan already agreed in this conversation. Do not search the computer for what to do.]'
+}
+
 export const ONE_CONFIRM_HINT =
   '\n\nONE CONFIRMATION IS ENOUGH: if you already proposed a plan/options and the user answered yes / start / go ahead / "no changes", that IS the approval. ' +
   'Never ask the same question again ("any changes?", "shall I start?", "do you want me to…?") and never re-present the same plan. Execute it with your tools and report the real result.'

@@ -9,7 +9,7 @@ import { currentMode, currentSignal } from '../core/progress'
 import { isTrivialChat, localSuitable, liveContext, tryLocalChat, preferGood, noteResult } from '../core/trivial'
 import { computerEnabled } from '../computer/control'
 import { BROWSER_HINT, FRESH_HINT, LOCATION_HINT, SHAMI_HINT, needsBrowser, needsFreshInfo, needsLocation } from '../core/guidance'
-import { delegationHint, isGoAhead, routingInput } from '../core/delegation'
+import { delegationHint, isGoAhead, modelInput, routingInput } from '../core/delegation'
 
 export async function executeWithSkill(userInput: string, analysis: Analysis, extraSystem?: string, exclude: string[] = [], history: { role: 'user' | 'assistant'; content: string }[] = [], project: Project | null = null) {
   let systemPrompt = 'You are a helpful assistant.'
@@ -109,5 +109,5 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
       triedModels: [] as string[]
     }
   }
-  return executeWithFallback(modelsToTry, userInput, analysis, systemPrompt, toolset, history, { requireTools: buildReq && !!toolset?.defs.length })
+  return executeWithFallback(modelsToTry, modelInput(userInput, history), analysis, systemPrompt, toolset, history, { requireTools: (buildReq || go) && !!toolset?.defs.length })
 }
