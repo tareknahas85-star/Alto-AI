@@ -1,3 +1,4 @@
+import { needsFreshInfo } from './guidance'
 import { isGoAhead } from './delegation'
 import { takePendingImage } from '../tools/android-tools'
 import { hostOf } from './hosts'
@@ -561,7 +562,9 @@ async function executeWithFallbackInner(
         if (!useTools && toolset?.defs.length) {
           // No native function calling: the APP runs the tools through the text protocol.
           textMode = true
-          const sys = baseSystem + capabilityBlock(model, toolset, false) + textProtocol(toolset)
+          // 5.21.8: سؤال بيحتاج معلومة حديثة + موديل بلا function calling: البرنامج بيدوّر بنفسو وبيعطيه النتايج مع تواريخها.
+          const pre = needsFreshInfo(userInput) ? await preSearch(userInput) : ''
+          const sys = baseSystem + capabilityBlock(model, toolset, false) + textProtocol(toolset) + pre
           const r = await textToolLoop({
             toolset,
             maxRounds: pcMode ? 40 : 8,
@@ -836,6 +839,26 @@ export function calculateSavedCost(modelUsed: string, analysis: Analysis): strin
   if (modelUsed.includes('flash') || modelUsed.includes('mini'))
     return 'وفرت ~80% - استخدمت موديل رخيص'
   return 'استخدمت موديل قوي للمهام المعقدة'
+}
+
+// 5.21.8: بحث مسبق يعملو البرنامج للموديلات الضعيفة (نتيجة وحدة لكل طلب، بتنعاد لدقيقتين بين الموديلات).
+let preCache: { q: string; at: number; text: string } | null = null
+async function preSearch(input: string): Promise<string> {
+  const q = input.replace(/[؟?!.،]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+  if (!q) return ''
+  if (preCache && preCache.q === q && Date.now() - preCache.at < 120000) return preCache.text
+  let res = ''
+  try {
+    const { webSearch } = await import('../computer/devtools')
+    res = await webSearch(q, 6)
+  } catch (e) {
+    res = 'Error: ' + String((e as Error).message)
+  }
+  const text = /^Error|ما لقيت نتائج/.test(res)
+    ? ''
+    : '\n\nLIVE WEB RESULTS (fetched by the app just now, with each page date). Your memory is outdated for this question: answer ONLY from these results, prefer the newest dated ones, name the date, and say so if they do not answer it:\n' + res.slice(0, 6000)
+  preCache = { q, at: Date.now(), text }
+  return text
 }
 
 export const VERIFY_HINT =
