@@ -66,14 +66,16 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.21.0
+### What's new in 5.21.9
 
-- **Android emulator inside the app.** The phone screen streams live into a side panel next to the chat, no separate window. Drag down from the top to open notifications, drag up from the bottom to open the app drawer, scroll with the mouse wheel, tap and long-press.
-- **Smoother and faster.** The screen arrives as H.264 video and is decoded in the panel. The emulator runs on your GPU.
-- **Ask the chat to use the phone.** Screenshot, read the screen, tap, type, press buttons, install an APK, open an app, build a Gradle project. Anything that changes something asks for your approval first.
-- **Right-click copy and paste** in text fields.
-- The mouse cursor over the emulator is a normal arrow.
-
+- **Live voice translation.** A new «ترجمة» tab: pick a target language, speak in any language, and hear the translation as you talk, with the original and translated text side by side. Uses Gemini's live translation model with your own Gemini key.
+- **Music with Lyria 3.5.** The audio generator can turn a text description (genre, mood, instruments) into a music track.
+- **Colab MCP preset.** One click fills in the Colab MCP server, so the agent can run Python on a Colab GPU from your own account.
+- **Side browser upgrades.** Open a local file, save a page as HTML/PDF/PNG, zoom, font, reader mode, bookmarks, address-bar suggestions, and import history and bookmarks from Chrome, Edge or Brave (no cookies or passwords). A plain word in the address bar becomes a Google search.
+- **Sign-ins stay.** The side browser keeps your logins (Designer and others) until you clear them with the trash button.
+- **Agent results on the desktop.** The Agents page lists every finished run (cloud, phone or scheduled), the same list the phone shows.
+- **Phone notifications built in.** The phone app checks for results in the background and notifies you, with no Firebase and no extra app. ntfy stays as an advanced option.
+- **Free model lists refresh themselves** (APInex and OpenRouter), and the emulator no longer opens by itself at startup.
 Every change is in [CHANGELOG.md](CHANGELOG.md). Every release is on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases).
 
 ### What it does
@@ -352,14 +354,16 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.21.0)
+### شو الجديد بآخر نسخة (5.21.9)
 
-- **المحاكي جوّا البرنامج.** شاشة الأندرويد بتنبث مباشرة بلوحة جنب الشات، بدون نافذة منفصلة. اسحب من فوق لتحت لتفتح الإشعارات، ومن تحت لفوق لتفتح درج التطبيقات، وسكرول بعجلة الماوس، وضغط وضغط مطوّل.
-- **أنعم وأسرع.** الشاشة بتوصل فيديو H.264 بيتفك جوّا اللوحة، والمحاكي بيشتغل على كرت الشاشة.
-- **اطلب من الشات يستعمل التلفون.** لقطة شاشة، قراءة عناصر الشاشة، ضغط، كتابة، أزرار، تثبيت APK، فتح تطبيق، وبناء مشروع Gradle. أي شي بيغيّر شي بيطلب موافقتك أول.
-- **نسخ ولصق بالماوس اليمين** بخانات الكتابة.
-- مؤشر الماوس فوق شاشة المحاكي صار سهم عادي.
-
+- **ترجمة فورية بالصوت.** تبويب جديد «ترجمة»: بتختار اللغة وبتحكي بأي لغة، وبتسمع الترجمة وأنت عم تحكي، ومعها نص الأصل ونص الترجمة جنب بعض. بتشتغل بموديل الترجمة تبع Gemini ومفتاحك.
+- **موسيقى بـ Lyria 3.5.** توليد الصوت صار بيعمل موسيقى من وصف نصي (النوع، المزاج، الآلات).
+- **Colab MCP جاهز.** كبسة وحدة بتعبّي إعدادات سيرفر Colab، فالوكيل بيقدر يشغّل Python على GPU من حسابك.
+- **المتصفح الجانبي صار أقوى.** فتح ملف، حفظ الصفحة HTML/PDF/PNG، زوم، خط، وضع قراءة، بوكمارك، اقتراحات بشريط العنوان، واستيراد الهيستوري والبوكماركس من Chrome وEdge وBrave (بدون كوكيز ولا باسوردات). وأي كلمة بدون رابط بتصير بحث Google.
+- **تسجيل الدخول بيضل.** المتصفح الجانبي بيحفظ دخولك (Designer وغيره) لحتى تمسحو بإيدك من زر السلة.
+- **نتائج الوكلاء عالكمبيوتر.** صفحة الوكلاء بتعرض كل وكيل خلّص (سحابي، من الموبايل، أو مجدول)، نفس قائمة الموبايل.
+- **إشعارات الموبايل مدمجة.** تطبيق الموبايل بيفحص النتائج بالخلفية وبيبعتلك إشعار، بدون Firebase ولا تطبيق تاني. وntfy بيضل خيار متقدم.
+- **قوائم الموديلات المجانية بتتحدّث لحالها** (APInex وOpenRouter)، والمحاكي ما بيفتح لحالو عند التشغيل.
 كل التفاصيل بملف [CHANGELOG.md](CHANGELOG.md)، وكل نسخة بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases).
 
 <a id="needs-ar"></a>
