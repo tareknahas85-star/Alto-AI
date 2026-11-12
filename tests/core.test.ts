@@ -1,4 +1,6 @@
 import { isGoAhead, isDelegated, routingInput, carriedRequest, delegationHint, modelInput, DELEGATED_HINT, GO_AHEAD_HINT } from '../src/core/delegation'
+import { LYRIA_MODEL, lyriaAudio, lyriaRequest } from '../src/core/lyria'
+import { TRANSLATE_LANGS, TRANSLATE_MODEL, isTranslateLang, translateSetup } from '../src/core/live-translate'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
@@ -1317,4 +1319,31 @@ test('5.21.9 view prefs are sanitized and font CSS is safe', () => {
   assert.equal(fontCss('x"}body{display:none'), '')
   for (const f of FONT_CHOICES.slice(1)) assert.ok(fontCss(f).includes(`"${f}"`))
   assert.ok(READER_CSS.includes('max-width'))
+})
+
+test('5.21.9 live translate: setup carries target language inside generationConfig', () => {
+  const s = translateSetup('ar', true) as { setup: { model: string; generationConfig: { responseModalities: string[]; translationConfig: { targetLanguageCode: string; echoTargetLanguage: boolean }; inputAudioTranscription: object; outputAudioTranscription: object } } }
+  assert.equal(s.setup.model, TRANSLATE_MODEL)
+  assert.deepEqual(s.setup.generationConfig.responseModalities, ['AUDIO'])
+  assert.deepEqual(s.setup.generationConfig.translationConfig, { targetLanguageCode: 'ar', echoTargetLanguage: true })
+  assert.deepEqual(s.setup.generationConfig.inputAudioTranscription, {})
+  assert.deepEqual(s.setup.generationConfig.outputAudioTranscription, {})
+})
+
+test('5.21.9 live translate: only listed language codes are accepted', () => {
+  assert.equal(isTranslateLang('ar'), true)
+  assert.equal(isTranslateLang('zh-Hans'), true)
+  assert.equal(isTranslateLang('xx'), false)
+  assert.equal(isTranslateLang(undefined), false)
+  assert.equal(new Set(TRANSLATE_LANGS.map((l) => l.code)).size, TRANSLATE_LANGS.length)
+})
+
+test('5.21.9 lyria: request shape and audio extraction', () => {
+  assert.deepEqual(lyriaRequest('calm piano'), { model: LYRIA_MODEL, input: 'calm piano' })
+  const ok = { steps: [{ type: 'model_output', content: [{ type: 'text', text: 'lyrics' }, { type: 'audio', data: 'QUJD', mime_type: 'audio/mpeg' }] }] }
+  assert.deepEqual(lyriaAudio(ok), { data: 'QUJD', mimeType: 'audio/mpeg' })
+  assert.equal(lyriaAudio({ steps: [{ type: 'model_output', content: [{ type: 'text', text: 'x' }] }] }), null)
+  assert.equal(lyriaAudio({ steps: [{ type: 'other', content: [{ type: 'audio', data: 'QQ==' }] }] }), null)
+  assert.equal(lyriaAudio(null), null)
+  assert.equal(lyriaAudio({}), null)
 })

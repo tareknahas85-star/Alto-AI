@@ -394,6 +394,17 @@ const api = {
       return () => ipcRenderer.removeListener('live:event', h)
     },
   },
+  translate: {
+    available: (): Promise<boolean> => ipcRenderer.invoke('translate:available'),
+    start: (target: string, echo: boolean): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('translate:start', target, echo),
+    audio: (b64: string): void => ipcRenderer.send('translate:audio', b64),
+    stop: (): Promise<boolean> => ipcRenderer.invoke('translate:stop'),
+    onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void): (() => void) => {
+      const h = (_e: unknown, ev: { type: string; [k: string]: unknown }): void => cb(ev)
+      ipcRenderer.on('translate:event', h)
+      return () => ipcRenderer.removeListener('translate:event', h)
+    },
+  },
   voice: {
     speak: (text: string): Promise<{ ok: boolean; url?: string; note?: string; error?: string }> => ipcRenderer.invoke('voice:speak', text),
     suaadStart: (text: string): Promise<SpeechPartResult> => ipcRenderer.invoke('voice:suaadStart', text),

@@ -9,6 +9,7 @@ import path from 'path'
 import { getApiKey } from '../store/secure-store'
 import { readJson, writeJson } from '../core/json-store'
 import { freeOnly } from '../core/spend'
+import { LYRIA_URL, lyriaAudio, lyriaRequest } from '../core/lyria'
 import { activeProject } from '../core/workspace'
 import { generate as geminiWeb, openGeminiInChrome } from '../tools/google-media-tools'
 import { hasGoogleLogin } from '../tools/gemini-internal'
@@ -146,6 +147,19 @@ async function geminiApiImage(prompt: string): Promise<string> {
   return save(Buffer.from(part.data, 'base64'), extOf(part.mimeType ?? '', 'png'), 'gemini-api')
 }
 
+async function lyriaMusic(prompt: string): Promise<string> {
+  const r = await fetch(LYRIA_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': getApiKey('GEMINI_API_KEY') },
+    body: JSON.stringify(lyriaRequest(prompt)),
+    signal: AbortSignal.timeout(300000)
+  })
+  if (!r.ok) throw new Error('Lyria ' + r.status + ' ' + (await r.text().catch(() => '')).replace(/key=[^&\s]+/gi, 'key=***').slice(0, 120))
+  const a = lyriaAudio(await r.json())
+  if (!a) throw new Error('Lyria: ما رجع صوت (ممكن الوصف انرفض). جرّب وصف تاني')
+  return save(Buffer.from(a.data, 'base64'), extOf(a.mimeType, 'mp3'), 'lyria')
+}
+
 // Local text-to-speech through Windows SAPI (System.Speech). Text goes through a temp file (no quoting problems).
 // PowerShell 7 is tried first (it also sees the Arabic Naayf voice); then the 32-bit and 64-bit Windows PowerShell.
 function runSapi(exe: string, script: string): Promise<void> {
@@ -235,6 +249,8 @@ async function run(m: MediaModel, prompt: string): Promise<string> {
       return pollinations(prompt)
     case 'gemini-api-image':
       return geminiApiImage(prompt)
+    case 'gemini-api-music':
+      return lyriaMusic(prompt)
     case 'windows-voice':
       return windowsVoice(prompt)
     case 'hf-mms-ara':

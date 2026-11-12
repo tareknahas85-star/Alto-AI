@@ -8,7 +8,7 @@ const TITLE: Record<MediaKind, string> = { image: 'توليد صورة', video: 
 const HINT: Record<MediaKind, string> = {
   image: 'وصف الصورة (بالعربي أو الإنجليزي، الإنجليزي غالباً أدق)…',
   video: 'وصف الفيديو القصير…',
-  audio: 'النص اللي بدك ياه يتحوّل لصوت…'
+  audio: 'النص اللي بدك ياه يتحوّل لصوت، أو وصف الموسيقى لو اخترت Lyria…'
 }
 
 function Badge({ m }: { m: ModelStatus }) {

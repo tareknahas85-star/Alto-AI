@@ -4,7 +4,7 @@ import { askConfirm } from '../../ui/components/confirm'
 import {
   BookOpen, Bot, Clock, Cpu, ListChecks, FolderKanban, FolderOpen, MessageSquare, Moon, Pin, PinOff, Plug, Plus, Settings as SettingsIcon, Layers,
   Sun, Trash2, Download, Search, X, Bell, BellOff, Pencil, FolderPlus, Globe,
-  Smartphone,
+  Smartphone, Languages,
 } from 'lucide-react'
 import appIcon from './assets/icon.png'
 import syriaEagle from './assets/syria-eagle.svg'
@@ -25,6 +25,7 @@ import { SkillsPage } from '../../ui/SkillsPage'
 import { ToolsPage } from '../../ui/ToolsPage'
 import { TodoPage } from '../../ui/TodoPage'
 import { NotebookPage } from '../../ui/NotebookPage'
+import { TranslatePage } from '../../ui/TranslatePage'
 import { CommandPalette } from '../../ui/CommandPalette'
 import { WhatsNew } from '../../ui/WhatsNew'
 import { UpdatePrompt } from '../../ui/UpdatePrompt'
@@ -130,7 +131,7 @@ function AboutBadge({ onSetup }: { onSetup: () => void }): ReactElement {
   )
 }
 
-type Nav = 'chat' | 'projects' | 'tasks' | 'agents' | 'todo' | 'notebook' | 'models' | 'platforms' | 'extensions' | 'settings'
+type Nav = 'chat' | 'projects' | 'tasks' | 'agents' | 'todo' | 'notebook' | 'translate' | 'models' | 'platforms' | 'extensions' | 'settings'
 
 const NAV_ITEMS: { id: Nav; label: string; icon: typeof Bot }[] = [
   { id: 'chat', label: 'المحادثات', icon: MessageSquare },
@@ -139,6 +140,7 @@ const NAV_ITEMS: { id: Nav; label: string; icon: typeof Bot }[] = [
   { id: 'agents', label: 'وكلاء', icon: Bot },
   { id: 'todo', label: 'ملاحظات', icon: ListChecks },
   { id: 'notebook', label: 'دفتر', icon: BookOpen },
+  { id: 'translate', label: 'ترجمة', icon: Languages },
   { id: 'models', label: 'الموديلات', icon: Cpu },
   { id: 'platforms', label: 'المنصات', icon: Layers },
   { id: 'extensions', label: 'الإضافات', icon: Plug },
@@ -673,6 +675,7 @@ function Shell(): ReactElement {
         {activeNav === 'agents' && <AgentsPage />}
         {activeNav === 'todo' && <TodoPage />}
         {activeNav === 'notebook' && <NotebookPage />}
+        {activeNav === 'translate' && <TranslatePage />}
         {activeNav === 'models' && <ModelsPage />}
         {activeNav === 'platforms' && <PlatformsPage />}
         {activeNav === 'extensions' && (

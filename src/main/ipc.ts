@@ -37,6 +37,7 @@ import { registerLearnHandlers } from './learn-ipc'
 import { registerNotebookIpc, setNotebookRunner } from './notebook-ipc'
 import { registerVoiceIpc } from './voice-ipc'
 import { registerLiveIpc } from './live-voice'
+import { registerTranslateIpc } from './live-translate'
 import { registerWakeIpc } from './wake-live'
 import { registerOrbIpc } from './orb'
 import { recordTurn as recordLearning } from '../core/learning'
@@ -358,6 +359,7 @@ export function registerIpcHandlers(): void {
   registerNotebookIpc()
   registerVoiceIpc()
   registerLiveIpc()
+  registerTranslateIpc()
   registerWakeIpc()
   registerOrbIpc()
   setScheduleRunner(async (prompt, projectId, mode, taskId) => {

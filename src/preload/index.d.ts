@@ -377,6 +377,13 @@ declare global {
       stop: () => Promise<boolean>
       onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void) => () => void
     }
+    translate: {
+      available: () => Promise<boolean>
+      start: (target: string, echo: boolean) => Promise<{ ok: boolean; error?: string }>
+      audio: (b64: string) => void
+      stop: () => Promise<boolean>
+      onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void) => () => void
+    }
     voice: {
       speak: (text: string) => Promise<{ ok: boolean; url?: string; note?: string; error?: string }>
       suaadStart: (text: string) => Promise<{ ok: boolean; id?: string; url?: string; done?: boolean; error?: string }>
