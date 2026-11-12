@@ -32,7 +32,8 @@
 | | |
 |---|---|
 | ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
-| 📺 **Feature by feature · ميزة بميزة** (7 short episodes · 7 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
+| 📺 **Feature by feature · ميزة بميزة** (9 short episodes · 9 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
+| 🚀 **What's new in 5.21.9 · شو الجديد بـ 5.21.9** (ep 9 · الحلقة 9) | [Watch · شوف](https://youtu.be/6oA_IcxejOE) |
 | 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
