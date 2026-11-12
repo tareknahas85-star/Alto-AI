@@ -170,22 +170,9 @@ function Shell(): ReactElement {
   const [activeNav, setActiveNav] = useState<Nav>('chat')
   // F28: side browser panel. Its width is kept in sync with the main process (which owns the native view).
   const [sidePanel, setSidePanel] = useState<{ open: boolean; width: number }>({ open: false, width: 420 })
-  // Android emulator panel: same place as the side browser; opens by itself when the emulator is running.
+  // Android emulator panel: same place as the side browser. 5.21.9: it never opens by itself, only from its toolbar button.
   const [emuOpen, setEmuOpen] = useState(false)
   const EMU_WIDTH = 380
-  useEffect(() => {
-    // The emulator boots after launch, so keep checking until it is up, then open the panel once.
-    const t = setInterval(() => {
-      void window.api.android.status().then((r) => {
-        if (r.ok && r.data?.connected) {
-          setEmuOpen(true)
-          clearInterval(t)
-        }
-      })
-    }, 3000)
-    const stop = setTimeout(() => clearInterval(t), 5 * 60 * 1000)
-    return () => { clearInterval(t); clearTimeout(stop) }
-  }, [])
   const toggleSidePanel = async (): Promise<void> => {
     if (sidePanel.open) {
       closeSidePanel()

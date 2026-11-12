@@ -318,6 +318,7 @@ async function feedPoll() {
   if (!S.gate || feedBusy) return
   feedBusy = true
   try {
+    if (S.ntfy === undefined) { const n = await gateCall('/ntfy'); if (n && n.ok) S.ntfy = n }
     if (S.tgQuiet === null) { const p = await gateCall('/prefs'); if (p && p.ok) { S.tgQuiet = !!p.tgQuiet; lsSet('trl.tgq', S.tgQuiet) } }
     const r = await gateCall('/feed?after=' + S.feedLast)
     if (!r || !r.ok) return
@@ -464,6 +465,21 @@ function viewClick(t) {
   }
   if (d.feedopen !== undefined) { const n = Number(d.feedopen); S.feedOpen = S.feedOpen === n ? 0 : n; renderPage(); return true }
   if (d.tgq) { const v = S.tgQuiet !== true; S.tgQuiet = v; lsSet('trl.tgq', v); renderPage(); void gateCall('/prefs', { tgQuiet: v }).then((r) => { if (!r || !r.ok) { S.tgQuiet = !v; lsSet('trl.tgq', !v); renderPage(); toast('ما قدرت أغيّر الإعداد') } else toast(v ? 'تيليغرام انسكّر، النتائج هون بس' : 'تيليغرام رجع شغّال') }); return true }
+  if (d.ntfyon || d.ntfyoff || d.ntfyrot) {
+    const body = d.ntfyoff ? { enable: false } : d.ntfyrot ? { enable: true, rotate: true } : { enable: true }
+    void gateCall('/ntfy', body).then((r) => { if (!r || !r.ok) return toast('ما قدرت أوصل للبوابة'); S.ntfy = r; renderPage(); toast(d.ntfyoff ? 'إشعارات ntfy انطفت' : 'جاهزة. اكبس «افتح ntfy» واشترك') })
+    return true
+  }
+  if (d.ntfyopen || d.ntfycopy) {
+    const n = S.ntfy
+    if (!n || !n.topic) return true
+    try { void navigator.clipboard.writeText(n.topic) } catch { /* clipboard may be blocked */ }
+    if (d.ntfyopen) {
+      toast('انسخت التوبيك. إذا ما فتح ntfy، نزّلو من Google Play أو F-Droid')
+      try { window.location.href = 'ntfy://' + String(n.server).replace(/^https?:\/\//, '') + '/' + n.topic } catch { /* no handler installed */ }
+    } else toast('انسخ التوبيك')
+    return true
+  }
   if (d.stopall) { void gateCall('/stop', {}).then((r) => toast(r && r.ok ? 'انبعت الإيقاف (سحابي انلغى: ' + (r.cancelled || 0) + ')' : 'ما قدرت أوصل للبوابة')); return true }
   if (d.feedclear) { S.feed = []; lsSet('trl.feed', []); renderTabs(); renderPage(); return true }
   if (d.agrun) { runAgentNow(d.agrun); return true }

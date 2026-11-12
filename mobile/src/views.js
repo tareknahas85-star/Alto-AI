@@ -28,10 +28,14 @@ const empty = (msg) => '<div class="emp">' + msg + '</div>'
 export function feedHtml(c) {
   const { S, esc, md } = c
   const q = S.tgQuiet === true
+  // 5.22: ntfy push (free, works with the app closed). The gate keeps a private topic; the user subscribes once in the ntfy app.
+  const nt = S.ntfy
+  const ntOn = !!(nt && nt.topic)
+  const ntfyCard = '<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:140px"><b>🔔 إشعارات ntfy</b><div class="mut">' + (ntOn ? 'شغّالة. اشترك بالتوبيك بتطبيق ntfy مرة وحدة.' : 'إشعارات مجانية حتى والتطبيق مسكّر، بدون Firebase.') + '</div></div>' + (ntOn ? '<button class="chip pri" data-ntfyopen="1">افتح ntfy</button><button class="chip" data-ntfycopy="1">انسخ التوبيك</button><button class="chip" data-ntfyrot="1">توبيك جديد</button><button class="chip" data-ntfyoff="1">طفّيها</button>' : '<button class="chip pri" data-ntfyon="1">فعّلها</button>') + '</div>' + (ntOn ? '<div class="mut" style="margin-top:6px;direction:ltr;word-break:break-all">' + esc(String(nt.server).replace(/^https?:\/\//, '') + '/' + nt.topic) + '</div>' : '') + '</div>'
   const vn = (S.ttsVoices || []).find((x) => x.uri === S.ttsVoice)
   let h = '<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><b>🔊 القراءة الصوتية</b><div class="mut">بتقرا العنوان والملخص بس، بدون الروابط.</div></div>' + (S.speaking ? '<button class="btn danger" data-speakstop="1">⏹ وقّف</button>' : '<button class="chip pri" data-speakall="1">🔊 اسمع الكل</button>') + '<button class="chip" data-ttsrate="1">⏩ ' + S.ttsRate + 'x</button><button class="chip" data-ttsvoice="1">🗣 ' + esc(vn ? vn.name.slice(0, 18) : 'صوت تلقائي') + '</button></div></div>' +
     '<div class="card"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><b>إشعارات تيليغرام</b><div class="mut">' + (q ? 'مسكّرة: النتائج بتطلع هون بس.' : 'شغّالة: النتائج بتنبعت لتيليغرام كمان.') + '</div></div><button class="chip' + (q ? ' pri' : '') + '" data-tgq="1">' + (q ? 'شغّلها' : 'سكّرها') + '</button></div>' +
-    '<div class="acts" style="margin-top:10px"><button class="btn danger" data-stopall="1">■ أوقف كل المهام</button><button class="chip" data-feedclear="1">مسح القائمة</button></div></div>'
+    '<div class="acts" style="margin-top:10px"><button class="btn danger" data-stopall="1">■ أوقف كل المهام</button><button class="chip" data-feedclear="1">مسح القائمة</button></div></div>' + ntfyCard
   const items = [...(S.feed || [])].reverse()
   if (!items.length) return h + empty('ما في نتائج لسا. أي وكيل بيخلص (مجدول أو مشغّل من أي مكان) بتطلع نتيجتو هون.')
   return h + items.map((i) => {

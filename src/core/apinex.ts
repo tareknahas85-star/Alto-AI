@@ -7,36 +7,26 @@ import { getApiKey } from '../store/secure-store'
 export const APINEX_PREFIX = 'apinex:'
 const API_BASE = 'https://api.apinex.bond/v1'
 const CATALOG_URL = 'https://apinex.bond/api/public/models'
-const DAY_MS = 24 * 60 * 60 * 1000
+const DAY_MS = 6 * 60 * 60 * 1000 // refresh every 6 hours (was 24) so new free models show up sooner
 
-// Listed as "Subscription only" on the site. The public catalog does not flag these, so they are excluded here.
-// Keep this in sync with the site when it changes.
-export const APINEX_SUB_ONLY = new Set<string>([
-  'free/minimax-m3',
-  'free/qwen-3.8-max',
-  'free/deepseek-v4-flash-0731',
-  'free/mimo-v2.6-flash',
-  'free/claude-sonnet-4.6',
-  'free/hy4',
-  'free/kimi-k3',
-  'free/claude-opus-4.6',
-  'free/gemini-3.1-pro',
-  'free/kimi-k2.8'
-])
+// 5.21.9: the free list comes only from the live catalog's allowFree flag. The old hard-coded "subscription only"
+// blacklist is gone: the site moves models between free and subscription, and the blacklist kept new free models
+// (Qwen 3.8 Max, Kimi K3, DeepSeek V4 Flash, HY4) out of Alto even after the site listed them as FREE.
 
-// Used when the live catalog cannot be reached. Verified against the catalog on 2026-10-23.
+// Used when the live catalog cannot be reached. Verified against the catalog on 2026-11-12.
 const FALLBACK_FREE = [
-  'free/muse-spark-1.3',
+  'free/qwen-3.8-max',
+  'free/kimi-k3',
   'free/deepseek-v4.1-flash',
-  'free/glm-5.3-flash',
-  'free/minimax-m3.1-flash',
-  'free/glm-5.3',
   'free/gemini-3.8-flash',
+  'free/glm-5.3-flash',
   'free/deepseek-v4-pro-0813',
-  'free/gpt-6-luna',
-  'free/glm-5.3-flashx',
-  'free/mimo-v2.6-pro',
-  'free/jev-1.13'
+  'free/deepseek-v4-flash-0731',
+  'free/muse-spark-1.3',
+  'free/hy4',
+  'free/glm-5.3',
+  'free/minimax-m3.1-flash',
+  'free/gpt-6-luna'
 ]
 
 type CatalogEntry = {
@@ -74,12 +64,11 @@ async function refreshCatalog(): Promise<void> {
       .filter(
         (m) =>
           typeof m.id === 'string' &&
-          m.allowFree !== false &&
+          m.allowFree === true &&
           m.dollarsPer1M === 0 &&
           (m.outputDollarsPer1M ?? 0) === 0 &&
           m.supportsTools !== false &&
-          m.health !== 'down' &&
-          !APINEX_SUB_ONLY.has(m.id as string)
+          m.health !== 'down'
       )
       .map((m) => APINEX_PREFIX + (m.id as string))
     if (ids.length) cache = { at: Date.now(), ids }

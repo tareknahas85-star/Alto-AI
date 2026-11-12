@@ -8,6 +8,8 @@ type ChatOpts = { tabId: string; projectId: string | null; mode: ChatMode; allow
 type SpeechPartResult = { ok: boolean; id?: string; url?: string; done?: boolean; error?: string }
 type ChatResult = { content: string; meta?: string; cancelled?: boolean; failed?: boolean; needsChoice?: boolean; policyRefused?: boolean }
 type SideStateInfo = { open: boolean; url: string | null; width: number; canGoBack: boolean }
+type SideViewInfo = { open: boolean; host: string; zoom: number; font: string; reader: boolean; bookmarked: boolean; local: boolean }
+type SideImportSource = { id: string; browser: string; label: string; profile: string; name: string; hasHistory: boolean; hasBookmarks: boolean }
 
 const api = {
   chat: (userInput: string, history: { role: 'user' | 'assistant'; content: string }[] | undefined, opts: ChatOpts): Promise<ChatResult> =>
@@ -314,6 +316,18 @@ const api = {
     setOverlay: (on: boolean): Promise<SideStateInfo> => ipcRenderer.invoke('side:setOverlay', on),
     clearData: (): Promise<boolean> => ipcRenderer.invoke('side:clearData'),
     clearService: (id: string): Promise<boolean> => ipcRenderer.invoke('side:clearService', id),
+  openFile: (): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> => ipcRenderer.invoke('side:openFile'),
+  savePage: (kind: 'html' | 'pdf' | 'png'): Promise<{ ok: boolean; error?: string; cancelled?: boolean; path?: string }> => ipcRenderer.invoke('side:savePage', kind),
+  viewInfo: (): Promise<SideViewInfo> => ipcRenderer.invoke('side:viewInfo'),
+  zoom: (dir: 1 | -1 | 0): Promise<SideViewInfo> => ipcRenderer.invoke('side:zoom', dir),
+  setFont: (font: string): Promise<SideViewInfo> => ipcRenderer.invoke('side:font', font),
+  toggleReader: (): Promise<SideViewInfo> => ipcRenderer.invoke('side:reader'),
+  toggleBookmark: (): Promise<SideViewInfo> => ipcRenderer.invoke('side:bookmarkToggle'),
+  importList: (): Promise<SideImportSource[]> => ipcRenderer.invoke('side:importList'),
+  importRun: (id: string, what: { history: boolean; bookmarks: boolean }): Promise<{ ok: boolean; error?: string; history?: number; bookmarks?: number }> => ipcRenderer.invoke('side:importRun', id, what),
+  suggest: (q: string): Promise<Array<{ url: string; title: string; bookmark: boolean }>> => ipcRenderer.invoke('side:suggest', q),
+  libraryStats: (): Promise<{ history: number; bookmarks: number; importedAt: number }> => ipcRenderer.invoke('side:libraryStats'),
+  libraryClear: (): Promise<boolean> => ipcRenderer.invoke('side:libraryClear'),
     state: (): Promise<SideStateInfo> => ipcRenderer.invoke('side:state'),
     onChanged: (cb: (s: SideStateInfo) => void): (() => void) => {
       const h = (_e: unknown, s: SideStateInfo): void => cb(s)

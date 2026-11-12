@@ -1,6 +1,8 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 export type SideStateInfo = { open: boolean; url: string | null; width: number; canGoBack: boolean }
+export type SideViewInfo = { open: boolean; host: string; zoom: number; font: string; reader: boolean; bookmarked: boolean; local: boolean }
+export type SideImportSource = { id: string; browser: string; label: string; profile: string; name: string; hasHistory: boolean; hasBookmarks: boolean }
 export type CheckItemInfo = { id: string; label: string; state: 'ok' | 'fail' | 'skip'; message: string; ms: number }
 export type CheckResultInfo = { kind: string; items: CheckItemInfo[]; ok: number; fail: number; skipped: number; cancelled: boolean }
 export type PrefsInfo = { locationEnabled: boolean; learningEnabled: boolean; learningPaused: boolean; onboardingDone: boolean; interests: string[]; catalogEnabled: string[]; askBeforeNewTools: boolean; approvedTools: string[]; securityToolsEnabled: boolean }
@@ -318,6 +320,18 @@ declare global {
         setOverlay: (on: boolean) => Promise<SideStateInfo>
         clearData: () => Promise<boolean>
       clearService: (id: string) => Promise<boolean>
+  openFile: () => Promise<{ ok: boolean; error?: string; cancelled?: boolean }>
+  savePage: (kind: 'html' | 'pdf' | 'png') => Promise<{ ok: boolean; error?: string; cancelled?: boolean; path?: string }>
+  viewInfo: () => Promise<SideViewInfo>
+  zoom: (dir: 1 | -1 | 0) => Promise<SideViewInfo>
+  setFont: (font: string) => Promise<SideViewInfo>
+  toggleReader: () => Promise<SideViewInfo>
+  toggleBookmark: () => Promise<SideViewInfo>
+  importList: () => Promise<SideImportSource[]>
+  importRun: (id: string, what: { history: boolean; bookmarks: boolean }) => Promise<{ ok: boolean; error?: string; history?: number; bookmarks?: number }>
+  suggest: (q: string) => Promise<Array<{ url: string; title: string; bookmark: boolean }>>
+  libraryStats: () => Promise<{ history: number; bookmarks: number; importedAt: number }>
+  libraryClear: () => Promise<boolean>
         state: () => Promise<SideStateInfo>
         onChanged: (cb: (s: SideStateInfo) => void) => () => void
       }

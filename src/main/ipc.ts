@@ -44,7 +44,7 @@ import { needsFreshInfo, needsLocation } from '../core/guidance'
 import { memoryPrompt } from '../core/memory'
 import { runInContext, cancelRun, isUnattended, type RunMode } from '../core/progress'
 import { createStreamBatcher } from '../core/stream-batch'
-import { listCatalog } from '../core/catalog'
+import { ensureCatalogFresh, listCatalog } from '../core/catalog'
 import { apinexFreeIds, hasApinexKey } from '../core/apinex'
 import { badReplyReason } from '../core/reply-quality'
 import { CUSTOM_PREFIX, getCustomModel, listCustomModelViews } from '../core/custom-models'
@@ -383,6 +383,7 @@ export function registerIpcHandlers(): void {
   startScheduler()
   startFreeWatch()
   void refreshFreeRanking()
+  ensureCatalogFresh()
 
   ipcMain.handle('agents:run', async (event, id: unknown, task: unknown) => {
     const a = listAgents().find((x) => x.id === id)

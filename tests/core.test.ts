@@ -424,8 +424,20 @@ test('F28: فاضي أو طويل زيادة مرفوض', () => {
   assert.equal(checkSideUrl('https://example.com/' + 'a'.repeat(3000)).ok, false)
 })
 
-test('F28: نص مش رابط مرفوض', () => {
-  assert.equal(checkSideUrl('هذا مش رابط ..').ok, false)
+test('5.21.9: نص مش رابط بيصير بحث Google متل المتصفح العادي', () => {
+  const one = checkSideUrl('google')
+  assert.ok(one.ok && one.url === 'https://www.google.com/search?q=google')
+  const many = checkSideUrl('طقس دمشق اليوم')
+  assert.ok(many.ok && many.url.startsWith('https://www.google.com/search?q=') && !many.url.includes(' '))
+  const amp = checkSideUrl('a&b=c d')
+  assert.ok(amp.ok && amp.url === 'https://www.google.com/search?q=a%26b%3Dc%20d')
+  // real addresses stay addresses
+  for (const a of ['example.com', 'sub.example.co.uk/path?q=1', 'localhost:3000', '127.0.0.1:8080/x', 'مثال.com']) {
+    const r = checkSideUrl(a)
+    assert.ok(r.ok && !r.url.includes('google.com/search'), a)
+  }
+  // dangerous schemes are still refused, never turned into a search
+  for (const a of ['javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///C:/x', 'about:blank', 'chrome://settings']) assert.equal(checkSideUrl(a).ok, false, a)
 })
 
 test('F28: عرض اللوحة يتقيّد بحدودها فقط', () => {
@@ -1204,4 +1216,101 @@ test('5.21.8 stall detector catches Shami re-asks', () => {
   assert.ok(ENDS_WITH_STALL.test('هي الخطة كاملة. عندك أي تعديل قبل ما أبلش؟'))
   assert.ok(ENDS_WITH_STALL.test('Here are the options. Shall I start?'))
   assert.ok(!ENDS_WITH_STALL.test('خلصت وحفظت الملفات بمجلد icons.'))
+})
+import { chromiumTimeToMs, keepHttp, browserRoots, isProfileDir, parseBookmarks, mergeHistory, mergeBookmarks, suggest, clampZoom, stepZoom, sanitizePrefs, fontCss, READER_CSS, FONT_CHOICES, type LibItem, type LibBookmark } from '../src/core/browser-import'
+
+test('5.21.9 chromium time converts to unix ms', () => {
+  // 2020-01-01T00:00:00Z = 13222310400 s since 1601
+  assert.equal(chromiumTimeToMs(13222310400 * 1e6), Date.UTC(2020, 0, 1))
+  assert.equal(chromiumTimeToMs(0), 0)
+  assert.equal(chromiumTimeToMs(NaN), 0)
+})
+
+test('5.21.9 import keeps only plain http(s) urls', () => {
+  assert.equal(keepHttp('https://example.com/a'), true)
+  assert.equal(keepHttp('http://example.com'), true)
+  assert.equal(keepHttp('file:///C:/x.html'), false)
+  assert.equal(keepHttp('javascript:alert(1)'), false)
+  assert.equal(keepHttp('https://user:pw@example.com'), false)
+  assert.equal(keepHttp('chrome://settings'), false)
+  assert.equal(keepHttp(42), false)
+  assert.equal(keepHttp('https://x.com/' + 'a'.repeat(3000)), false)
+})
+
+test('5.21.9 browser roots per platform and profile dir names', () => {
+  const j = (...p: string[]): string => p.join('/')
+  const win = browserRoots('win32', { LOCALAPPDATA: 'C:/L' }, 'C:/U', j)
+  assert.deepEqual(win.map((r) => r.browser), ['chrome', 'edge', 'brave', 'chromium'])
+  assert.equal(win[1].root, 'C:/L/Microsoft/Edge/User Data')
+  assert.equal(browserRoots('darwin', {}, '/Users/t', j)[0].root, '/Users/t/Library/Application Support/Google/Chrome')
+  assert.equal(browserRoots('linux', {}, '/home/t', j)[2].root, '/home/t/.config/BraveSoftware/Brave-Browser')
+  assert.equal(isProfileDir('Default'), true)
+  assert.equal(isProfileDir('Profile 3'), true)
+  assert.equal(isProfileDir('System Profile'), false)
+  assert.equal(isProfileDir('Crashpad'), false)
+})
+
+test('5.21.9 bookmarks JSON is flattened with folders, bad urls dropped', () => {
+  const json = {
+    roots: {
+      bookmark_bar: { type: 'folder', name: 'Bar', children: [
+        { type: 'url', name: 'A', url: 'https://a.com' },
+        { type: 'folder', name: 'Work', children: [{ type: 'url', name: 'B', url: 'https://b.com' }, { type: 'url', name: 'Bad', url: 'javascript:1' }] }
+      ] },
+      other: { type: 'folder', name: 'Other', children: [{ type: 'url', name: 'C', url: 'http://c.com' }] }
+    }
+  }
+  const out = parseBookmarks(json, 'chrome:Default')
+  assert.deepEqual(out.map((b) => b.url), ['https://a.com', 'https://b.com', 'http://c.com'])
+  assert.equal(out[1].folder, 'Bar / Work')
+  assert.deepEqual(parseBookmarks(null, 'x'), [])
+  assert.deepEqual(parseBookmarks({ roots: 5 }, 'x'), [])
+})
+
+test('5.21.9 history/bookmark merge dedupes and keeps newest', () => {
+  const a: LibItem[] = [{ url: 'https://a.com', title: 'old', t: 100, visits: 2, src: 'x' }]
+  const b: LibItem[] = [{ url: 'https://a.com', title: 'new', t: 200, visits: 1, src: 'y' }, { url: 'https://b.com', title: 'B', t: 50, visits: 1, src: 'y' }]
+  const m = mergeHistory(a, b)
+  assert.equal(m.length, 2)
+  assert.equal(m[0].url, 'https://a.com')
+  assert.equal(m[0].title, 'new')
+  assert.equal(m[0].visits, 2)
+  assert.equal(mergeHistory(a, b, 1).length, 1)
+  const bm: LibBookmark[] = [{ url: 'https://a.com', title: 'A', folder: '', src: 'x' }]
+  assert.equal(mergeBookmarks(bm, [...bm, { url: 'https://z.com', title: 'Z', folder: '', src: 'y' }]).length, 2)
+})
+
+test('5.21.9 address suggestions: bookmarks first, then busiest history', () => {
+  const h: LibItem[] = [
+    { url: 'https://news.example.com', title: 'News', t: 1e12, visits: 1, src: 'x' },
+    { url: 'https://example.org/docs', title: 'Docs', t: 1e12, visits: 20, src: 'x' }
+  ]
+  const bm: LibBookmark[] = [{ url: 'https://example.net', title: 'Mine', folder: '', src: 'x' }]
+  const s = suggest('example', h, bm)
+  assert.deepEqual(s.map((x) => x.url), ['https://example.net', 'https://example.org/docs', 'https://news.example.com'])
+  assert.equal(s[0].bookmark, true)
+  assert.equal(s[1].bookmark, false)
+  assert.deepEqual(suggest('', h, bm).map((x) => x.url), ['https://example.net'])
+  assert.equal(suggest('zzz', h, bm).length, 0)
+  assert.equal(suggest('example', h, bm, 2).length, 2)
+})
+
+test('5.21.9 zoom is clamped and steps by 10%', () => {
+  assert.equal(clampZoom(10), 3)
+  assert.equal(clampZoom(0.1), 0.5)
+  assert.equal(clampZoom(NaN), 1)
+  assert.equal(stepZoom(1, 1), 1.1)
+  assert.equal(stepZoom(1.1, -1), 1)
+  assert.equal(stepZoom(2.5, 0), 1)
+  assert.equal(stepZoom(3, 1), 3)
+})
+
+test('5.21.9 view prefs are sanitized and font CSS is safe', () => {
+  assert.deepEqual(sanitizePrefs({ zoom: 9, font: 'Evil;}', reader: 'yes' }), { zoom: 3, font: 'افتراضي', reader: false })
+  assert.deepEqual(sanitizePrefs(undefined), { zoom: 1, font: 'افتراضي', reader: false })
+  assert.equal(sanitizePrefs({ zoom: 1.2, font: 'Tahoma', reader: true }).reader, true)
+  assert.equal(fontCss('افتراضي'), '')
+  assert.equal(fontCss('x"}body{display:none'), '')
+  for (const f of FONT_CHOICES.slice(1)) assert.ok(fontCss(f).includes(`"${f}"`))
+  assert.ok(READER_CSS.includes('max-width'))
 })

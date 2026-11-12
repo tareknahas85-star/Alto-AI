@@ -84,7 +84,7 @@ function ApinexPanel() {
           ))}
         </ul>
       )}
-      <p className="mt-2 text-xs text-muted">القائمة بتتحدث تلقائياً مرة باليوم. الموديلات اللي عليها اشتراك مستبعدة.</p>
+      <p className="mt-2 text-xs text-muted">القائمة بتتحدث تلقائياً كل كم ساعة. الموديلات اللي عليها اشتراك مستبعدة.</p>
     </div>
   )
 }

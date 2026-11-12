@@ -4,14 +4,26 @@
 export type SideUrlResult = { ok: true; url: string } | { ok: false; reason: string }
 
 const MAX_LENGTH = 2048
+const SEARCH_URL = 'https://www.google.com/search?q='
+
+// "example.com", "example.com/a?b", "localhost:3000" and IPs are addresses. "google" or "how to cook" are searches.
+export function looksLikeAddress(raw: string): boolean {
+  if (/\s/.test(raw)) return false
+  const host = raw.split(/[/?#]/)[0]
+  return /^(localhost|(?:[\p{L}\p{N}_-]+\.)+[\p{L}\p{N}-]{2,}|\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-f:]+\])(:\d{1,5})?$/iu.test(host)
+}
 
 export function checkSideUrl(input: string): SideUrlResult {
   const raw = (input ?? '').trim()
   if (!raw) return { ok: false, reason: 'اكتب رابط أول' }
   if (raw.length > MAX_LENGTH) return { ok: false, reason: 'الرابط طويل زيادة' }
 
+  const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
+  // 5.21.9: anything that doesn't look like an address (one word, or words with spaces) is a Google search, like a normal browser.
+  if (!hasScheme && /^(javascript|data|file|vbscript|blob|about|chrome|view-source):/i.test(raw)) return { ok: false, reason: 'بس صفحات http و https مسموحة' }
+  if (!hasScheme && !looksLikeAddress(raw)) return { ok: true, url: SEARCH_URL + encodeURIComponent(raw) }
   // A bare address like "example.com" is treated as https.
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : 'https://' + raw
+  const withScheme = hasScheme ? raw : 'https://' + raw
 
   let parsed: URL
   try {

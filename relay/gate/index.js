@@ -84,7 +84,7 @@ export class Gate extends DurableObject {
     // Phone app (separate narrow key, registered by the PC app): same routing as the Telegram bot.
     // /status says whether the PC is online; /run sends a task (to the PC if online, else the cloud runner).
     const phonePath =
-      p === '/run' || p === '/status' || p === '/approvals' || p === '/feed' || p === '/prefs' || p === '/stop' || p === '/push-token' || p.startsWith('/result/') ||
+      p === '/run' || p === '/status' || p === '/approvals' || p === '/feed' || p === '/prefs' || p === '/stop' || p === '/push-token' || p === '/ntfy' || p.startsWith('/result/') ||
       (p.startsWith('/approval/') && (req.method === 'POST' || req.method === 'OPTIONS'));
     if (phonePath) {
       const cors = {
@@ -111,6 +111,33 @@ export class Gate extends DurableObject {
           await st.put('tgQuiet', b?.tgQuiet === true);
         }
         return out({ ok: true, tgQuiet: (await st.get('tgQuiet')) === true });
+      }
+      // 5.22: ntfy push (free, no Firebase). The phone enables it, the gate keeps a private random topic and publishes to it.
+      if (p === '/ntfy') {
+        const view = (n) => ({ ok: true, enabled: !!(n && n.topic), topic: n?.topic || '', server: n?.server || '' });
+        if (req.method === 'POST') {
+          let b;
+          try { b = await req.json(); } catch { return out({ error: 'bad json' }, 400); }
+          if (b?.enable === false) { await st.delete('ntfy'); return out(view(null)); }
+          let cur = await st.get('ntfy');
+          let server = cur?.server || 'https://ntfy.sh';
+          if (typeof b?.server === 'string' && b.server) {
+            try {
+              const s = new URL(b.server);
+              if (s.protocol !== 'https:' || s.username || s.password) throw new Error('bad');
+              server = s.origin;
+            } catch { return out({ error: 'bad server' }, 400); }
+          }
+          let topic = cur?.topic;
+          if (!topic || b?.rotate === true) {
+            const bytes = crypto.getRandomValues(new Uint8Array(12));
+            topic = 'alto-' + [...bytes].map((x) => x.toString(16).padStart(2, '0')).join('');
+          }
+          cur = { topic, server };
+          await st.put('ntfy', cur);
+          return out(view(cur));
+        }
+        return out(view(await st.get('ntfy')));
       }
       if (p === '/push-token' && req.method === 'POST') {
         let b;
@@ -466,8 +493,21 @@ export class Gate extends DurableObject {
     await st.put('fcmat', out);
     return out;
   }
+  // ntfy: the topic is the secret. On the public ntfy.sh server the text stays generic, so results never sit on a third-party server.
+  async ntfyPush(title, body) {
+    const n = await this.ctx.storage.get('ntfy');
+    if (!n || !n.topic) return;
+    const pub = /(^|\.)ntfy\.sh$/i.test(new URL(n.server).hostname);
+    const r = await fetch(n.server, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ topic: n.topic, title: clip(title, 80), message: pub ? 'افتح Alto لتشوف النتيجة' : clip(body, 300), priority: 4, tags: ['robot'] }),
+    });
+    if (!r.ok) console.log('ntfy send failed', r.status);
+  }
   async push(title, body, data = {}) {
     const st = this.ctx.storage;
+    try { await this.ntfyPush(title, body); } catch (e) { console.log('ntfy error', clip(e, 120)); }
     const tokens = (await st.get('fcm')) || [];
     if (!tokens.length || !this.env.FCM_SA) return;
     const at = await this.fcmAccess();

@@ -12,6 +12,14 @@ let partition = SIDE_DEFAULT_PARTITION
 // Agent-driven browsing uses its own throw-away session (no 'persist:' prefix = memory only), never the user's sign-ins.
 const AGENT_PARTITION = 'agent-browser'
 let agentMode = false
+// 5.21.9: a file the user picked from disk opens in its own throw-away session; it can never reach the signed-in sessions.
+const LOCAL_PARTITION = 'side-local'
+let localMode = false
+// Lets the extras module (zoom / font / reader) re-apply its settings every time a page finishes parsing.
+let pageHook: ((wc: Electron.WebContents) => void) | null = null
+export function setSidePageHook(fn: (wc: Electron.WebContents) => void): void { pageHook = fn }
+export const sideWebContents = (): Electron.WebContents | null => (view ? view.webContents : null)
+export const sideIsAgent = (): boolean => agentMode
 // Must match the height of the toolbar the renderer draws (h-11 = 44px).
 export const TOOLBAR_HEIGHT = 44
 
@@ -74,6 +82,7 @@ function createView(): WebContentsView {
     currentUrl = url
     notifyChanged()
   })
+  wc.on('dom-ready', () => { if (!agentMode) pageHook?.(wc) })
   return v
 }
 
@@ -145,7 +154,7 @@ async function migrateOnce(p: string): Promise<void> {
 
 // Switches the panel to the session that belongs to this address (recreates the page view when it differs).
 function switchPartition(win: BrowserWindow, url: string): void {
-  const p = agentMode ? AGENT_PARTITION : partitionForUrl(url)
+  const p = agentMode ? AGENT_PARTITION : localMode ? LOCAL_PARTITION : partitionForUrl(url)
   if (view && p !== partition) {
     if (!overlayHidden) { try { win.contentView.removeChildView(view) } catch { /* ignore */ } }
     view.webContents.close()
@@ -200,11 +209,25 @@ export function openSide(win: BrowserWindow, rawUrl: string): { ok: true; url: s
   const checked = checkSideUrl(rawUrl)
   if (!checked.ok) return { ok: false, error: checked.reason }
   agentMode = false
+  localMode = false
   switchPartition(win, checked.url)
   ensureAttached(win)
   currentUrl = checked.url
   loadIn(checked.url)
   return { ok: true, url: checked.url }
+}
+
+/** 5.21.9: opens a local file (already approved by the user through the system file dialog) in the panel. */
+export function openSideFile(win: BrowserWindow, fileUrl: string): { ok: true; url: string } | { ok: false; error: string } {
+  if (!/^file:\/\//i.test(fileUrl)) return { ok: false, error: 'مسار الملف مو صالح' }
+  agentMode = false
+  localMode = true
+  switchPartition(win, fileUrl)
+  ensureAttached(win)
+  currentUrl = fileUrl
+  notifyChanged()
+  void view!.webContents.loadURL(fileUrl).catch(() => undefined)
+  return { ok: true, url: fileUrl }
 }
 
 export function navigateSide(rawUrl: string): { ok: true; url: string } | { ok: false; error: string } {
@@ -213,6 +236,7 @@ export function navigateSide(rawUrl: string): { ok: true; url: string } | { ok: 
   if (!checked.ok) return { ok: false, error: checked.reason }
   currentUrl = checked.url
   agentMode = false
+  localMode = false
   const win = attachedTo
   if (win && !win.isDestroyed() && partitionForUrl(checked.url) !== partition) {
     switchPartition(win, checked.url)
@@ -267,6 +291,7 @@ export function closeSide(): SideState {
   }
   currentUrl = null
   agentMode = false
+  localMode = false
   return sideState()
 }
 
