@@ -70,6 +70,11 @@ export const MEDIA_MODELS: MediaModel[] = [
     limitText: 'بلا حدود (بيشتغل على جهازك)'
   },
   {
+    id: 'gemini-api-music', kind: 'audio', label: 'Lyria 3.5 (موسيقى، Gemini API)', route: 'api', priority: 3, color: '#ea4335', dailyCap: 0, key: 'GEMINI_API_KEY', paidRisk: true,
+    best: 'بتكتب وصف موسيقى (النوع، المزاج، الآلات) وبيطلعلك مقطوعة. مو للنطق: الوصف بيتحوّل لموسيقى. الصوت مختوم بعلامة SynthID',
+    limitText: 'حسب كوتا مفتاحك (التسعير مو مؤكد، لهيك بيشتغل بس لما «مجاني فقط» مطفي)'
+  },
+  {
     id: 'hf-mms-ara', kind: 'audio', label: 'MMS عربي (Hugging Face)', route: 'api', priority: 2, color: '#ffb000', dailyCap: 0, key: 'HUGGINGFACE_API_KEY',
     best: 'نطق عربي من موديل Meta MMS. أوضح من صوت ويندوز، بس رتيب',
     limitText: 'رصيد HF المجاني الشهري'

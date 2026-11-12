@@ -1,5 +1,6 @@
 import { app, ipcMain } from 'electron'
 import { execFile } from 'child_process'
+import fs from 'fs'
 import fsp from 'fs/promises'
 import os from 'os'
 import path from 'path'
@@ -12,11 +13,17 @@ const run = (cmd: string, args: string[], ms: number): Promise<{ ok: boolean; er
     execFile(cmd, args, { timeout: ms, windowsHide: true }, (e, _o, se) => resolve({ ok: !e, err: e ? (se || e.message).toString().slice(-300) : '' }))
   })
 
+/** سطر تشخيص بملف router.log (بدون نصوص أو مفاتيح). */
+export function vlog(msg: string): void {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'router.log'), new Date().toISOString() + ' voice :: ' + msg.replace(/\s+/g, ' ').slice(0, 220) + '\n') } catch { /* ignore */ }
+}
+
 async function edgeTts(text: string, voice: string, out: string): Promise<string> {
   let last = ''
   for (const py of ['python', 'py']) {
     const args = (py === 'py' ? ['-3'] : []).concat(['-m', 'edge_tts', '--voice', voice, '--rate=' + SPEECH_RATE, '--text', text, '--write-media', out])
     let r = await run(py, args, 60000)
+    if (!r.ok && /NoAudioReceived/i.test(r.err)) { await new Promise((res) => setTimeout(res, 700)); r = await run(py, args, 60000) }
     if (!r.ok && /No module named/i.test(r.err)) {
       const inst = await run(py, (py === 'py' ? ['-3'] : []).concat(['-m', 'pip', 'install', 'edge-tts']), 120000)
       if (inst.ok) r = await run(py, args, 60000)
@@ -28,9 +35,9 @@ async function edgeTts(text: string, voice: string, out: string): Promise<string
 }
 
 async function windowsVoice(text: string, out: string): Promise<string> {
-  const ps = `Add-Type -AssemblyName System.Speech; $s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $v=$s.GetInstalledVoices()|Where-Object{$_.VoiceInfo.Culture.Name -like '${/[؀-ۿ]/.test(text) ? 'ar*' : 'en*'}'}|Select-Object -First 1; if($v){$s.SelectVoice($v.VoiceInfo.Name)}; $s.SetOutputToWaveFile($env:TRL_OUT); $s.Speak($env:TRL_TEXT); $s.Dispose()`
+  const ps = `Add-Type -AssemblyName System.Speech; $s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $v=$s.GetInstalledVoices()|Where-Object{$_.VoiceInfo.Culture.Name -like '${/[؀-ۿ]/.test(text) ? 'ar*' : 'en*'}'}|Select-Object -First 1; if($v){$s.SelectVoice($v.VoiceInfo.Name)} elseif($env:TRL_AR -eq '1'){ throw 'ما في صوت عربي مثبّت بويندوز' }; $s.SetOutputToWaveFile($env:TRL_OUT); $s.Speak($env:TRL_TEXT); $s.Dispose()`
   return new Promise((resolve) => {
-    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps], { timeout: 60000, windowsHide: true, env: { ...process.env, TRL_OUT: out, TRL_TEXT: text } }, (e) => resolve(e ? e.message : ''))
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps], { timeout: 60000, windowsHide: true, env: { ...process.env, TRL_OUT: out, TRL_TEXT: text, TRL_AR: /[\u0600-\u06FF]/.test(text) ? '1' : '0' } }, (e) => resolve(e ? e.message : ''))
   })
 }
 
@@ -89,7 +96,51 @@ export async function synthDialogue(lines: { text: string; voice: string }[]): P
   return Buffer.concat(bufs)
 }
 
+// قراءة بصوت سعاد على دفعات: أول جملة بتجهز بسرعة والباقي بيجي وإنت عم تسمع (كل دفعة بتنطلب بـvoice:suaadNext).
+type SpeechSession = { it: AsyncGenerator<{ mime: string; buf: Buffer }>; ts: number }
+const speechSessions = new Map<string, SpeechSession>()
+
+async function nextSpeech(id: string, ms: number): Promise<{ ok: boolean; id?: string; url?: string; done?: boolean; error?: string }> {
+  const s = speechSessions.get(id)
+  if (!s) return { ok: false, error: 'الجلسة انتهت' }
+  let timer: NodeJS.Timeout | undefined
+  try {
+    const r = await Promise.race([
+      s.it.next(),
+      new Promise<never>((_r, rej) => { timer = setTimeout(() => rej(new Error('انتهى الوقت')), ms) }),
+    ])
+    if (r.done) { speechSessions.delete(id); return { ok: true, done: true } }
+    return { ok: true, id, url: `data:${r.value.mime};base64,${r.value.buf.toString('base64')}` }
+  } catch (e) {
+    speechSessions.delete(id)
+    vlog('suaad part failed: ' + (e as Error).message)
+    return { ok: false, error: (e as Error).message }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export function registerVoiceIpc(): void {
+  ipcMain.handle('voice:suaadStart', async (_e, raw: unknown) => {
+    if (typeof raw !== 'string') return { ok: false, error: 'نص مو صالح' }
+    const text = cleanForSpeech(raw)
+    if (!text) return { ok: false, error: 'ما في نص يتقرأ' }
+    for (const [k, v] of speechSessions) if (Date.now() - v.ts > 600000) speechSessions.delete(k)
+    try {
+      const { suaadSpeak } = await import('./suaad-voice')
+      const id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+      speechSessions.set(id, { it: suaadSpeak(text, () => !speechSessions.has(id), { rewrite: false }), ts: Date.now() })
+      const t0 = Date.now()
+      const r = await nextSpeech(id, 60000)
+      vlog('suaad first part ' + (r.ok ? 'ok' : 'FAILED') + ' in ' + (Date.now() - t0) + 'ms')
+      return r
+    } catch (e) {
+      vlog('suaad start failed: ' + (e as Error).message)
+      return { ok: false, error: (e as Error).message }
+    }
+  })
+  ipcMain.handle('voice:suaadNext', (_e, id: unknown) => (typeof id === 'string' ? nextSpeech(id, 120000) : { ok: false, error: 'id' }))
+  ipcMain.handle('voice:suaadStop', (_e, id: unknown) => { if (typeof id === 'string') speechSessions.delete(id); return true })
   ipcMain.handle('voice:warm', () => { warmWhisper(); return true })
   ipcMain.handle('voice:transcribe', async (_e, data: unknown) => {
     if (!(data instanceof ArrayBuffer) && !ArrayBuffer.isView(data)) return { ok: false, error: 'بيانات صوت مو صالحة' }

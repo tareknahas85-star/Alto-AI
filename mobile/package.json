@@ -1,6 +1,6 @@
 {
   "name": "trl-mobile",
-  "version": "5.20.1",
+  "version": "5.21.9",
   "private": true,
   "description": "Alto AI phone app (Capacitor shell over an encrypted link to the desktop app)",
   "scripts": {

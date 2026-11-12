@@ -55,6 +55,20 @@ export async function postResult(job: string, kind: 'say' | 'done' | 'fail', tex
   await gateFetch('/result', { method: 'POST', body: JSON.stringify({ job, kind, text: text.slice(0, 3500) }) }).catch(() => null)
 }
 
+export type FeedItem = { n: number; job: string; agent: string; task: string; kind: 'done' | 'fail'; text: string; ts: number }
+
+/** Finished agent runs from the gate (cloud runs, phone-started runs, scheduled runs): the same list the phone shows. */
+export async function fetchFeed(): Promise<FeedItem[] | null> {
+  const r = await gateFetch('/pc-feed')
+  if (!r || !r.ok) return null
+  try {
+    const j = (await r.json()) as { items?: FeedItem[] }
+    return (Array.isArray(j.items) ? j.items : []).map((i) => ({ n: Number(i.n) || 0, job: String(i.job ?? ''), agent: String(i.agent ?? ''), task: String(i.task ?? ''), kind: (i.kind === 'fail' ? 'fail' : 'done') as FeedItem['kind'], text: String(i.text ?? ''), ts: Number(i.ts) || 0 })).reverse()
+  } catch {
+    return null
+  }
+}
+
 /** Long-ish poll of the inbox. Also counts as the heartbeat. */
 export async function pollInbox(after: number): Promise<{ items: InboxItem[]; last: number } | null> {
   const r = await gateFetch(`/inbox?after=${Math.max(0, Math.floor(after))}`)

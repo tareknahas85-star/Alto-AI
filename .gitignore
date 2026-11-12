@@ -25,4 +25,3 @@ bench/
 .wrangler/
 *.bak*
 
-mobile/android/app/google-services.json

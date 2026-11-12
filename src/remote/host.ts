@@ -230,6 +230,15 @@ const broadcast = (m: Json): void => {
 }
 const anyOnline = (): boolean => cfg.devices.some((d) => online(d.id))
 
+/** A task that ran on the PC finished: tell the paired phones so the app shows a notification (the phone ignores it unless it is connected). */
+export function notifyPhones(title: string, body: string): void {
+  try {
+    broadcast({ k: 'notice', title: String(title).slice(0, 80), body: String(body).slice(0, 160) })
+  } catch {
+    /* alert only, never break the chat */
+  }
+}
+
 // Phone GPS for the get_location tool: the phone is asked for ONE fix, only when a request needs the location (it prompts for the Android permission the first time).
 type PhoneLocResult = { lat: number; lon: number; accuracyM?: number } | { error: string }
 const pendingLoc = new Map<string, { devId: string; resolve: (v: PhoneLocResult | null) => void }>()

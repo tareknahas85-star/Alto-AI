@@ -1,5 +1,7 @@
 import { BrowserWindow, dialog } from 'electron'
-import { readJson, writeJson } from './json-store'
+import fs from 'fs'
+import { readJson, writeJson, dataFile } from './json-store'
+import { rotateLogFile } from './log-rotate'
 import { getPrefs, setPrefs } from './prefs'
 import { toolUses } from './learning'
 import { askViaTelegram, remoteApprovalAvailable } from './tg-approve'
@@ -72,6 +74,23 @@ export async function approveNewTool(group: string, tool: string): Promise<boole
 
 /** Asks the user before a tool that changes data runs. Returns false when denied. */
 export async function approveWrite(server: string, tool: string, args: Record<string, unknown>): Promise<boolean> {
+  const ok = await approveWriteInner(server, tool, args)
+  // 5.21.3: every write decision is recorded in router.log, so a tool that changed something can always be traced afterwards.
+  auditLog(`mcp-write:${server}.${tool} :: ${ok ? 'allowed' : 'denied'}${sessionAllowed.has(server) ? ' (server allowed for this session)' : ''}`)
+  return ok
+}
+
+/** One line in router.log (best effort). */
+export function auditLog(line: string): void {
+  try {
+    rotateLogFile(dataFile('router.log'))
+    fs.appendFileSync(dataFile('router.log'), `${new Date().toISOString()} ${line}\n`)
+  } catch {
+    /* logging is best effort */
+  }
+}
+
+async function approveWriteInner(server: string, tool: string, args: Record<string, unknown>): Promise<boolean> {
   if (sessionAllowed.has(server)) return true
   if (remoteApprovalAvailable()) {
     let d = ''

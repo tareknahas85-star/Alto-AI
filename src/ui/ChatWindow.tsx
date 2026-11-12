@@ -310,21 +310,63 @@ function tierChip(saved: string): { label: string; cls: string } {
 }
 
 let speaking: HTMLAudioElement | null = null
+let speechToken = 0
+let cancelPlay: (() => void) | null = null
+
+function stopSpeech(): void {
+  speechToken++
+  if (speaking) { speaking.pause(); speaking = null }
+  const c = cancelPlay
+  cancelPlay = null
+  if (c) c()
+}
+
+function playUrl(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const a = new Audio(url)
+    speaking = a
+    let ok = true
+    const done = (): void => { if (speaking === a) speaking = null; if (cancelPlay === fin) cancelPlay = null; resolve(ok) }
+    const fin = (): void => { ok = false; done() }
+    cancelPlay = fin
+    a.onended = done
+    a.onerror = () => { ok = false; done() }
+    void a.play().catch(() => { ok = false; done() })
+  })
+}
+
+/** قراءة بصوت سعاد: أول دفعة بتبلّش بسرعة والباقي بينجهز وإنت عم تسمع. إذا سعاد ما اشتغلت بنرجع للصوت السوري/ويندوز. */
+async function speakText(text: string, h: { onPlay?: () => void; onNote?: (n: string) => void } = {}): Promise<{ ok: boolean; error?: string }> {
+  const my = ++speechToken
+  const first = await window.api.voice.suaadStart(text)
+  if (my !== speechToken) return { ok: true }
+  if (first.ok && first.url) {
+    h.onPlay?.()
+    let cur = first
+    while (cur.ok && cur.url && my === speechToken) {
+      // جهّز الدفعة الجاية وإنت عم تسمع يلي قبلها
+      const pending = cur.id ? window.api.voice.suaadNext(cur.id) : null
+      await playUrl(cur.url)
+      if (!pending || my !== speechToken) { if (cur.id && my !== speechToken) void window.api.voice.suaadStop(cur.id); break }
+      cur = await pending
+      if (cur.done) break
+    }
+    return { ok: true }
+  }
+  const r = await window.api.voice.speak(text.slice(0, 1200))
+  if (my !== speechToken) return { ok: true }
+  if (!r.ok || !r.url) return { ok: false, error: r.error ?? 'ما قدرت أقرأ' }
+  if (r.note) h.onNote?.(r.note)
+  h.onPlay?.()
+  await playUrl(r.url)
+  return { ok: true }
+}
 
 /** Voice conversation: speak a reply and resolve when it ends (or is skipped). */
 function playSpeech(text: string, skip: { current: (() => void) | null }): Promise<void> {
   return new Promise((resolve) => {
-    void (async () => {
-      const r = await window.api.voice.speak(text.slice(0, 1200))
-      if (!r.ok || !r.url) return resolve()
-      const a = new Audio(r.url)
-      speaking = a
-      const done = (): void => { if (speaking === a) speaking = null; skip.current = null; resolve() }
-      a.onended = done
-      a.onerror = done
-      skip.current = () => { a.pause(); done() }
-      void a.play().catch(done)
-    })()
+    skip.current = () => stopSpeech()
+    void speakText(text.slice(0, 1200)).finally(() => { skip.current = null; resolve() })
   })
 }
 
@@ -333,17 +375,11 @@ function MsgFooter({ text, at }: { text: string; at?: number }): ReactElement {
   const [say, setSay] = useState<'' | 'load' | 'play'>('')
   const [sayErr, setSayErr] = useState('')
   const speak = async (): Promise<void> => {
-    if (speaking) { speaking.pause(); speaking = null; if (say === 'play') { setSay(''); return } }
+    if (say) { stopSpeech(); setSay(''); return }
     setSay('load'); setSayErr('')
-    const r = await window.api.voice.speak(text)
-    if (!r.ok || !r.url) { setSay(''); setSayErr(r.error ?? 'ما قدرت أقرأ'); return }
-    const a = new Audio(r.url)
-    speaking = a
-    a.onended = () => { if (speaking === a) speaking = null; setSay('') }
-    a.onerror = () => { setSay(''); setSayErr('تعذّر تشغيل الصوت') }
-    if (r.note) setSayErr(r.note)
-    setSay('play')
-    void a.play().catch(() => setSay(''))
+    const r = await speakText(text, { onPlay: () => setSay('play'), onNote: (n) => setSayErr(n) })
+    setSay('')
+    if (!r.ok) setSayErr(r.error ?? 'ما قدرت أقرأ')
   }
   const copy = async (): Promise<void> => {
     try {
@@ -664,7 +700,7 @@ export function ChatWindow({
     liveStop.current?.()
     liveStop.current = null
     skipSpeech.current?.()
-    if (speaking) { speaking.pause(); speaking = null }
+    stopSpeech()
     talkStream.current?.getTracks().forEach((t) => t.stop())
     talkStream.current = null
     setTalk('')

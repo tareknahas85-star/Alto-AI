@@ -1,6 +1,8 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 export type SideStateInfo = { open: boolean; url: string | null; width: number; canGoBack: boolean }
+export type SideViewInfo = { open: boolean; host: string; zoom: number; font: string; reader: boolean; bookmarked: boolean; local: boolean }
+export type SideImportSource = { id: string; browser: string; label: string; profile: string; name: string; hasHistory: boolean; hasBookmarks: boolean }
 export type CheckItemInfo = { id: string; label: string; state: 'ok' | 'fail' | 'skip'; message: string; ms: number }
 export type CheckResultInfo = { kind: string; items: CheckItemInfo[]; ok: number; fail: number; skipped: number; cancelled: boolean }
 export type PrefsInfo = { locationEnabled: boolean; learningEnabled: boolean; learningPaused: boolean; onboardingDone: boolean; interests: string[]; catalogEnabled: string[]; askBeforeNewTools: boolean; approvedTools: string[]; securityToolsEnabled: boolean }
@@ -93,6 +95,7 @@ export type NbViewInfo = { id: string; title: string; at: number; sources: NbSou
 export type NbResult = { ok: boolean; nb?: NbViewInfo | null; error?: string; added?: number; skipped?: string[] }
 export type TodoInfo = { id: string; text: string; done: boolean; at: number }
 export type GateInfo = { enabled: boolean; url: string; hasKey: boolean }
+export type GateFeedItem = { n: number; job: string; agent: string; task: string; kind: 'done' | 'fail'; text: string; ts: number }
 export type TelegramInfo = { enabled: boolean; chatId: string; minSeconds: number; inbound: boolean; hasToken: boolean }
 export type TaskRowInfo = {
   at: number
@@ -180,6 +183,21 @@ declare global {
         appsGet: () => Promise<{ defaults: string[]; extra: string[] }>
       appsSet: (l: string[]) => Promise<{ defaults: string[]; extra: string[] }>
       setFull: (on: boolean) => Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }>
+      }
+      android: {
+        status: () => Promise<{ ok: boolean; data?: { connected: boolean; serial?: string; size?: { w: number; h: number }; error?: string }; error?: string }>
+        start: () => Promise<{ ok: boolean; data?: boolean; error?: string }>
+        screenshot: () => Promise<{ ok: boolean; data?: string; error?: string }>
+        tap: (x: number, y: number) => Promise<{ ok: boolean; error?: string }>
+        swipe: (x1: number, y1: number, x2: number, y2: number, ms: number) => Promise<{ ok: boolean; error?: string }>
+        streamStart: () => Promise<{ ok: boolean; data?: boolean; error?: string }>
+        streamStop: () => Promise<{ ok: boolean }>
+        touch: (action: number, x: number, y: number) => void
+        scroll: (x: number, y: number, dy: number) => void
+        onVideo: (cb: (chunk: Uint8Array) => void) => () => void
+        onVideoEnd: (cb: () => void) => () => void
+        key: (k: string) => Promise<{ ok: boolean; error?: string }>
+        text: (t: string) => Promise<{ ok: boolean; error?: string }>
       }
       onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void) => () => void
       status: () => Promise<{ key: boolean; ollama: boolean; localMaster: boolean; mcpOn: number; mcpTotal: number; free: { count: number; limit: number; limited: boolean } }>
@@ -302,6 +320,19 @@ declare global {
         setWidth: (w: number) => Promise<SideStateInfo>
         setOverlay: (on: boolean) => Promise<SideStateInfo>
         clearData: () => Promise<boolean>
+      clearService: (id: string) => Promise<boolean>
+  openFile: () => Promise<{ ok: boolean; error?: string; cancelled?: boolean }>
+  savePage: (kind: 'html' | 'pdf' | 'png') => Promise<{ ok: boolean; error?: string; cancelled?: boolean; path?: string }>
+  viewInfo: () => Promise<SideViewInfo>
+  zoom: (dir: 1 | -1 | 0) => Promise<SideViewInfo>
+  setFont: (font: string) => Promise<SideViewInfo>
+  toggleReader: () => Promise<SideViewInfo>
+  toggleBookmark: () => Promise<SideViewInfo>
+  importList: () => Promise<SideImportSource[]>
+  importRun: (id: string, what: { history: boolean; bookmarks: boolean }) => Promise<{ ok: boolean; error?: string; history?: number; bookmarks?: number }>
+  suggest: (q: string) => Promise<Array<{ url: string; title: string; bookmark: boolean }>>
+  libraryStats: () => Promise<{ history: number; bookmarks: number; importedAt: number }>
+  libraryClear: () => Promise<boolean>
         state: () => Promise<SideStateInfo>
         onChanged: (cb: (s: SideStateInfo) => void) => () => void
       }
@@ -346,8 +377,18 @@ declare global {
       stop: () => Promise<boolean>
       onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void) => () => void
     }
+    translate: {
+      available: () => Promise<boolean>
+      start: (target: string, echo: boolean) => Promise<{ ok: boolean; error?: string }>
+      audio: (b64: string) => void
+      stop: () => Promise<boolean>
+      onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void) => () => void
+    }
     voice: {
       speak: (text: string) => Promise<{ ok: boolean; url?: string; note?: string; error?: string }>
+      suaadStart: (text: string) => Promise<{ ok: boolean; id?: string; url?: string; done?: boolean; error?: string }>
+      suaadNext: (id: string) => Promise<{ ok: boolean; id?: string; url?: string; done?: boolean; error?: string }>
+      suaadStop: (id: string) => Promise<boolean>
       transcribe: (data: ArrayBuffer) => Promise<{ ok: boolean; text?: string; error?: string }>
       warm: () => Promise<boolean>
     }
@@ -394,6 +435,7 @@ declare global {
       get: () => Promise<GateInfo>
       set: (p: { enabled?: boolean; url?: string; key?: string }) => Promise<GateInfo>
       test: () => Promise<{ ok: boolean; error?: string }>
+      feed: () => Promise<GateFeedItem[] | null>
       linkMail: (src: string) => Promise<{ ok: boolean; script?: string; error?: string }>
     }
       telegram: {

@@ -1,3 +1,4 @@
+import { startAndroidEmulator } from './android-emulator'
 import { BrowserWindow, ipcMain, type WebContents } from 'electron'
 import { analyzeRequest, warmLocalMaster, type Analysis } from '../core/master'
 import { ensureOllama } from '../core/ollama'
@@ -26,7 +27,7 @@ import { registerHfHandlers, hfFreeCached } from './hf'
 import { registerPlatformHandlers } from './platforms'
 import { registerProviderCheck } from './provider-check'
 import { registerRemoteHandlers } from './remote-ipc'
-import { setRemoteBridge } from '../remote/host'
+import { notifyPhones, setRemoteBridge } from '../remote/host'
 import { registerFreeProbeHandlers, startFreeWatch } from './freeprobe'
 import { notifyDone } from '../core/telegram'
 import { startTelegramInbound, TG_TAB } from '../core/telegram-in'
@@ -36,6 +37,7 @@ import { registerLearnHandlers } from './learn-ipc'
 import { registerNotebookIpc, setNotebookRunner } from './notebook-ipc'
 import { registerVoiceIpc } from './voice-ipc'
 import { registerLiveIpc } from './live-voice'
+import { registerTranslateIpc } from './live-translate'
 import { registerWakeIpc } from './wake-live'
 import { registerOrbIpc } from './orb'
 import { recordTurn as recordLearning } from '../core/learning'
@@ -43,11 +45,12 @@ import { needsFreshInfo, needsLocation } from '../core/guidance'
 import { memoryPrompt } from '../core/memory'
 import { runInContext, cancelRun, isUnattended, type RunMode } from '../core/progress'
 import { createStreamBatcher } from '../core/stream-batch'
-import { listCatalog } from '../core/catalog'
+import { ensureCatalogFresh, listCatalog } from '../core/catalog'
 import { apinexFreeIds, hasApinexKey } from '../core/apinex'
 import { badReplyReason } from '../core/reply-quality'
 import { CUSTOM_PREFIX, getCustomModel, listCustomModelViews } from '../core/custom-models'
 import { getApiKey, setApiKey } from '../store/secure-store'
+import { isGoAhead, routingInput } from '../core/delegation'
 
 const KEY_NAMES = ['OPENROUTER_API_KEY', 'APINEX_API_KEY', 'GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'HUGGINGFACE_API_KEY', 'VIRUSTOTAL_API_KEY'] as const
 type KeyName = (typeof KEY_NAMES)[number]
@@ -240,7 +243,12 @@ export function registerIpcHandlers(): void {
             // وضع المشاريع والمجلس: بدون مايسترو (المنفّذ والمراجع هنن يلي بتحددهم). المايسترو بس بالمحادثة العادية.
             // 5.18.0: مربع «شغّل المايسترو» لكل تبويب (o.master). الافتراضي: بناء مشروع = مطفي (قائمة المعقّد، الأقوى أولاً)، باقي الأوضاع = شغّال.
             const useMaster = o.master ?? o.mode.kind !== 'auto'
-            const analyzed = async (): Promise<Analysis> => analyzeRequest(userMsg, !!confP?.confidential)
+            // 5.21.8: الموافقة القصيرة («اي بلش») بتنحلّل مع طلبها الأصلي، ودايماً مع أدوات.
+            const goAhead = isGoAhead(userMsg, history)
+            const analyzed = async (): Promise<Analysis> => {
+              const a = await analyzeRequest(routingInput(userMsg, history), !!confP?.confidential)
+              return goAhead ? { ...a, need_tools: true, complexity: a.complexity === 'simple' ? 'medium' : a.complexity } : a
+            }
             if (o.mode.kind === 'model') analysis = await analyzed()
             else if (o.mode.kind === 'auto') {
               if (useMaster) {
@@ -312,6 +320,9 @@ export function registerIpcHandlers(): void {
           } catch {
             /* learning is best-effort */
           }
+          // A task started on the PC also pings the paired phone app (tasks the phone started already get their own reply there).
+          if (o.tabId !== TG_TAB && !o.tabId.startsWith('phone-') && Date.now() - started >= 20000)
+            notifyPhones(result.modelUsed === 'none' ? 'ما خلصت المهمة' : 'خلصت المهمة على الكمبيوتر', project?.confidential ? 'مشروع سري — ما بنبعت تفاصيل' : userMsg.split('\n[ملفات مرفقة')[0].replace(/\s+/g, ' ').slice(0, 80))
           if (o.tabId !== TG_TAB) notifyDone({ unattended: isUnattended(), confidential: !!project?.confidential, ms: Date.now() - started, model: shownModel, preview: userMsg.split('\n[ملفات مرفقة')[0], failed: result.modelUsed === 'none' })
           // needsChoice: nothing answered (free chain exhausted or the picked model failed) -> the UI asks the user what to do.
           const warn = result.modelUsed === 'none' ? '' : claimsWarning(missingFileClaims(result.content, project?.path))
@@ -348,6 +359,7 @@ export function registerIpcHandlers(): void {
   registerNotebookIpc()
   registerVoiceIpc()
   registerLiveIpc()
+  registerTranslateIpc()
   registerWakeIpc()
   registerOrbIpc()
   setScheduleRunner(async (prompt, projectId, mode, taskId) => {
@@ -373,6 +385,7 @@ export function registerIpcHandlers(): void {
   startScheduler()
   startFreeWatch()
   void refreshFreeRanking()
+  ensureCatalogFresh()
 
   ipcMain.handle('agents:run', async (event, id: unknown, task: unknown) => {
     const a = listAgents().find((x) => x.id === id)
@@ -407,6 +420,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('keys:get', (_event, key: unknown) => (isKeyName(key) ? getApiKey(key) : ''))
 
   ipcMain.handle('keys:set', (_event, key: unknown, value: unknown) => {
+    if (key === 'GEMINI_API_KEY' && typeof value === 'string' && value.trim()) void startAndroidEmulator()
     if (!isKeyName(key) || typeof value !== 'string') return false
     setApiKey(key, value)
     if (value) process.env[key] = value

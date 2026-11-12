@@ -3,12 +3,14 @@ import type { ReactElement } from 'react'
 import { askConfirm } from '../../ui/components/confirm'
 import {
   BookOpen, Bot, Clock, Cpu, ListChecks, FolderKanban, FolderOpen, MessageSquare, Moon, Pin, PinOff, Plug, Plus, Settings as SettingsIcon, Layers,
-  Sun, Trash2, Download, Search, X, Bell, BellOff, Pencil, FolderPlus, Globe
+  Sun, Trash2, Download, Search, X, Bell, BellOff, Pencil, FolderPlus, Globe,
+  Smartphone, Languages,
 } from 'lucide-react'
 import appIcon from './assets/icon.png'
 import syriaEagle from './assets/syria-eagle.svg'
 import { ChatWindow } from '../../ui/ChatWindow'
 import { SideBrowserPanel } from '../../ui/SideBrowserPanel'
+import { EmulatorPanel } from '../../ui/EmulatorPanel'
 import { DONE_KEY, Onboarding, readName } from '../../ui/Onboarding'
 import { MCPPage } from '../../ui/MCPPage'
 import { ModelsPage } from '../../ui/ModelsPage'
@@ -23,6 +25,7 @@ import { SkillsPage } from '../../ui/SkillsPage'
 import { ToolsPage } from '../../ui/ToolsPage'
 import { TodoPage } from '../../ui/TodoPage'
 import { NotebookPage } from '../../ui/NotebookPage'
+import { TranslatePage } from '../../ui/TranslatePage'
 import { CommandPalette } from '../../ui/CommandPalette'
 import { WhatsNew } from '../../ui/WhatsNew'
 import { UpdatePrompt } from '../../ui/UpdatePrompt'
@@ -128,7 +131,7 @@ function AboutBadge({ onSetup }: { onSetup: () => void }): ReactElement {
   )
 }
 
-type Nav = 'chat' | 'projects' | 'tasks' | 'agents' | 'todo' | 'notebook' | 'models' | 'platforms' | 'extensions' | 'settings'
+type Nav = 'chat' | 'projects' | 'tasks' | 'agents' | 'todo' | 'notebook' | 'translate' | 'models' | 'platforms' | 'extensions' | 'settings'
 
 const NAV_ITEMS: { id: Nav; label: string; icon: typeof Bot }[] = [
   { id: 'chat', label: 'المحادثات', icon: MessageSquare },
@@ -137,6 +140,7 @@ const NAV_ITEMS: { id: Nav; label: string; icon: typeof Bot }[] = [
   { id: 'agents', label: 'وكلاء', icon: Bot },
   { id: 'todo', label: 'ملاحظات', icon: ListChecks },
   { id: 'notebook', label: 'دفتر', icon: BookOpen },
+  { id: 'translate', label: 'ترجمة', icon: Languages },
   { id: 'models', label: 'الموديلات', icon: Cpu },
   { id: 'platforms', label: 'المنصات', icon: Layers },
   { id: 'extensions', label: 'الإضافات', icon: Plug },
@@ -168,6 +172,9 @@ function Shell(): ReactElement {
   const [activeNav, setActiveNav] = useState<Nav>('chat')
   // F28: side browser panel. Its width is kept in sync with the main process (which owns the native view).
   const [sidePanel, setSidePanel] = useState<{ open: boolean; width: number }>({ open: false, width: 420 })
+  // Android emulator panel: same place as the side browser. 5.21.9: it never opens by itself, only from its toolbar button.
+  const [emuOpen, setEmuOpen] = useState(false)
+  const EMU_WIDTH = 380
   const toggleSidePanel = async (): Promise<void> => {
     if (sidePanel.open) {
       closeSidePanel()
@@ -180,6 +187,15 @@ function Shell(): ReactElement {
     void window.api.side.close()
     setSidePanel((p) => ({ ...p, open: false }))
   }
+  // The side browser can also be opened (or closed) by the model: follow the main process so the chat makes room and the toolbar shows up.
+  useEffect(
+    () =>
+      window.api.side.onChanged((s) => {
+        setSidePanel((p) => (p.open === s.open && p.width === s.width ? p : { open: s.open, width: s.width }))
+        if (s.open) setEmuOpen(false)
+      }),
+    []
+  )
   // The media panel asks to open a generation site inside the side browser.
   useEffect(() => {
     const h = (e: Event): void => {
@@ -456,7 +472,7 @@ function Shell(): ReactElement {
   }, [])
 
   return (
-    <div className="flex h-screen w-full bg-bg text-fg" style={{ paddingLeft: sidePanel.open ? sidePanel.width : 0 }}>
+    <div className="flex h-screen w-full bg-bg text-fg" style={{ paddingLeft: sidePanel.open ? sidePanel.width : emuOpen ? EMU_WIDTH : 0 }}>
       <aside className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-e border-outline bg-surface p-3">
         <AboutBadge onSetup={() => setWizard(true)} />
 
@@ -562,13 +578,15 @@ function Shell(): ReactElement {
           <button onClick={toggleTheme} title={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button onClick={() => void toggleSidePanel()} title="المتصفح الجانبي" aria-label="المتصفح الجانبي" aria-pressed={sidePanel.open} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (sidePanel.open ? 'bg-surface2 text-primary' : '')}>
-            <Globe size={18} />
-          </button>
           <button onClick={togglePalette} title={palette === 'syrian' ? 'الألوان الافتراضية' : 'الهوية السورية'} aria-label={palette === 'syrian' ? 'الألوان الافتراضية' : 'الهوية السورية'} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (palette === 'syrian' ? 'bg-surface2' : '')}>
             <img src={syriaEagle} alt="" className="h-[20px] w-[20px] object-contain" />
           </button>
-          <button
+          <button onClick={() => void toggleSidePanel()} title="المتصفح الجانبي" aria-label="المتصفح الجانبي" aria-pressed={sidePanel.open} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (sidePanel.open ? 'bg-surface2 text-primary' : '')}>
+            <Globe size={18} />
+          </button>
+          <button onClick={() => { if (sidePanel.open) closeSidePanel(); setEmuOpen((v) => !v) }} title="المحاكي" aria-label="المحاكي" aria-pressed={emuOpen} className={'flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface2 ' + (emuOpen ? 'bg-surface2 text-primary' : '')}>
+            <Smartphone size={18} />
+          </button>          <button
             onClick={() => {
               const v = !sound
               setSound(v)
@@ -588,6 +606,7 @@ function Shell(): ReactElement {
         </div>
       </aside>
 
+      {emuOpen && !sidePanel.open && <EmulatorPanel width={EMU_WIDTH} onClose={() => setEmuOpen(false)} />}
       {sidePanel.open && <SideBrowserPanel width={sidePanel.width} onWidthChange={(w) => setSidePanel((p) => ({ ...p, width: w }))} onClose={closeSidePanel} />}
       <main className="flex min-w-0 flex-1 flex-col">
 
@@ -656,6 +675,7 @@ function Shell(): ReactElement {
         {activeNav === 'agents' && <AgentsPage />}
         {activeNav === 'todo' && <TodoPage />}
         {activeNav === 'notebook' && <NotebookPage />}
+        {activeNav === 'translate' && <TranslatePage />}
         {activeNav === 'models' && <ModelsPage />}
         {activeNav === 'platforms' && <PlatformsPage />}
         {activeNav === 'extensions' && (

@@ -12,6 +12,14 @@ let partition = SIDE_DEFAULT_PARTITION
 // Agent-driven browsing uses its own throw-away session (no 'persist:' prefix = memory only), never the user's sign-ins.
 const AGENT_PARTITION = 'agent-browser'
 let agentMode = false
+// 5.21.9: a file the user picked from disk opens in its own throw-away session; it can never reach the signed-in sessions.
+const LOCAL_PARTITION = 'side-local'
+let localMode = false
+// Lets the extras module (zoom / font / reader) re-apply its settings every time a page finishes parsing.
+let pageHook: ((wc: Electron.WebContents) => void) | null = null
+export function setSidePageHook(fn: (wc: Electron.WebContents) => void): void { pageHook = fn }
+export const sideWebContents = (): Electron.WebContents | null => (view ? view.webContents : null)
+export const sideIsAgent = (): boolean => agentMode
 // Must match the height of the toolbar the renderer draws (h-11 = 44px).
 export const TOOLBAR_HEIGHT = 44
 
@@ -37,6 +45,28 @@ function hardenSession(p: string): void {
   sess.setPermissionCheckHandler(() => false)
   // Downloads are off in v1.
   sess.on('will-download', (event) => event.preventDefault())
+  keepSessionCookies(sess)
+}
+
+// 5.21.9: sign-ins stay until the user clears them by hand. Many sites (Microsoft included) hand out cookies with no expiry,
+// which Chromium drops on quit; give those a one-year expiry so they are written to disk. Only the trash button removes them.
+const KEEP_SECONDS = 365 * 24 * 3600
+function keepSessionCookies(sess: Electron.Session): void {
+  const store = sess.cookies
+  const keep = (c: Electron.Cookie): void => {
+    if (c.session !== true && c.expirationDate) return
+    const host = (c.domain ?? '').replace(/^\./, '')
+    if (!host) return
+    void store.set({
+      url: `https://${host}${c.path}`,
+      name: c.name, value: c.value,
+      ...(c.hostOnly ? {} : { domain: c.domain }),
+      path: c.path, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite,
+      expirationDate: Math.floor(Date.now() / 1000) + KEEP_SECONDS
+    }).catch(() => { /* e.g. a __Host- cookie that can't be re-set: leave it as is */ })
+  }
+  store.on('changed', (_e, c, _cause, removed) => { if (!removed) keep(c) })
+  void store.get({}).then((all) => all.forEach(keep)).catch(() => undefined)
 }
 
 function createView(): WebContentsView {
@@ -74,6 +104,7 @@ function createView(): WebContentsView {
     currentUrl = url
     notifyChanged()
   })
+  wc.on('dom-ready', () => { if (!agentMode) pageHook?.(wc) })
   return v
 }
 
@@ -145,7 +176,7 @@ async function migrateOnce(p: string): Promise<void> {
 
 // Switches the panel to the session that belongs to this address (recreates the page view when it differs).
 function switchPartition(win: BrowserWindow, url: string): void {
-  const p = agentMode ? AGENT_PARTITION : partitionForUrl(url)
+  const p = agentMode ? AGENT_PARTITION : localMode ? LOCAL_PARTITION : partitionForUrl(url)
   if (view && p !== partition) {
     if (!overlayHidden) { try { win.contentView.removeChildView(view) } catch { /* ignore */ } }
     view.webContents.close()
@@ -169,6 +200,8 @@ export async function agentBrowse(win: BrowserWindow, url: string): Promise<{ ok
   switchPartition(win, checked.url)
   ensureAttached(win)
   currentUrl = checked.url
+  // The model opened the page, not the user: tell the renderer now so it reserves room for the panel and draws its toolbar.
+  notifyChanged()
   const wc = view!.webContents
   await new Promise<void>((res) => {
     let done = false
@@ -185,7 +218,10 @@ export const agentWebContents = (): Electron.WebContents | null => (agentMode &&
 
 export async function agentCloseBrowser(): Promise<void> {
   if (!agentMode) return
+  const win = attachedTo
   closeSide()
+  // closeSide() clears the attached window first, so tell the renderer directly that the panel is gone.
+  if (win && !win.isDestroyed()) win.webContents.send('side:changed', sideState())
   const sess = session.fromPartition(AGENT_PARTITION)
   await sess.clearStorageData()
   await sess.clearCache()
@@ -195,11 +231,25 @@ export function openSide(win: BrowserWindow, rawUrl: string): { ok: true; url: s
   const checked = checkSideUrl(rawUrl)
   if (!checked.ok) return { ok: false, error: checked.reason }
   agentMode = false
+  localMode = false
   switchPartition(win, checked.url)
   ensureAttached(win)
   currentUrl = checked.url
   loadIn(checked.url)
   return { ok: true, url: checked.url }
+}
+
+/** 5.21.9: opens a local file (already approved by the user through the system file dialog) in the panel. */
+export function openSideFile(win: BrowserWindow, fileUrl: string): { ok: true; url: string } | { ok: false; error: string } {
+  if (!/^file:\/\//i.test(fileUrl)) return { ok: false, error: 'مسار الملف مو صالح' }
+  agentMode = false
+  localMode = true
+  switchPartition(win, fileUrl)
+  ensureAttached(win)
+  currentUrl = fileUrl
+  notifyChanged()
+  void view!.webContents.loadURL(fileUrl).catch(() => undefined)
+  return { ok: true, url: fileUrl }
 }
 
 export function navigateSide(rawUrl: string): { ok: true; url: string } | { ok: false; error: string } {
@@ -208,6 +258,7 @@ export function navigateSide(rawUrl: string): { ok: true; url: string } | { ok: 
   if (!checked.ok) return { ok: false, error: checked.reason }
   currentUrl = checked.url
   agentMode = false
+  localMode = false
   const win = attachedTo
   if (win && !win.isDestroyed() && partitionForUrl(checked.url) !== partition) {
     switchPartition(win, checked.url)
@@ -262,6 +313,7 @@ export function closeSide(): SideState {
   }
   currentUrl = null
   agentMode = false
+  localMode = false
   return sideState()
 }
 

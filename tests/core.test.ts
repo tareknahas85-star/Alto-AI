@@ -1,3 +1,6 @@
+import { isGoAhead, isDelegated, routingInput, carriedRequest, delegationHint, modelInput, DELEGATED_HINT, GO_AHEAD_HINT } from '../src/core/delegation'
+import { LYRIA_MODEL, lyriaAudio, lyriaRequest } from '../src/core/lyria'
+import { TRANSLATE_LANGS, TRANSLATE_MODEL, isTranslateLang, translateSetup } from '../src/core/live-translate'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
@@ -423,8 +426,20 @@ test('F28: فاضي أو طويل زيادة مرفوض', () => {
   assert.equal(checkSideUrl('https://example.com/' + 'a'.repeat(3000)).ok, false)
 })
 
-test('F28: نص مش رابط مرفوض', () => {
-  assert.equal(checkSideUrl('هذا مش رابط ..').ok, false)
+test('5.21.9: نص مش رابط بيصير بحث Google متل المتصفح العادي', () => {
+  const one = checkSideUrl('google')
+  assert.ok(one.ok && one.url === 'https://www.google.com/search?q=google')
+  const many = checkSideUrl('طقس دمشق اليوم')
+  assert.ok(many.ok && many.url.startsWith('https://www.google.com/search?q=') && !many.url.includes(' '))
+  const amp = checkSideUrl('a&b=c d')
+  assert.ok(amp.ok && amp.url === 'https://www.google.com/search?q=a%26b%3Dc%20d')
+  // real addresses stay addresses
+  for (const a of ['example.com', 'sub.example.co.uk/path?q=1', 'localhost:3000', '127.0.0.1:8080/x', 'مثال.com']) {
+    const r = checkSideUrl(a)
+    assert.ok(r.ok && !r.url.includes('google.com/search'), a)
+  }
+  // dangerous schemes are still refused, never turned into a search
+  for (const a of ['javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///C:/x', 'about:blank', 'chrome://settings']) assert.equal(checkSideUrl(a).ok, false, a)
 })
 
 test('F28: عرض اللوحة يتقيّد بحدودها فقط', () => {
@@ -913,6 +928,10 @@ test('5.18.3: كل خدمة وسائط الها جلسة منفصلة بالمت
   assert.equal(partitionForUrl('https://www.canva.com/design'), 'persist:side-canva')
   assert.equal(partitionForUrl('https://designer.microsoft.com/'), 'persist:side-designer')
   assert.equal(partitionForUrl('https://morphic.sh/x'), 'persist:side-morphic')
+  // Microsoft sign-in pages share the Designer session (otherwise the login lands in the default session)
+  assert.equal(partitionForUrl('https://login.live.com/oauth20_authorize.srf'), 'persist:side-designer')
+  assert.equal(partitionForUrl('https://login.microsoftonline.com/common'), 'persist:side-designer')
+  assert.equal(partitionForUrl('https://notmicrosoft.com/'), SIDE_DEFAULT_PARTITION)
   assert.equal(partitionForUrl('https://example.com/'), SIDE_DEFAULT_PARTITION)
   assert.equal(partitionForUrl('https://evilcanva.com/'), SIDE_DEFAULT_PARTITION)
   assert.equal(serviceForUrl('not a url'), null)
@@ -1115,4 +1134,216 @@ test('slide video: slides follow the audio clock (no voice ahead of its slide)',
   assert.equal(slideAt(s, 13.3 + 0.4), 1) // الشريحة بتطلع 0.4 ث قبل صوتها
   assert.equal(slideAt(s, 13.2), 0)
   assert.equal(slideAt(s, 99), 2)
+})
+
+test('web search: page date is read from meta / JSON-LD / time tag / last-modified', async () => {
+  const { extractPageDate } = await import('../src/computer/devtools')
+  assert.equal(extractPageDate('<meta property="article:published_time" content="2026-08-05T10:00:00+00:00">'), '2026-08-05 (تاريخ النشر)')
+  assert.equal(extractPageDate('<meta content="2026-07-01" name="date">'), '2026-07-01 (تاريخ النشر)')
+  assert.equal(extractPageDate('<script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-06-02T08:00:00Z"}</script>'), '2026-06-02 (تاريخ النشر)')
+  assert.equal(extractPageDate('<p>x</p><time datetime="2025-09-19">19 Sep</time>'), '2025-09-19 (تاريخ النشر)')
+  assert.equal(extractPageDate('<meta property="article:modified_time" content="2026-05-01T00:00:00Z">'), '2026-05-01 (آخر تعديل)')
+  assert.equal(extractPageDate('<html></html>', 'Tue, 03 Nov 2026 10:00:00 GMT'), '2026-11-03 (آخر تعديل حسب السيرفر)')
+  assert.equal(extractPageDate('<html></html>'), 'غير معروف')
+  assert.equal(extractPageDate('<meta name="date" content="1970-01-01">'), 'غير معروف')
+})
+
+test('freshness rule: latest-questions must not seed the query from memory and must cite dates', async () => {
+  const { FRESH_HINT } = await import('../src/core/guidance')
+  assert.match(FRESH_HINT, /never put a version or model number from your own memory/)
+  assert.match(FRESH_HINT, /AGAINST your answer/)
+  assert.match(FRESH_HINT, /date of the source/)
+  assert.match(FRESH_HINT, /\[1\], \[2\]/)
+  assert.match(FRESH_HINT, /غير مؤكد/)
+})
+test('web search: date hint from the address, and a server date equal to today is ignored', async () => {
+  const { urlDate, extractPageDate } = await import('../src/computer/devtools')
+  assert.equal(urlDate('https://www.androidheadlines.com/2026/09/huawei-watch-gt-7-watch-6-series-arrive.html'), '2026-09 (من الرابط)')
+  assert.equal(urlDate('https://example.com/news/2026/09/15/story'), '2026-09-15 (من الرابط)')
+  assert.equal(urlDate('https://example.com/specs/huawei/watch-gt-7/'), '')
+  const today = new Date().toUTCString()
+  assert.equal(extractPageDate('<html></html>', today), 'غير معروف')
+})
+import { needsBrowser, BROWSER_HINT } from '../src/core/guidance'
+import { isTrivialChat } from '../src/core/trivial'
+test('browser requests are detected, not treated as trivial chat, and the hint tells the model it has a browser', () => {
+  assert.ok(needsBrowser('افتح المتصفح تبعك الداخلي'))
+  assert.ok(needsBrowser('شيك على هدا الرابط https://www.huawei.com'))
+  assert.ok(needsBrowser('open the browser and read the page'))
+  assert.ok(!needsBrowser('كيفك اليوم'))
+  assert.equal(isTrivialChat('افتح المتصفح تبعك الداخلي'), false)
+  assert.match(BROWSER_HINT, /browser_open/)
+  assert.match(BROWSER_HINT, /browser_close/)
+})
+import { isTinyModelId } from '../src/core/model-size'
+test('tiny models are recognised by the real provider id, strong families never by size', () => {
+  assert.ok(isTinyModelId('qwen3:1.7b'))
+  assert.ok(isTinyModelId('llama3.2:1b'))
+  assert.ok(isTinyModelId('liquid/lfm-2.5-2.6b:free'))
+  assert.ok(!isTinyModelId('qwen3:4b'))
+  assert.ok(!isTinyModelId('open-mistral-nemo'))
+  assert.ok(!isTinyModelId('gemini-2.5-flash'))
+  assert.ok(!isTinyModelId('gpt-4o-mini'))
+})
+
+test('5.21.8 delegation: short approvals inherit the real request', () => {
+  const h = [
+    { role: 'user' as const, content: 'اعمل 3 خيارات للأيقونة واحفظهن بمجلد icons' },
+    { role: 'assistant' as const, content: 'هي الخيارات الثلاث... عندك أي تعديل قبل ما أبلش؟' }
+  ]
+  for (const yes of ['لا مافي تعديلات بلش شغلك', 'لا ماعندي يايا تعديل بلش', 'لا تمام هيك', 'اي', 'اوك نفذ', 'بلش و بس تخلص عطيني النتيجة']) {
+    assert.equal(isGoAhead(yes, h), true, yes)
+  }
+  for (const no of ['طيب شو بدك تساوي هلأ من وين بدك تبلش؟', 'لا تبلش لسا', 'استنى شوي', 'ليش بدك تثبت الابونتو؟']) {
+    assert.equal(isGoAhead(no, h), false, no)
+  }
+  assert.equal(isGoAhead('اي', []), false) // nothing to continue
+  assert.equal(carriedRequest(h), 'اعمل 3 خيارات للأيقونة واحفظهن بمجلد icons')
+  assert.match(routingInput('لا مافي تعديلات بلش', h), /icons/)
+  assert.equal(routingInput('شو أخبار الطقس', h), 'شو أخبار الطقس')
+  assert.ok(delegationHint('اي بلش', h).includes(GO_AHEAD_HINT))
+  assert.match(modelInput('لا مافي تعديلات بلش', h), /APP NOTE[\s\S]*icons/)
+  assert.equal(modelInput('شو الطقس؟', h), 'شو الطقس؟')
+})
+
+test('5.21.8 delegation: full authority sticks to the whole conversation', () => {
+  const h = [
+    { role: 'user' as const, content: 'اوك عندك الصلاحية كاملة نفذ' },
+    { role: 'assistant' as const, content: 'تم فتح الصفحة' }
+  ]
+  assert.equal(isDelegated('كمّل', h), true)
+  assert.equal(isDelegated('كمّل', []), false)
+  assert.equal(isDelegated('كمل لحالك وما ترجعلي', []), true)
+  assert.ok(delegationHint('كمّل', h).includes(DELEGATED_HINT))
+  assert.ok(!delegationHint('مرحبا', []).includes(DELEGATED_HINT))
+})
+
+test('5.21.8 stall detector catches Shami re-asks', () => {
+  assert.ok(ENDS_WITH_STALL.test('هي الخطة كاملة. عندك أي تعديل قبل ما أبلش؟'))
+  assert.ok(ENDS_WITH_STALL.test('Here are the options. Shall I start?'))
+  assert.ok(!ENDS_WITH_STALL.test('خلصت وحفظت الملفات بمجلد icons.'))
+})
+import { chromiumTimeToMs, keepHttp, browserRoots, isProfileDir, parseBookmarks, mergeHistory, mergeBookmarks, suggest, clampZoom, stepZoom, sanitizePrefs, fontCss, READER_CSS, FONT_CHOICES, type LibItem, type LibBookmark } from '../src/core/browser-import'
+
+test('5.21.9 chromium time converts to unix ms', () => {
+  // 2020-01-01T00:00:00Z = 13222310400 s since 1601
+  assert.equal(chromiumTimeToMs(13222310400 * 1e6), Date.UTC(2020, 0, 1))
+  assert.equal(chromiumTimeToMs(0), 0)
+  assert.equal(chromiumTimeToMs(NaN), 0)
+})
+
+test('5.21.9 import keeps only plain http(s) urls', () => {
+  assert.equal(keepHttp('https://example.com/a'), true)
+  assert.equal(keepHttp('http://example.com'), true)
+  assert.equal(keepHttp('file:///C:/x.html'), false)
+  assert.equal(keepHttp('javascript:alert(1)'), false)
+  assert.equal(keepHttp('https://user:pw@example.com'), false)
+  assert.equal(keepHttp('chrome://settings'), false)
+  assert.equal(keepHttp(42), false)
+  assert.equal(keepHttp('https://x.com/' + 'a'.repeat(3000)), false)
+})
+
+test('5.21.9 browser roots per platform and profile dir names', () => {
+  const j = (...p: string[]): string => p.join('/')
+  const win = browserRoots('win32', { LOCALAPPDATA: 'C:/L' }, 'C:/U', j)
+  assert.deepEqual(win.map((r) => r.browser), ['chrome', 'edge', 'brave', 'chromium'])
+  assert.equal(win[1].root, 'C:/L/Microsoft/Edge/User Data')
+  assert.equal(browserRoots('darwin', {}, '/Users/t', j)[0].root, '/Users/t/Library/Application Support/Google/Chrome')
+  assert.equal(browserRoots('linux', {}, '/home/t', j)[2].root, '/home/t/.config/BraveSoftware/Brave-Browser')
+  assert.equal(isProfileDir('Default'), true)
+  assert.equal(isProfileDir('Profile 3'), true)
+  assert.equal(isProfileDir('System Profile'), false)
+  assert.equal(isProfileDir('Crashpad'), false)
+})
+
+test('5.21.9 bookmarks JSON is flattened with folders, bad urls dropped', () => {
+  const json = {
+    roots: {
+      bookmark_bar: { type: 'folder', name: 'Bar', children: [
+        { type: 'url', name: 'A', url: 'https://a.com' },
+        { type: 'folder', name: 'Work', children: [{ type: 'url', name: 'B', url: 'https://b.com' }, { type: 'url', name: 'Bad', url: 'javascript:1' }] }
+      ] },
+      other: { type: 'folder', name: 'Other', children: [{ type: 'url', name: 'C', url: 'http://c.com' }] }
+    }
+  }
+  const out = parseBookmarks(json, 'chrome:Default')
+  assert.deepEqual(out.map((b) => b.url), ['https://a.com', 'https://b.com', 'http://c.com'])
+  assert.equal(out[1].folder, 'Bar / Work')
+  assert.deepEqual(parseBookmarks(null, 'x'), [])
+  assert.deepEqual(parseBookmarks({ roots: 5 }, 'x'), [])
+})
+
+test('5.21.9 history/bookmark merge dedupes and keeps newest', () => {
+  const a: LibItem[] = [{ url: 'https://a.com', title: 'old', t: 100, visits: 2, src: 'x' }]
+  const b: LibItem[] = [{ url: 'https://a.com', title: 'new', t: 200, visits: 1, src: 'y' }, { url: 'https://b.com', title: 'B', t: 50, visits: 1, src: 'y' }]
+  const m = mergeHistory(a, b)
+  assert.equal(m.length, 2)
+  assert.equal(m[0].url, 'https://a.com')
+  assert.equal(m[0].title, 'new')
+  assert.equal(m[0].visits, 2)
+  assert.equal(mergeHistory(a, b, 1).length, 1)
+  const bm: LibBookmark[] = [{ url: 'https://a.com', title: 'A', folder: '', src: 'x' }]
+  assert.equal(mergeBookmarks(bm, [...bm, { url: 'https://z.com', title: 'Z', folder: '', src: 'y' }]).length, 2)
+})
+
+test('5.21.9 address suggestions: bookmarks first, then busiest history', () => {
+  const h: LibItem[] = [
+    { url: 'https://news.example.com', title: 'News', t: 1e12, visits: 1, src: 'x' },
+    { url: 'https://example.org/docs', title: 'Docs', t: 1e12, visits: 20, src: 'x' }
+  ]
+  const bm: LibBookmark[] = [{ url: 'https://example.net', title: 'Mine', folder: '', src: 'x' }]
+  const s = suggest('example', h, bm)
+  assert.deepEqual(s.map((x) => x.url), ['https://example.net', 'https://example.org/docs', 'https://news.example.com'])
+  assert.equal(s[0].bookmark, true)
+  assert.equal(s[1].bookmark, false)
+  assert.deepEqual(suggest('', h, bm).map((x) => x.url), ['https://example.net'])
+  assert.equal(suggest('zzz', h, bm).length, 0)
+  assert.equal(suggest('example', h, bm, 2).length, 2)
+})
+
+test('5.21.9 zoom is clamped and steps by 10%', () => {
+  assert.equal(clampZoom(10), 3)
+  assert.equal(clampZoom(0.1), 0.5)
+  assert.equal(clampZoom(NaN), 1)
+  assert.equal(stepZoom(1, 1), 1.1)
+  assert.equal(stepZoom(1.1, -1), 1)
+  assert.equal(stepZoom(2.5, 0), 1)
+  assert.equal(stepZoom(3, 1), 3)
+})
+
+test('5.21.9 view prefs are sanitized and font CSS is safe', () => {
+  assert.deepEqual(sanitizePrefs({ zoom: 9, font: 'Evil;}', reader: 'yes' }), { zoom: 3, font: 'افتراضي', reader: false })
+  assert.deepEqual(sanitizePrefs(undefined), { zoom: 1, font: 'افتراضي', reader: false })
+  assert.equal(sanitizePrefs({ zoom: 1.2, font: 'Tahoma', reader: true }).reader, true)
+  assert.equal(fontCss('افتراضي'), '')
+  assert.equal(fontCss('x"}body{display:none'), '')
+  for (const f of FONT_CHOICES.slice(1)) assert.ok(fontCss(f).includes(`"${f}"`))
+  assert.ok(READER_CSS.includes('max-width'))
+})
+
+test('5.21.9 live translate: setup carries target language inside generationConfig', () => {
+  const s = translateSetup('ar', true) as { setup: { model: string; generationConfig: { responseModalities: string[]; translationConfig: { targetLanguageCode: string; echoTargetLanguage: boolean }; inputAudioTranscription: object; outputAudioTranscription: object } } }
+  assert.equal(s.setup.model, TRANSLATE_MODEL)
+  assert.deepEqual(s.setup.generationConfig.responseModalities, ['AUDIO'])
+  assert.deepEqual(s.setup.generationConfig.translationConfig, { targetLanguageCode: 'ar', echoTargetLanguage: true })
+  assert.deepEqual(s.setup.generationConfig.inputAudioTranscription, {})
+  assert.deepEqual(s.setup.generationConfig.outputAudioTranscription, {})
+})
+
+test('5.21.9 live translate: only listed language codes are accepted', () => {
+  assert.equal(isTranslateLang('ar'), true)
+  assert.equal(isTranslateLang('zh-Hans'), true)
+  assert.equal(isTranslateLang('xx'), false)
+  assert.equal(isTranslateLang(undefined), false)
+  assert.equal(new Set(TRANSLATE_LANGS.map((l) => l.code)).size, TRANSLATE_LANGS.length)
+})
+
+test('5.21.9 lyria: request shape and audio extraction', () => {
+  assert.deepEqual(lyriaRequest('calm piano'), { model: LYRIA_MODEL, input: 'calm piano' })
+  const ok = { steps: [{ type: 'model_output', content: [{ type: 'text', text: 'lyrics' }, { type: 'audio', data: 'QUJD', mime_type: 'audio/mpeg' }] }] }
+  assert.deepEqual(lyriaAudio(ok), { data: 'QUJD', mimeType: 'audio/mpeg' })
+  assert.equal(lyriaAudio({ steps: [{ type: 'model_output', content: [{ type: 'text', text: 'x' }] }] }), null)
+  assert.equal(lyriaAudio({ steps: [{ type: 'other', content: [{ type: 'audio', data: 'QQ==' }] }] }), null)
+  assert.equal(lyriaAudio(null), null)
+  assert.equal(lyriaAudio({}), null)
 })

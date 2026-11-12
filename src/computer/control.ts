@@ -366,6 +366,17 @@ function GetEls($needle) {
 type Handler = (a: Record<string, unknown>) => Promise<string>
 const s = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v))
 
+// Side-browser tools alone (open/read/elements/click/type/close), for requests that need the browser while full PC control is off.
+// Every open/click/type still asks the user; the browser is a separate temporary session.
+export function addBrowserOnlyTools(defs: OpenAI.Chat.ChatCompletionTool[], handlers: Map<string, Handler>): void {
+  const def = (name: string, description: string, props: Record<string, unknown>, required: string[], h: Handler): void => {
+    defs.push({ type: 'function', function: { name, description, parameters: { type: 'object', properties: props, required } } })
+    handlers.set(name, h)
+  }
+  const devOff = readState().disabledTools
+  addBrowserTools(((nm: string, ...r: unknown[]) => { if (!devOff.includes(nm)) (def as (...a: unknown[]) => void)(nm, ...r) }) as unknown as typeof def, ask, confirmAlways)
+}
+
 export function addComputerTools(
   defs: OpenAI.Chat.ChatCompletionTool[],
   handlers: Map<string, Handler>,

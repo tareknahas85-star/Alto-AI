@@ -32,14 +32,15 @@
 | | |
 |---|---|
 | ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
-| 📺 **Feature by feature · ميزة بميزة** (7 short episodes · 7 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
+| 📺 **Feature by feature · ميزة بميزة** (9 short episodes · 9 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
+| 🚀 **What's new in 5.21.9 · شو الجديد بـ 5.21.9** (ep 9 · الحلقة 9) | [Watch · شوف](https://youtu.be/6oA_IcxejOE) |
 | 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
 
 | | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.2-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.2/Alto-AI-5.20.2-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.20.2/Alto-AI-5.20.2-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.20.1-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.9-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.9-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.9-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.9-android.apk) |
 
 📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
 📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
@@ -66,16 +67,18 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.19.30
+### What's new in 5.21.9
 
-- **Model checks speak one language.** When a model answers `429` (not in the free tier, or its quota ran out) it now shows as a grey "not free, your key is fine" instead of a red error. A timeout says "slow or busy, try again". A real error, like a wrong key, stays red. This is the same in the full check, the **Test** button next to each model, the Hugging Face check and the free-model probe.
-- **Notebook (new page).** Put your files, links, text and Google Drive files in a notebook, ask questions with cited answers, and turn them into a report, table, mind map, flashcards, quiz, slides (pptx), infographic, audio summary, or a **narrated video** (slides, voice and recording, all local and free).
-- **Google Drive in the notebook (read only).** Connect once with your own OAuth client. The app can search and read your files. It can never edit or delete.
-- **Suaad, the voice assistant.** Live voice chat with Gemini Live, a wake word, voice approvals ("okay"), a 30-minute "full trust" mode, and a small orb that shows what she is doing.
-- **Platforms page.** One ranking of all the free models from every provider, with a button to test your key and pull the free ones.
-- **Fixes.** Window focus now checks that the window really came to the front, and the sidebar no longer overlaps on small windows.
-
+- **Live voice translation.** A new «ترجمة» tab: pick a target language, speak in any language, and hear the translation as you talk, with the original and translated text side by side. Uses Gemini's live translation model with your own Gemini key.
+- **Music with Lyria 3.5.** The audio generator can turn a text description (genre, mood, instruments) into a music track.
+- **Colab MCP preset.** One click fills in the Colab MCP server, so the agent can run Python on a Colab GPU from your own account.
+- **Side browser upgrades.** Open a local file, save a page as HTML/PDF/PNG, zoom, font, reader mode, bookmarks, address-bar suggestions, and import history and bookmarks from Chrome, Edge or Brave (no cookies or passwords). A plain word in the address bar becomes a Google search.
+- **Sign-ins stay.** The side browser keeps your logins (Designer and others) until you clear them with the trash button.
+- **Agent results on the desktop.** The Agents page lists every finished run (cloud, phone or scheduled), the same list the phone shows.
+- **Phone notifications built in.** The phone app checks for results in the background and notifies you, with no Firebase and no extra app. ntfy stays as an advanced option.
+- **Free model lists refresh themselves** (APInex and OpenRouter), and the emulator no longer opens by itself at startup.
 Every change is in [CHANGELOG.md](CHANGELOG.md). Every release is on the [releases page](https://github.com/tareknahas85-star/Alto-AI/releases).
+
 ### What it does
 
 - Sends every request to the best model: free first, then cheap, then expensive.
@@ -239,7 +242,7 @@ phone is only a screen.**
 **Set it up (about 3 minutes)**
 
 1. Install the desktop app and make sure it works (steps above).
-2. Download **`Alto-AI-5.20.1-android.apk`** from the
+2. Download **`Alto-AI-5.21.9-android.apk`** from the
    [latest release](https://github.com/tareknahas85-star/Alto-AI/releases/latest)
    on your phone and install it (Android asks you to allow installing from this
    source once). It is a debug-signed build, not from the Play Store.
@@ -352,15 +355,16 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.19.30)
+### شو الجديد بآخر نسخة (5.21.9)
 
-- **فحص الموديلات صار بلغة وحدة.** لما موديل يرجّع `429` (يعني مو مجاني أو خلصت حصتو) بيطلع **رمادي** وبيقلك "مو مجاني، المفتاح سليم" بدل خطأ أحمر. وإذا الموديل بطيء بيقلك "أعد المحاولة". أما الخطأ الحقيقي (مثلاً مفتاح غلط) فبيضل **أحمر**. هيك صار بالفحص الكامل، وبزر **اختبار** جنب كل موديل، وبفحص Hugging Face، وبفحص المجاني.
-- **صفحة "دفتر" جديدة.** بتحط مصادرك (ملفات، روابط، نصوص، وملفات من Google Drive) وبتسألها، والأجوبة معها اقتباس. وبتحوّلها لتقرير، جدول، خريطة ذهنية، بطاقات مراجعة، اختبار، عرض تقديمي، إنفوغرافيك، ملخّص صوتي، أو **فيديو بتعليق صوتي**.
-- **ملفات Google Drive بالدفتر (قراءة بس).** بتربط حسابك مرة وحدة، والبرنامج بيقدر يدوّر ويقرا، وما بيقدر يعدّل ولا يحذف أبداً.
-- **سعاد، المساعدة الصوتية.** محادثة صوتية مباشرة (Gemini Live)، كلمة تنبيه، موافقة بالصوت، "الصلاحية الكاملة" لمدة 30 دقيقة، ودايرة صغيرة (أورب) بتبيّن شو عم تعمل.
-- **صفحة "المنصات".** ترتيب واحد لكل الموديلات المجانية من كل المزوّدين حسب القوة، مع زر لاختبار مفتاحك وسحب المجاني.
-- **إصلاحات.** تركيز النوافذ صار بيتأكد فعلياً إنو النافذة طلعت قدام، والشريط الجانبي ما عاد يتركّب على بعضو بالنافذة الصغيرة.
-
+- **ترجمة فورية بالصوت.** تبويب جديد «ترجمة»: بتختار اللغة وبتحكي بأي لغة، وبتسمع الترجمة وأنت عم تحكي، ومعها نص الأصل ونص الترجمة جنب بعض. بتشتغل بموديل الترجمة تبع Gemini ومفتاحك.
+- **موسيقى بـ Lyria 3.5.** توليد الصوت صار بيعمل موسيقى من وصف نصي (النوع، المزاج، الآلات).
+- **Colab MCP جاهز.** كبسة وحدة بتعبّي إعدادات سيرفر Colab، فالوكيل بيقدر يشغّل Python على GPU من حسابك.
+- **المتصفح الجانبي صار أقوى.** فتح ملف، حفظ الصفحة HTML/PDF/PNG، زوم، خط، وضع قراءة، بوكمارك، اقتراحات بشريط العنوان، واستيراد الهيستوري والبوكماركس من Chrome وEdge وBrave (بدون كوكيز ولا باسوردات). وأي كلمة بدون رابط بتصير بحث Google.
+- **تسجيل الدخول بيضل.** المتصفح الجانبي بيحفظ دخولك (Designer وغيره) لحتى تمسحو بإيدك من زر السلة.
+- **نتائج الوكلاء عالكمبيوتر.** صفحة الوكلاء بتعرض كل وكيل خلّص (سحابي، من الموبايل، أو مجدول)، نفس قائمة الموبايل.
+- **إشعارات الموبايل مدمجة.** تطبيق الموبايل بيفحص النتائج بالخلفية وبيبعتلك إشعار، بدون Firebase ولا تطبيق تاني. وntfy بيضل خيار متقدم.
+- **قوائم الموديلات المجانية بتتحدّث لحالها** (APInex وOpenRouter)، والمحاكي ما بيفتح لحالو عند التشغيل.
 كل التفاصيل بملف [CHANGELOG.md](CHANGELOG.md)، وكل نسخة بـ[صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases).
 
 <a id="needs-ar"></a>
@@ -396,8 +400,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.20.2-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.20.2-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.9-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.9-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>
@@ -687,7 +691,7 @@ and the licenses of the libraries it uses are in
 **كيف تجهّزو (حوالي 3 دقايق):**
 
 1. ثبّت برنامج الكمبيوتر وتأكد إنو شغّال.
-2. نزّل ملف `Alto-AI-5.20.1-android.apk` من [صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/latest) عالتلفون وثبّتو. أندرويد بيطلب منك تسمح بالتثبيت من هالمصدر مرة وحدة. هاد ملف تجريبي موقّع debug، مو من متجر Play.
+2. نزّل ملف `Alto-AI-5.21.9-android.apk` من [صفحة الإصدارات](https://github.com/tareknahas85-star/Alto-AI/releases/tag/v5.21.9) عالتلفون وثبّتو. أندرويد بيطلب منك تسمح بالتثبيت من هالمصدر مرة وحدة. هاد ملف تجريبي موقّع debug، مو من متجر Play.
 3. عالكمبيوتر: **الإعدادات ← عام ← تطبيق الموبايل (ربط مشفّر)**. فعّل **فعّل الربط مع الموبايل**. إذا سألك جدار حماية ويندوز، اسمح عالشبكات **الخاصة (Private)**.
 4. دوس **ربط جهاز جديد**، بيطلع **QR**.
 5. افتح التطبيق عالتلفون، بيطلب الكاميرا وبيمسح الـ QR. بيظهر **رمز من 6 أرقام** عالشاشتين. إذا هنّي نفسهم، أكّد عالكمبيوتر.
@@ -785,10 +789,3 @@ and the licenses of the libraries it uses are in
 - AI: التنفيذ
 
 </div>
-
-
-## Contribute · ساهم معنا
-
-Alto AI is source-available and does not take code pull requests. Bug reports, ideas and wording fixes are very welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), and use [Discussions](../../discussions) for questions.
-
-Alto AI مصدره مفتوح للقراءة بس وما بيقبل pull requests عالكود. بلاغات الأخطاء والأفكار وتصحيحات الصياغة مرحّب فيها كتير: اقرا [CONTRIBUTING.md](CONTRIBUTING.md)، والأسئلة احكيها بـ [Discussions](../../discussions).

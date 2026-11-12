@@ -1,3 +1,6 @@
+import { needsFreshInfo } from './guidance'
+import { isGoAhead } from './delegation'
+import { takePendingImage } from '../tools/android-tools'
 import { hostOf } from './hosts'
 import { getApiKey } from '../store/secure-store'
 import OpenAI from 'openai'
@@ -15,6 +18,7 @@ import { rotateLogFile } from './log-rotate'
 import { buildProject, setRunProject } from './workspace'
 import { quarantineEmptyFragments, appendRunLog } from './run-report'
 import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel } from './custom-models'
+import { isTinyModelId } from './model-size'
 import { textProtocol, textToolLoop } from './text-tools'
 import { effortExtra, getEffort, type EffortRoute } from './effort'
 import { buildCliPrompt, cliModelAlias, isCliModel, runClaudeCliEx } from './cli-models'
@@ -191,7 +195,8 @@ export async function executeWithFallback(
       // التصليح التلقائي بس لمنفّذ عنده أدوات (CLI/وكيل). الموديل النصي ما بيقدر يعدّل ملفات، فما منضيّع جولات عالفاضي.
       const canRepair = who.startsWith('cli:') || isCliModel(who) || isAgentEngine(who)
       let rounds = 0
-      for (let round = 1; canRepair && rv && (rv.verdict === 'FAIL' || rv.high > 0) && round <= MAX_REPAIR_ROUNDS; round++) {
+      // تصليح بس لما المراجع حدّد ملاحظات فعلية. "فشل" بدون ولا ملاحظة مفهومة = المراجعة ما حسمت، وإعادة تشغيل المنفّذ عالفاضي ضيّعت 49 دقيقة مرة.
+      for (let round = 1; canRepair && rv && rv.findings > 0 && (rv.verdict === 'FAIL' || rv.high > 0) && round <= MAX_REPAIR_ROUNDS; round++) {
         const fx = await repairFromReview(who, userInput, rv, ctx)
         if (!fx) break
         rounds = round
@@ -208,7 +213,10 @@ export async function executeWithFallback(
           '\n\n---\nمراجعة مستقلة (' + rv.reviewer + (rv.independent ? '' : '، مو مستقل') + '): ' + (rv.verdict === 'FAIL' ? '❌ فشل' : rv.verdict === 'PASS' ? '✅ نجح' : '❓ غير محسوم') +
           ' — ' + rv.findings + ' ملاحظة (' + rv.high + ' خطيرة)' + (rounds ? ' — بعد ' + rounds + ' دورة تصليح' : !canRepair && rv.verdict === 'FAIL' ? ' — بدون تصليح تلقائي (المنفّذ ما عنده أدوات)' : '') +
           (top.length ? '\n' + top.join('\n') : '')
-        if (rv.verdict === 'FAIL' || rv.high > 0) {
+        if (rv.verdict === 'FAIL' && rv.findings === 0 && rv.high === 0) {
+          r.failures = [...(r.failures || []), { model: rv.reviewer, reason: 'المراجعة المستقلة ما حسمت (فشل بدون ملاحظات واضحة)' }]
+          r.content = 'ℹ️ المراجعة المستقلة ما قدرت تحسم (رجّعت "فشل" بدون ولا ملاحظة واضحة)، فما عملت تصليح تلقائي. راجع الرد بنفسك.\n\n' + r.content
+        } else if (rv.verdict === 'FAIL' || rv.high > 0) {
           r.failures = [...(r.failures || []), { model: rv.reviewer, reason: 'المراجعة المستقلة: ' + rv.verdict + ' (' + rv.high + ' خطيرة)' }]
           r.content = '⚠️ تنبيه من البرنامج: المراجعة المستقلة فشّلت هالرد. أي "تم" أو "جاهز 100%" بالرد غير مؤكد، والتفاصيل بآخر الرد.\n\n' + r.content
         }
@@ -355,7 +363,10 @@ async function executeWithFallbackInner(
       continue
     }
     // A tiny local model (<4B) cannot drive tools: skip it when other models are still queued (an explicit single choice stays).
-    if (toolset?.defs.length && !/gemini|gpt|claude|sonnet|opus|haiku/i.test(model) && /(?:^|[:/_-])(?:0?\.\d+|[1-3](?:\.\d+)?)b(?![a-z0-9])/i.test(model)) {
+    // 5.21.3: a custom entry has an opaque id (custom:abc123), so the size check must read the real provider model id behind it
+    // (a custom "qwen3:1.7b" on Ollama used to slip through and called Dropbox tools by itself).
+    const realId = model.startsWith(CUSTOM_PREFIX) ? getCustomModel(model.slice(CUSTOM_PREFIX.length))?.model ?? model : model
+    if (toolset?.defs.length && isTinyModelId(realId)) {
       failures.push({ model, reason: 'موديل صغير (أقل من 4B) ما بيمسك الأدوات، تخطّيناه (الموديلات الصغيرة بس للأوامر البسيطة بدون أدوات، مو للشغل الحقيقي)' })
       continue
     }
@@ -388,7 +399,9 @@ async function executeWithFallbackInner(
           let ar: { text: string; model?: string; tools: string[] } | null = null
           // Executor role (Settings > roles): when set, the action engine runs first; the chat model is the fallback.
           const roleExec = getRoles().executor
-          const execEngine = roleExec !== 'auto' && isAgentEngine(roleExec) ? roleExec : model
+          // 5.21.8: إذا المستخدم اختار موديل/محرك بإيدو لهالتبويب، اختيارو بيمشي قبل دور «المنفّذ» بالإعدادات.
+          const pickedByHand = currentMode()?.kind === 'model' && isAgentEngine(model)
+          const execEngine = !pickedByHand && roleExec !== 'auto' && isAgentEngine(roleExec) ? roleExec : model
           let usedEng = execEngine
           let lastErr: unknown = null
           for (const eng of [execEngine, ...ENGINE_ORDER.filter((e) => e !== execEngine && !(e === 'cli:claude' && model.startsWith('cli:claude')))]) {
@@ -549,7 +562,9 @@ async function executeWithFallbackInner(
         if (!useTools && toolset?.defs.length) {
           // No native function calling: the APP runs the tools through the text protocol.
           textMode = true
-          const sys = baseSystem + capabilityBlock(model, toolset, false) + textProtocol(toolset)
+          // 5.21.8: سؤال بيحتاج معلومة حديثة + موديل بلا function calling: البرنامج بيدوّر بنفسو وبيعطيه النتايج مع تواريخها.
+          const pre = needsFreshInfo(userInput) ? await preSearch(userInput) : ''
+          const sys = baseSystem + capabilityBlock(model, toolset, false) + textProtocol(toolset) + pre
           const r = await textToolLoop({
             toolset,
             maxRounds: pcMode ? 40 : 8,
@@ -654,6 +669,9 @@ async function executeWithFallbackInner(
             calls_.push({ name: c.function.name, key: c.function.name + JSON.stringify(args), out })
             messages.push({ role: 'tool', tool_call_id: c.id, content: out })
           }
+          // Android screenshot taken by a tool this round: attach it so the model can see the screen.
+          const shot = takePendingImage()
+          if (shot) messages.push({ role: 'user', content: [{ type: 'text', text: 'Current Android screen:' }, { type: 'image_url', image_url: { url: shot } }] })
           continue
         }
         content = msg?.content || ''
@@ -704,7 +722,7 @@ async function executeWithFallbackInner(
           continue
         }
         // 5.17.8: مهمة تنفيذ + أدوات جهاز + الرد انتهى بسؤال "هل تريد أن أبدأ؟/هل عندك مشكلة؟" بدل ما ينفّذ: مو إنجاز، نصعّد لموديل تاني.
-        if (pcMode && queue.length && opts.escalate !== false && ACTION_REQ.test(userInput) && ENDS_WITH_STALL.test(content.trim().slice(-220))) {
+        if (pcMode && queue.length && opts.escalate !== false && (ACTION_REQ.test(userInput) || isGoAhead(userInput, history)) && ENDS_WITH_STALL.test(content.trim().slice(-220))) {
           failures.push({ model, reason: 'وقف عند سؤال (هل تريد أن أبدأ؟) بدل ما ينفّذ المهمة' })
           queue.sort((a, b) => Number(/claude/i.test(b)) - Number(/claude/i.test(a)))
           handoff = '\n\nHANDOFF: a previous model (' + model + ') stopped and asked the user whether to start instead of doing the task. Do NOT ask for permission: execute the task now with your tools and report what you actually did, with evidence.'
@@ -821,6 +839,26 @@ export function calculateSavedCost(modelUsed: string, analysis: Analysis): strin
   if (modelUsed.includes('flash') || modelUsed.includes('mini'))
     return 'وفرت ~80% - استخدمت موديل رخيص'
   return 'استخدمت موديل قوي للمهام المعقدة'
+}
+
+// 5.21.8: بحث مسبق يعملو البرنامج للموديلات الضعيفة (نتيجة وحدة لكل طلب، بتنعاد لدقيقتين بين الموديلات).
+let preCache: { q: string; at: number; text: string } | null = null
+async function preSearch(input: string): Promise<string> {
+  const q = input.replace(/[؟?!.،]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+  if (!q) return ''
+  if (preCache && preCache.q === q && Date.now() - preCache.at < 120000) return preCache.text
+  let res = ''
+  try {
+    const { webSearch } = await import('../computer/devtools')
+    res = await webSearch(q, 6)
+  } catch (e) {
+    res = 'Error: ' + String((e as Error).message)
+  }
+  const text = /^Error|ما لقيت نتائج/.test(res)
+    ? ''
+    : '\n\nLIVE WEB RESULTS (fetched by the app just now, with each page date). Your memory is outdated for this question: answer ONLY from these results, prefer the newest dated ones, name the date, and say so if they do not answer it:\n' + res.slice(0, 6000)
+  preCache = { q, at: Date.now(), text }
+  return text
 }
 
 export const VERIFY_HINT =

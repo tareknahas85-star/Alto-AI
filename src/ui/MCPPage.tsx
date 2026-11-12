@@ -231,6 +231,17 @@ export function MCPPage() {
       {adding && (
         <Modal title="ضيف سيرفر MCP" onClose={() => setAdding(false)}>
           <div className="space-y-3">
+            <div className="rounded-lg border border-outline bg-surface2 p-3 text-xs">
+              <button
+                className={ghostBtn}
+                onClick={() => setForm({ name: 'colab-mcp', command: 'uvx', args: 'git+https://github.com/googlecolab/colab-mcp', env: '' })}
+              >
+                ⚡ جاهز: Colab (GPU من حسابك)
+              </button>
+              <p className="mt-2 text-muted">
+                بيخلّي الوكيل ينفّذ كود Python على GPU من Colab. بدو uv (pip install uv) وgit، وتفتح دفتر Colab بالمتصفح، والجلسة بتنقفل لحالها. بيعبّي الحقول بس، وبعدين دوس حفظ.
+              </p>
+            </div>
             <input dir="ltr" className={inputCls} placeholder="Name (e.g. filesystem)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input dir="ltr" className={inputCls} placeholder="Command (e.g. npx)" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} />
             <input dir="ltr" className={inputCls} placeholder="Args (e.g. -y @modelcontextprotocol/server-filesystem C:\\)" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} />

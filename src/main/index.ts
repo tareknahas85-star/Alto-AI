@@ -6,6 +6,8 @@ import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers, hydrateEnvFromStore } from './ipc'
 import { installIpcSenderGuard } from './ipc-guard'
 import { registerSideIpc } from './side-ipc'
+import { registerAndroidHandlers } from './android-ipc'
+import { startAndroidEmulator, stopAndroidEmulator } from './android-emulator'
 import { onWindowResized } from './side-browser'
 import { closeAllMcp } from '../mcp/runtime'
 import { shutdownRemote } from '../remote/host'
@@ -81,6 +83,28 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // Electron ما بيعرض قائمة الماوس اليمين تلقائياً، فمنعرض قائمة نسخ/لصق/قص بخانات الكتابة.
+  mainWindow.webContents.on('context-menu', (_e, params) => {
+    const ef = params.editFlags
+    const items: Electron.MenuItemConstructorOptions[] = []
+    if (params.isEditable) {
+      items.push(
+        { role: 'undo', enabled: ef.canUndo },
+        { type: 'separator' },
+        { role: 'cut', enabled: ef.canCut },
+        { role: 'copy', enabled: ef.canCopy },
+        { role: 'paste', enabled: ef.canPaste },
+        { type: 'separator' },
+        { role: 'selectAll', enabled: ef.canSelectAll }
+      )
+    } else if (params.selectionText) {
+      items.push({ role: 'copy', enabled: ef.canCopy })
+    } else {
+      return
+    }
+    Menu.buildFromTemplate(items).popup({ window: mainWindow })
+  })
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -116,6 +140,8 @@ app.whenReady().then(() => {
   hydrateEnvFromStore()
   registerIpcHandlers()
   registerSideIpc(() => mainWin)
+  registerAndroidHandlers()
+  if (process.env.GEMINI_API_KEY) void startAndroidEmulator()
   ipcMain.handle('app:show', () => showMain())
   ipcMain.handle('app:flash', () => {
     if (mainWin && !mainWin.isDestroyed() && !mainWin.isFocused()) mainWin.flashFrame(true)
@@ -136,6 +162,7 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('before-quit', () => {
+  void stopAndroidEmulator()
   quitting = true
   tray?.destroy()
   closeAllMcp()

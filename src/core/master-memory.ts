@@ -30,7 +30,7 @@ const save = (s: Store): void => writeJson(FILE, s)
 
 const TECH = [
   'docker', 'kubernetes', 'terraform', 'react', 'node', 'python', 'typescript', 'electron', 'postgres', 'mysql', 'mongodb',
-  'redis', 'nginx', 'ubuntu', 'linux', 'windows', 'gcp', 'aws', 'azure', 'powershell', 'bash', 'ollama', 'flutter', 'android'
+  'redis', 'nginx', 'ubuntu', 'linux', 'windows', 'gcp', 'aws', 'azure', 'powershell', 'bash', 'ollama', 'documenso', 'flutter', 'android'
 ]
 
 function detectFromFolder(dir: string): { tech: string[]; summary: string } {

@@ -5,8 +5,11 @@ import { electronAPI } from '@electron-toolkit/preload'
 // runs in the main process; the UI only talks to it through these calls.
 type ChatMode = { kind: 'free' } | { kind: 'auto' } | { kind: 'council'; author?: string; critic?: string } | { kind: 'model'; id: string }
 type ChatOpts = { tabId: string; projectId: string | null; mode: ChatMode; allowWeaker?: boolean }
+type SpeechPartResult = { ok: boolean; id?: string; url?: string; done?: boolean; error?: string }
 type ChatResult = { content: string; meta?: string; cancelled?: boolean; failed?: boolean; needsChoice?: boolean; policyRefused?: boolean }
 type SideStateInfo = { open: boolean; url: string | null; width: number; canGoBack: boolean }
+type SideViewInfo = { open: boolean; host: string; zoom: number; font: string; reader: boolean; bookmarked: boolean; local: boolean }
+type SideImportSource = { id: string; browser: string; label: string; profile: string; name: string; hasHistory: boolean; hasBookmarks: boolean }
 
 const api = {
   chat: (userInput: string, history: { role: 'user' | 'assistant'; content: string }[] | undefined, opts: ChatOpts): Promise<ChatResult> =>
@@ -70,6 +73,30 @@ const api = {
     appsGet: (): Promise<{ defaults: string[]; extra: string[] }> => ipcRenderer.invoke('computer:apps:get'),
     appsSet: (l: string[]): Promise<{ defaults: string[]; extra: string[] }> => ipcRenderer.invoke('computer:apps:set', l),
     setFull: (on: boolean): Promise<{ enabled: boolean; sessionAllowed: boolean; autoApprove: boolean; fullAccess: boolean }> => ipcRenderer.invoke('computer:setFull', on)
+  },
+  android: {
+    status: () => ipcRenderer.invoke('android:status'),
+    start: () => ipcRenderer.invoke('android:start'),
+    screenshot: () => ipcRenderer.invoke('android:screenshot'),
+    tap: (x: number, y: number) => ipcRenderer.invoke('android:tap', x, y),
+    key: (k: string) => ipcRenderer.invoke('android:key', k),
+    text: (t: string) => ipcRenderer.invoke('android:text', t),
+    swipe: (x1: number, y1: number, x2: number, y2: number, ms: number) =>
+      ipcRenderer.invoke('android:swipe', x1, y1, x2, y2, ms),
+    streamStart: () => ipcRenderer.invoke('android:stream-start'),
+    streamStop: () => ipcRenderer.invoke('android:stream-stop'),
+    touch: (action: number, x: number, y: number) => ipcRenderer.send('android:touch', action, x, y),
+    scroll: (x: number, y: number, dy: number) => ipcRenderer.send('android:scroll', x, y, dy),
+    onVideo: (cb: (chunk: Uint8Array) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, chunk: Uint8Array): void => cb(chunk)
+      ipcRenderer.on('android:video', listener)
+      return () => ipcRenderer.removeListener('android:video', listener)
+    },
+    onVideoEnd: (cb: () => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('android:video-end', listener)
+      return () => ipcRenderer.removeListener('android:video-end', listener)
+    }
   },
   onStream: (cb: (tabId: string, kind: 'chunk' | 'reset', text?: string) => void): (() => void) => {
     const h = (_e: unknown, tabId: string, k: 'chunk' | 'reset', t?: string): void => cb(tabId, k, t)
@@ -288,6 +315,19 @@ const api = {
     setWidth: (w: number): Promise<SideStateInfo> => ipcRenderer.invoke('side:setWidth', w),
     setOverlay: (on: boolean): Promise<SideStateInfo> => ipcRenderer.invoke('side:setOverlay', on),
     clearData: (): Promise<boolean> => ipcRenderer.invoke('side:clearData'),
+    clearService: (id: string): Promise<boolean> => ipcRenderer.invoke('side:clearService', id),
+  openFile: (): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> => ipcRenderer.invoke('side:openFile'),
+  savePage: (kind: 'html' | 'pdf' | 'png'): Promise<{ ok: boolean; error?: string; cancelled?: boolean; path?: string }> => ipcRenderer.invoke('side:savePage', kind),
+  viewInfo: (): Promise<SideViewInfo> => ipcRenderer.invoke('side:viewInfo'),
+  zoom: (dir: 1 | -1 | 0): Promise<SideViewInfo> => ipcRenderer.invoke('side:zoom', dir),
+  setFont: (font: string): Promise<SideViewInfo> => ipcRenderer.invoke('side:font', font),
+  toggleReader: (): Promise<SideViewInfo> => ipcRenderer.invoke('side:reader'),
+  toggleBookmark: (): Promise<SideViewInfo> => ipcRenderer.invoke('side:bookmarkToggle'),
+  importList: (): Promise<SideImportSource[]> => ipcRenderer.invoke('side:importList'),
+  importRun: (id: string, what: { history: boolean; bookmarks: boolean }): Promise<{ ok: boolean; error?: string; history?: number; bookmarks?: number }> => ipcRenderer.invoke('side:importRun', id, what),
+  suggest: (q: string): Promise<Array<{ url: string; title: string; bookmark: boolean }>> => ipcRenderer.invoke('side:suggest', q),
+  libraryStats: (): Promise<{ history: number; bookmarks: number; importedAt: number }> => ipcRenderer.invoke('side:libraryStats'),
+  libraryClear: (): Promise<boolean> => ipcRenderer.invoke('side:libraryClear'),
     state: (): Promise<SideStateInfo> => ipcRenderer.invoke('side:state'),
     onChanged: (cb: (s: SideStateInfo) => void): (() => void) => {
       const h = (_e: unknown, s: SideStateInfo): void => cb(s)
@@ -354,8 +394,22 @@ const api = {
       return () => ipcRenderer.removeListener('live:event', h)
     },
   },
+  translate: {
+    available: (): Promise<boolean> => ipcRenderer.invoke('translate:available'),
+    start: (target: string, echo: boolean): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('translate:start', target, echo),
+    audio: (b64: string): void => ipcRenderer.send('translate:audio', b64),
+    stop: (): Promise<boolean> => ipcRenderer.invoke('translate:stop'),
+    onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void): (() => void) => {
+      const h = (_e: unknown, ev: { type: string; [k: string]: unknown }): void => cb(ev)
+      ipcRenderer.on('translate:event', h)
+      return () => ipcRenderer.removeListener('translate:event', h)
+    },
+  },
   voice: {
     speak: (text: string): Promise<{ ok: boolean; url?: string; note?: string; error?: string }> => ipcRenderer.invoke('voice:speak', text),
+    suaadStart: (text: string): Promise<SpeechPartResult> => ipcRenderer.invoke('voice:suaadStart', text),
+    suaadNext: (id: string): Promise<SpeechPartResult> => ipcRenderer.invoke('voice:suaadNext', id),
+    suaadStop: (id: string): Promise<boolean> => ipcRenderer.invoke('voice:suaadStop', id),
     transcribe: (data: ArrayBuffer): Promise<{ ok: boolean; text?: string; error?: string }> => ipcRenderer.invoke('voice:transcribe', data),
     warm: (): Promise<boolean> => ipcRenderer.invoke('voice:warm')
   },
@@ -406,6 +460,7 @@ const api = {
     get: () => ipcRenderer.invoke('gate:get'),
     set: (p: { enabled?: boolean; url?: string; key?: string }) => ipcRenderer.invoke('gate:set', p),
     test: () => ipcRenderer.invoke('gate:test'),
+    feed: () => ipcRenderer.invoke('gate:feed'),
     linkMail: (src: string) => ipcRenderer.invoke('gate:linkMail', src)
   },
   telegram: {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "928098760365",
+    "project_id": "alto-ai-push",
+    "storage_bucket": "alto-ai-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:928098760365:android:d88c32680f192c3fe4f824",
+        "android_client_info": {
+          "package_name": "app.trl.agent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARzNT7k_DOKj-Ex5H1zXmiXcYuMC5NqCY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

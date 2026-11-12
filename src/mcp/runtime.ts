@@ -1,5 +1,5 @@
 import { setComputerBase } from '../computer/pathbase'
-import { addComputerTools, computerEnabled } from '../computer/control'
+import { addBrowserOnlyTools, addComputerTools, computerEnabled } from '../computer/control'
 import { currentSignal } from '../core/progress'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import path from 'path'
@@ -8,15 +8,16 @@ import { listSkills, loadSkill } from '../skills/loader'
 import { loadMCPConfig, type MCPServer } from './client'
 import { readFile, listFiles } from '../tools/file-tools'
 import { readState } from '../core/state'
-import { approveNewTool, approveWrite, getAccounts } from '../core/accounts'
+import { approveNewTool, approveWrite, auditLog, getAccounts } from '../core/accounts'
 import { fenceUntrusted } from '../core/untrusted'
 import { shell } from 'electron'
 import { addPlaceTools } from '../tools/place-tools'
 import { getPrefs } from '../core/prefs'
-import { needsDocTools, needsLocation, needsSecurity } from '../core/guidance'
+import { needsBrowser, needsDocTools, needsLocation, needsSecurity } from '../core/guidance'
 import { addDocTools } from '../tools/doc-tools'
 import { addSecurityTools } from '../tools/security-tools'
 import { addSandboxTools, needsSandbox } from '../tools/sandbox-tools'
+import { addAndroidTools, needsAndroid } from '../tools/android-tools'
 import { addNotebookTools, needsNotebook } from '../tools/notebook-tools'
 import { addGoogleMediaTools, needsGoogleMedia } from '../tools/google-media-tools'
 import { toolPrior } from '../core/learning'
@@ -306,6 +307,8 @@ export async function buildToolset(userInput: string, projectPath?: string, opts
 
   setComputerBase(projectPath)
   if (computerEnabled()) addComputerTools(defs, handlers, currentSignal)
+  // The side browser works without full PC control: opening a page asks the user and uses a separate temporary session.
+  else if (needsBrowser(userInput) && !opts.confidential) addBrowserOnlyTools(defs, handlers)
 
   // Skills: the model can list and load any enabled skill, like Claude does.
   try {
@@ -349,6 +352,8 @@ export async function buildToolset(userInput: string, projectPath?: string, opts
 
   // Isolated code sandbox (WSL Ubuntu): Windows only, every run needs approval, never in a confidential project.
   if (needsSandbox(userInput) && !opts.confidential && process.platform === 'win32') addSandboxTools(defs, handlers)
+  // Android emulator control (ADB): read tools are free, every tap/type/key/build needs approval.
+  if (needsAndroid(userInput) && !opts.confidential) addAndroidTools(defs, handlers)
 
   // Local PDF/image tools (merge, extract pages, convert/shrink): run on this PC only, so they are fine in confidential projects. Needs PC control because they write files.
   if (needsDocTools(userInput) && computerEnabled()) addDocTools(defs, handlers, projectPath)
@@ -461,7 +466,10 @@ export async function buildToolset(userInput: string, projectPath?: string, opts
             out = 'Error: المستخدم رفض هذا الإجراء. لا تعيد المحاولة، وأخبره أن الإجراء لم يُنفَّذ.'
           } else if (!(await approveNewTool(info.server, info.name))) {
             out = 'Error: المستخدم ما وافق يستعمل هالأداة. لا تعيد المحاولة، وأخبره أنها ما اشتغلت.'
-          } else out = await callMcpTool(info, a)
+          } else {
+            if (RISKY.test(info.name)) auditLog(`mcp-run:${info.server}.${info.name}`)
+            out = await callMcpTool(info, a)
+          }
         }
       }
       const cut = out.length > MAX_RESULT ? out.slice(0, MAX_RESULT) + '\n…[truncated]' : out

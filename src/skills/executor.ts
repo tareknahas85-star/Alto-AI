@@ -8,7 +8,8 @@ import type { Project } from '../core/workspace'
 import { currentMode, currentSignal } from '../core/progress'
 import { isTrivialChat, localSuitable, liveContext, tryLocalChat, preferGood, noteResult } from '../core/trivial'
 import { computerEnabled } from '../computer/control'
-import { FRESH_HINT, LOCATION_HINT, SHAMI_HINT, needsFreshInfo, needsLocation } from '../core/guidance'
+import { BROWSER_HINT, FRESH_HINT, LOCATION_HINT, SHAMI_HINT, needsBrowser, needsFreshInfo, needsLocation } from '../core/guidance'
+import { delegationHint, isGoAhead, modelInput, routingInput } from '../core/delegation'
 
 export async function executeWithSkill(userInput: string, analysis: Analysis, extraSystem?: string, exclude: string[] = [], history: { role: 'user' | 'assistant'; content: string }[] = [], project: Project | null = null) {
   let systemPrompt = 'You are a helpful assistant.'
@@ -38,11 +39,15 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   }
 
   if (extraSystem) systemPrompt += '\n\n' + extraSystem
-  const fresh = needsFreshInfo(userInput)
-  systemPrompt += SHAMI_HINT + (fresh ? FRESH_HINT : '') + (needsLocation(userInput) && !project?.confidential ? LOCATION_HINT : '')
+  // 5.21.8: «اي بلش» / «لا مافي تعديلات» بترث الطلب الأصلي (أدوات، بحث، ملفات) بدل ما تنحسب دردشة بسيطة بلا أدوات.
+  const go = isGoAhead(userInput, history)
+  const ri = routingInput(userInput, history)
+  const fresh = needsFreshInfo(ri)
+  systemPrompt += SHAMI_HINT + (fresh ? FRESH_HINT : '') + (needsBrowser(ri) && !project?.confidential ? BROWSER_HINT : '') + (needsLocation(ri) && !project?.confidential ? LOCATION_HINT : '')
+  systemPrompt += delegationHint(userInput, history)
 
   const mode = currentMode()
-  const buildReq = BUILD_REQ.test(userInput)
+  const buildReq = BUILD_REQ.test(ri)
   const picked1 = mode?.kind === 'model' ? [mode.id] : mode?.kind === 'council' && mode.author ? [mode.author] : null
   // Build/save/run requests: the picked model goes first, but the normal chain stays behind it so a model without tools is skipped, not trusted.
   const chain = picked1 ? (buildReq ? [...picked1, ...getTierForAnalysis(analysis).filter((m) => !picked1.includes(m))] : picked1) : getTierForAnalysis(analysis)
@@ -70,10 +75,10 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   }
   // 5.17.3: الطلب الصغير (تحية/سؤال قصير/تاريخ/طقس) بدون أدوات: المحلي أولاً، وبعدو أول مجاني شغّال.
   // ما بينطبق على مشروع سري ولا على موديل مختار يدوياً ولا على طلبات الملفات/التنفيذ.
-  if (!project && !picked1 && !buildReq && (!mode || mode.kind === 'free' || mode.kind === 'auto') && isTrivialChat(userInput)) {
+  if (!go && !project && !picked1 && !buildReq && (!mode || mode.kind === 'free' || mode.kind === 'auto') && isTrivialChat(userInput)) {
     const live = await liveContext(userInput)
     // بدون أدوات: نشيل تعليمات "استدعِ أداة" (FRESH/LOCATION) لأنها بتضلّل الموديل، والمعلومة الحيّة جاية من البرنامج.
-    const sys = systemPrompt.replace(FRESH_HINT, '').replace(LOCATION_HINT, '') + live
+    const sys = systemPrompt.replace(FRESH_HINT, '').replace(LOCATION_HINT, '').replace(BROWSER_HINT, '') + live
     const loc = localSuitable(userInput) ? await tryLocalChat(userInput, history, sys, currentSignal()) : null
     if (loc) {
       const id = 'ollama:' + loc.model
@@ -87,9 +92,9 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   // With an active project, file tools are offered whenever the request looks project/file related, even if the master did not flag tools.
   const PROJECT_TOOLISH = /ملف|ملفات|مجلد|مشروع|افتح|اقرأ|راجع|حلل|شوف|file|folder|project|readme|open|read|review|analy[sz]e|\.[a-z0-9]{1,5}\b/i
   // Agent mode: whenever a project is open or PC control is on, the tools (and skills) are always offered.
-  if (analysis.need_tools || fresh || buildReq || project || computerEnabled() || PROJECT_TOOLISH.test(userInput) && !!project) {
+  if (go || analysis.need_tools || fresh || needsBrowser(ri) || buildReq || project || computerEnabled() || PROJECT_TOOLISH.test(ri) && !!project) {
     try {
-      toolset = await buildToolset(userInput, project?.path, { fresh, confidential: !!project?.confidential })
+      toolset = await buildToolset(ri, project?.path, { fresh, confidential: !!project?.confidential })
     } catch (err) {
       console.warn('[Tools] toolset failed:', err)
     }
@@ -104,5 +109,5 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
       triedModels: [] as string[]
     }
   }
-  return executeWithFallback(modelsToTry, userInput, analysis, systemPrompt, toolset, history, { requireTools: buildReq && !!toolset?.defs.length })
+  return executeWithFallback(modelsToTry, modelInput(userInput, history), analysis, systemPrompt, toolset, history, { requireTools: (buildReq || go) && !!toolset?.defs.length })
 }

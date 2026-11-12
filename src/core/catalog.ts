@@ -66,7 +66,22 @@ export function setCatalogEnabled(ids: string[], enabled: boolean): number {
 export function catalogModelsForTier(t: CatalogTier): string[] | null {
   const c = load()
   if (!c.models.length) return null
+  ensureCatalogFresh(c.fetchedAt)
   return c.models.filter((m) => m.enabled && m.tier === t).map((m) => m.id)
+}
+
+// 5.21.9: the catalog used to update only when the user pressed "pull". Once a catalog exists it now refreshes itself
+// in the background every 6 hours, so new free models appear (and gone ones disappear) without any click.
+const CATALOG_TTL = 6 * 3600 * 1000
+let autoBusy = false
+export function ensureCatalogFresh(fetchedAt: number = load().fetchedAt): void {
+  if (autoBusy || fetchedAt <= 0 || Date.now() - fetchedAt < CATALOG_TTL) return
+  autoBusy = true
+  void fetchOpenRouterModels()
+    .catch(() => undefined)
+    .finally(() => {
+      autoBusy = false
+    })
 }
 
 export async function testOpenRouterKey(): Promise<{ ok: boolean; message: string }> {
@@ -129,9 +144,10 @@ export async function fetchOpenRouterModels(): Promise<{ ok: boolean; message: s
         vision: (m.architecture?.input_modalities ?? []).includes('image'),
         tools: (m.supported_parameters ?? []).includes('tools'),
         reasoning: (m.supported_parameters ?? []).some((x) => x === 'reasoning' || x === 'include_reasoning'),
-        // Manual control: keep the user's choice; brand-new models start disabled,
-        // except that the very first pull enables the built-in defaults.
-        enabled: old ? old.enabled : firstPull && BUILTIN.has(m.id)
+        // Keep the user's choice for models they already have. A brand-new FREE model that supports tools starts enabled
+        // (free costs nothing, and the user wants new strong free models picked up); new paid models start disabled.
+        // The very first pull enables the built-in defaults.
+        enabled: old ? old.enabled : (firstPull && BUILTIN.has(m.id)) || (!firstPull && pricePerM === 0 && (m.supported_parameters ?? []).includes('tools'))
       })
     }
     writeJson(FILE, { fetchedAt: Date.now(), models: out } satisfies CatalogFile)
