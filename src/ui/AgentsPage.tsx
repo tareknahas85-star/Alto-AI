@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AgentInfo, AgentMemInfo, GateInfo } from '../preload/index.d'
+import type { AgentInfo, AgentMemInfo, GateFeedItem, GateInfo } from '../preload/index.d'
 
 const MODES: { id: AgentInfo['runOn']; label: string }[] = [
   { id: 'auto', label: 'تلقائي: محلي إذا الكمبيوتر شغّال، وإلا سحابي' },
@@ -26,6 +26,21 @@ export function AgentsPage() {
   const [mailMsg, setMailMsg] = useState('')
   const [mem, setMem] = useState<AgentMemInfo | null>(null)
   const [blockedText, setBlockedText] = useState('')
+  const [feed, setFeed] = useState<GateFeedItem[] | null>(null)
+  const [feedOpen, setFeedOpen] = useState(0)
+  const gateOn = gate.enabled && gate.hasKey
+  // 5.21.9: results of agent runs that finished elsewhere (cloud, phone, schedule) show here too, same list as the phone.
+  useEffect(() => {
+    if (!gateOn) return
+    let off = false
+    const load = async (): Promise<void> => {
+      const r = await window.api.gate.feed()
+      if (!off && r) setFeed(r)
+    }
+    const first = setTimeout(() => void load(), 0)
+    const t = setInterval(() => void load(), 30000)
+    return () => { off = true; clearTimeout(first); clearInterval(t) }
+  }, [gateOn])
   const runAgent = async (id: string): Promise<void> => {
     setRunning(true)
     setOut('')
@@ -297,6 +312,37 @@ export function AgentsPage() {
           </label>
         </div>
       </section>
+
+      {gateOn && (
+        <section className="mt-4 rounded-card border border-outline bg-surface p-4 shadow-card">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold">نتائج الوكلاء</h2>
+            <button onClick={() => void window.api.gate.feed().then((r) => r && setFeed(r))} className="rounded-full border border-outline px-3 py-1 text-xs hover:bg-surface2">تحديث</button>
+          </div>
+          <p className="mt-1 text-xs text-muted">نفس قائمة الموبايل: كل وكيل خلّص (سحابي، من الموبايل، أو مجدول). بتتحدّث لحالها كل نص دقيقة.</p>
+          {feed === null ? (
+            <p className="mt-3 text-xs text-muted">عم جيب النتائج…</p>
+          ) : feed.length === 0 ? (
+            <p className="mt-3 text-xs text-muted">ما في نتائج لسا.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {feed.map((it) => (
+                <li key={it.n} className="rounded-lg border border-outline p-2 text-sm">
+                  <button className="flex w-full items-center justify-between gap-2 text-start" onClick={() => setFeedOpen(feedOpen === it.n ? 0 : it.n)}>
+                    <span className="font-medium">{it.kind === 'fail' ? '⚠️' : '✅'} {it.agent || 'مهمة'}</span>
+                    <span className="text-xs text-muted">{new Date(it.ts).toLocaleString('ar')}</span>
+                  </button>
+                  {feedOpen === it.n ? (
+                    <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{it.text}</pre>
+                  ) : (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted">{it.text}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {msg && <p className="mt-3 text-xs text-muted">{msg}</p>}
     </div>

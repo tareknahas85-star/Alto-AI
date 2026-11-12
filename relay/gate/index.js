@@ -277,6 +277,11 @@ export class Gate extends DurableObject {
     if (p === '/agents' && req.method === 'GET')
       return json({ agents: (await st.get('agents')) || [] });
 
+    // 5.21.9: the desktop app reads the same results feed the phone shows (gate key, read-only).
+    if (p === '/pc-feed' && req.method === 'GET') {
+      const feed = (await st.get('feed')) || [];
+      return json({ ok: true, items: feed.slice(-30), last: (await st.get('fseq')) || 0 });
+    }
     if (p === '/result' && req.method === 'POST') {
       let b;
       try { b = await req.json(); } catch { return json({ error: 'bad json' }, 400); }

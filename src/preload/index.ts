@@ -449,6 +449,7 @@ const api = {
     get: () => ipcRenderer.invoke('gate:get'),
     set: (p: { enabled?: boolean; url?: string; key?: string }) => ipcRenderer.invoke('gate:set', p),
     test: () => ipcRenderer.invoke('gate:test'),
+    feed: () => ipcRenderer.invoke('gate:feed'),
     linkMail: (src: string) => ipcRenderer.invoke('gate:linkMail', src)
   },
   telegram: {

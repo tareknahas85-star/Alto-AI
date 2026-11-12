@@ -22,7 +22,10 @@ const AirNative = registerPlugin('AirNative', {
       async secureDelete({ key }) { localStorage.removeItem('sec.' + key) },
       async getPendingShare() { return {} },
       async startKeepAlive() {},
-      async stopKeepAlive() {}
+      async stopKeepAlive() {},
+      async notifyConfig() {},
+      async notifyCursor() {},
+      async notifyStop() {}
     })
 })
 
@@ -53,7 +56,7 @@ let L = null
 const S = {
   view: 'boot', tab: 'chat', device: null, ppk: '', psk: '',
   conn: 'offline', host: '', models: [], projects: [], tasks: [], sas: '', pairErr: '',
-  agents: lsGet('trl.agents', []), gate: lsGet('trl.gate', null), pc: '', themeMode: lsGet('trl.themeMode', 'dark'), pal: lsGet('trl.pal', 'default'), sched: null, todo: lsGet('trl.todo', null), todoDraft: '', todoFilter: 'open', report: null, agentOpen: '', schedOpen: '', rperiod: '30', activeProject: null, feed: lsGet('trl.feed', []), feedLast: lsGet('trl.feedLast', 0), feedSeen: lsGet('trl.feedSeen', 0), feedOpen: 0, agView: 'list', tgQuiet: lsGet('trl.tgq', null),
+  agents: lsGet('trl.agents', []), gate: lsGet('trl.gate', null), pc: '', themeMode: lsGet('trl.themeMode', 'dark'), pal: lsGet('trl.pal', 'default'), sched: null, todo: lsGet('trl.todo', null), todoDraft: '', todoFilter: 'open', report: null, agentOpen: '', schedOpen: '', rperiod: '30', activeProject: null, feed: lsGet('trl.feed', []), feedLast: lsGet('trl.feedLast', 0), feedSeen: lsGet('trl.feedSeen', 0), feedOpen: 0, agView: 'list', tgQuiet: lsGet('trl.tgq', null), resNotify: lsGet('trl.resnotify', false),
   agentOut: Object.fromEntries(Object.entries(lsGet('trl.agentout', {})).map(([k, v]) => [k, { ...v, running: false }])),
   mode: lsGet('trl.mode', { kind: 'free' }), project: lsGet('trl.project', null),
   convs: lsGet('trl.convs', []), cur: lsGet('trl.cur', null),
@@ -333,6 +336,7 @@ async function feedPoll() {
     S.feedLast = Number(r.last) || S.feedLast
     if (first || (S.tab === 'agents' && S.agView === 'feed')) S.feedSeen = S.feedLast
     lsSet('trl.feed', S.feed); lsSet('trl.feedLast', S.feedLast); lsSet('trl.feedSeen', S.feedSeen)
+    if (S.resNotify) { try { void AirNative.notifyCursor({ last: S.feedLast }) } catch { /* web build */ } }
     if (S.view === 'main') { renderTabs(); if (S.tab === 'agents' && !(document.activeElement && document.activeElement.matches('textarea'))) renderPage() }
   } finally { feedBusy = false }
 }
@@ -465,6 +469,22 @@ function viewClick(t) {
   }
   if (d.feedopen !== undefined) { const n = Number(d.feedopen); S.feedOpen = S.feedOpen === n ? 0 : n; renderPage(); return true }
   if (d.tgq) { const v = S.tgQuiet !== true; S.tgQuiet = v; lsSet('trl.tgq', v); renderPage(); void gateCall('/prefs', { tgQuiet: v }).then((r) => { if (!r || !r.ok) { S.tgQuiet = !v; lsSet('trl.tgq', !v); renderPage(); toast('ما قدرت أغيّر الإعداد') } else toast(v ? 'تيليغرام انسكّر، النتائج هون بس' : 'تيليغرام رجع شغّال') }); return true }
+  if (d.resnotify) {
+    const on = !S.resNotify
+    void (async () => {
+      if (on) {
+        if (!S.gate) return toast('اربط البوابة السحابية أول شي')
+        try { const p = await LocalNotifications.requestPermissions(); if (p.display !== 'granted') return toast('لازم تسمح بالإشعارات من إعدادات الموبايل') } catch { /* web build */ }
+        try { await AirNative.notifyConfig({ url: S.gate.url, key: S.gate.key, last: S.feedLast }) } catch { return toast('هالنسخة ما بتدعم الفحص بالخلفية') }
+        toast('شغّالة. بتوصلك النتائج حتى والتطبيق مسكّر (بتأخير لحد ~15 دقيقة)')
+      } else {
+        try { await AirNative.notifyStop() } catch { /* web build */ }
+        toast('انطفت')
+      }
+      S.resNotify = on; lsSet('trl.resnotify', on); renderPage()
+    })()
+    return true
+  }
   if (d.ntfyon || d.ntfyoff || d.ntfyrot) {
     const body = d.ntfyoff ? { enable: false } : d.ntfyrot ? { enable: true, rotate: true } : { enable: true }
     void gateCall('/ntfy', body).then((r) => { if (!r || !r.ok) return toast('ما قدرت أوصل للبوابة'); S.ntfy = r; renderPage(); toast(d.ntfyoff ? 'إشعارات ntfy انطفت' : 'جاهزة. اكبس «افتح ntfy» واشترك') })

@@ -219,4 +219,32 @@ public class AirNativePlugin extends Plugin {
         } catch (Exception ignored) { }
         call.resolve();
     }
+
+    // ---- built-in result notifications (see NotifyWorker) ----
+    @Override
+    protected void handleOnResume() { super.handleOnResume(); NotifyWorker.foreground = true; }
+
+    @Override
+    protected void handleOnPause() { super.handleOnPause(); NotifyWorker.foreground = false; }
+
+    @PluginMethod
+    public void notifyConfig(PluginCall call) {
+        String url = call.getString("url"), key = call.getString("key");
+        long last = call.getLong("last", 0L);
+        if (url == null || key == null || !url.startsWith("https://")) { call.reject("bad config"); return; }
+        NotifyWorker.enable(getContext(), url, key, last);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void notifyCursor(PluginCall call) {
+        NotifyWorker.setLast(getContext(), call.getLong("last", 0L));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void notifyStop(PluginCall call) {
+        NotifyWorker.disable(getContext());
+        call.resolve();
+    }
 }

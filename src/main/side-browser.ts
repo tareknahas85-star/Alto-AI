@@ -45,6 +45,28 @@ function hardenSession(p: string): void {
   sess.setPermissionCheckHandler(() => false)
   // Downloads are off in v1.
   sess.on('will-download', (event) => event.preventDefault())
+  keepSessionCookies(sess)
+}
+
+// 5.21.9: sign-ins stay until the user clears them by hand. Many sites (Microsoft included) hand out cookies with no expiry,
+// which Chromium drops on quit; give those a one-year expiry so they are written to disk. Only the trash button removes them.
+const KEEP_SECONDS = 365 * 24 * 3600
+function keepSessionCookies(sess: Electron.Session): void {
+  const store = sess.cookies
+  const keep = (c: Electron.Cookie): void => {
+    if (c.session !== true && c.expirationDate) return
+    const host = (c.domain ?? '').replace(/^\./, '')
+    if (!host) return
+    void store.set({
+      url: `https://${host}${c.path}`,
+      name: c.name, value: c.value,
+      ...(c.hostOnly ? {} : { domain: c.domain }),
+      path: c.path, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite,
+      expirationDate: Math.floor(Date.now() / 1000) + KEEP_SECONDS
+    }).catch(() => { /* e.g. a __Host- cookie that can't be re-set: leave it as is */ })
+  }
+  store.on('changed', (_e, c, _cause, removed) => { if (!removed) keep(c) })
+  void store.get({}).then((all) => all.forEach(keep)).catch(() => undefined)
 }
 
 function createView(): WebContentsView {

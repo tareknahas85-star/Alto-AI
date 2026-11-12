@@ -95,6 +95,7 @@ export type NbViewInfo = { id: string; title: string; at: number; sources: NbSou
 export type NbResult = { ok: boolean; nb?: NbViewInfo | null; error?: string; added?: number; skipped?: string[] }
 export type TodoInfo = { id: string; text: string; done: boolean; at: number }
 export type GateInfo = { enabled: boolean; url: string; hasKey: boolean }
+export type GateFeedItem = { n: number; job: string; agent: string; task: string; kind: 'done' | 'fail'; text: string; ts: number }
 export type TelegramInfo = { enabled: boolean; chatId: string; minSeconds: number; inbound: boolean; hasToken: boolean }
 export type TaskRowInfo = {
   at: number
@@ -427,6 +428,7 @@ declare global {
       get: () => Promise<GateInfo>
       set: (p: { enabled?: boolean; url?: string; key?: string }) => Promise<GateInfo>
       test: () => Promise<{ ok: boolean; error?: string }>
+      feed: () => Promise<GateFeedItem[] | null>
       linkMail: (src: string) => Promise<{ ok: boolean; script?: string; error?: string }>
     }
       telegram: {

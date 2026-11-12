@@ -41746,8 +41746,10 @@
     const nt = S3.ntfy;
     const ntOn = !!(nt && nt.topic);
     const ntfyCard = '<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:140px"><b>\u{1F514} \u0625\u0634\u0639\u0627\u0631\u0627\u062A ntfy</b><div class="mut">' + (ntOn ? "\u0634\u063A\u0651\u0627\u0644\u0629. \u0627\u0634\u062A\u0631\u0643 \u0628\u0627\u0644\u062A\u0648\u0628\u064A\u0643 \u0628\u062A\u0637\u0628\u064A\u0642 ntfy \u0645\u0631\u0629 \u0648\u062D\u062F\u0629." : "\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0645\u062C\u0627\u0646\u064A\u0629 \u062D\u062A\u0649 \u0648\u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0645\u0633\u0643\u0651\u0631\u060C \u0628\u062F\u0648\u0646 Firebase.") + "</div></div>" + (ntOn ? '<button class="chip pri" data-ntfyopen="1">\u0627\u0641\u062A\u062D ntfy</button><button class="chip" data-ntfycopy="1">\u0627\u0646\u0633\u062E \u0627\u0644\u062A\u0648\u0628\u064A\u0643</button><button class="chip" data-ntfyrot="1">\u062A\u0648\u0628\u064A\u0643 \u062C\u062F\u064A\u062F</button><button class="chip" data-ntfyoff="1">\u0637\u0641\u0651\u064A\u0647\u0627</button>' : '<button class="chip pri" data-ntfyon="1">\u0641\u0639\u0651\u0644\u0647\u0627</button>') + "</div>" + (ntOn ? '<div class="mut" style="margin-top:6px;direction:ltr;word-break:break-all">' + esc2(String(nt.server).replace(/^https?:\/\//, "") + "/" + nt.topic) + "</div>" : "") + "</div>";
+    const rn = S3.resNotify === true;
+    const resCard = '<div class="card"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><b>\u{1F514} \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0646\u062A\u0627\u0626\u062C</b><div class="mut">' + (rn ? "\u0634\u063A\u0651\u0627\u0644\u0629: \u0628\u062A\u0648\u0635\u0644\u0643 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u062D\u062A\u0649 \u0648\u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0645\u0633\u0643\u0651\u0631 (\u0628\u062A\u0623\u062E\u064A\u0631 \u0644\u062D\u062F ~15 \u062F\u0642\u064A\u0642\u0629)." : "\u0628\u062A\u0648\u0635\u0644\u0643 \u0625\u0634\u0639\u0627\u0631 \u0644\u0645\u0627 \u064A\u062E\u0644\u0635 \u0648\u0643\u064A\u0644\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0637\u0628\u064A\u0642 \u062A\u0627\u0646\u064A.") + '</div></div><button class="chip' + (rn ? "" : " pri") + '" data-resnotify="1">' + (rn ? "\u0637\u0641\u0651\u064A\u0647\u0627" : "\u0641\u0639\u0651\u0644\u0647\u0627") + "</button></div>" + (rn ? '<div class="mut" style="margin-top:6px">\u0625\u0630\u0627 \u0645\u0627 \u0648\u0635\u0644\u062A\u0643 \u0648\u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0645\u0633\u0643\u0651\u0631: \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0628\u0627\u064A\u0644 \u062E\u0644\u0651\u064A \u0628\u0637\u0627\u0631\u064A\u0629 Alto \xAB\u0628\u062F\u0648\u0646 \u0642\u064A\u0648\u062F\xBB.</div>' : "") + "</div>";
     const vn = (S3.ttsVoices || []).find((x) => x.uri === S3.ttsVoice);
-    let h = '<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><b>\u{1F50A} \u0627\u0644\u0642\u0631\u0627\u0621\u0629 \u0627\u0644\u0635\u0648\u062A\u064A\u0629</b><div class="mut">\u0628\u062A\u0642\u0631\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0648\u0627\u0644\u0645\u0644\u062E\u0635 \u0628\u0633\u060C \u0628\u062F\u0648\u0646 \u0627\u0644\u0631\u0648\u0627\u0628\u0637.</div></div>' + (S3.speaking ? '<button class="btn danger" data-speakstop="1">\u23F9 \u0648\u0642\u0651\u0641</button>' : '<button class="chip pri" data-speakall="1">\u{1F50A} \u0627\u0633\u0645\u0639 \u0627\u0644\u0643\u0644</button>') + '<button class="chip" data-ttsrate="1">\u23E9 ' + S3.ttsRate + 'x</button><button class="chip" data-ttsvoice="1">\u{1F5E3} ' + esc2(vn ? vn.name.slice(0, 18) : "\u0635\u0648\u062A \u062A\u0644\u0642\u0627\u0626\u064A") + '</button></div></div><div class="card"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><b>\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645</b><div class="mut">' + (q ? "\u0645\u0633\u0643\u0651\u0631\u0629: \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0628\u062A\u0637\u0644\u0639 \u0647\u0648\u0646 \u0628\u0633." : "\u0634\u063A\u0651\u0627\u0644\u0629: \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0628\u062A\u0646\u0628\u0639\u062A \u0644\u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645 \u0643\u0645\u0627\u0646.") + '</div></div><button class="chip' + (q ? " pri" : "") + '" data-tgq="1">' + (q ? "\u0634\u063A\u0651\u0644\u0647\u0627" : "\u0633\u0643\u0651\u0631\u0647\u0627") + '</button></div><div class="acts" style="margin-top:10px"><button class="btn danger" data-stopall="1">\u25A0 \u0623\u0648\u0642\u0641 \u0643\u0644 \u0627\u0644\u0645\u0647\u0627\u0645</button><button class="chip" data-feedclear="1">\u0645\u0633\u062D \u0627\u0644\u0642\u0627\u0626\u0645\u0629</button></div></div>' + ntfyCard;
+    let h = '<div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><b>\u{1F50A} \u0627\u0644\u0642\u0631\u0627\u0621\u0629 \u0627\u0644\u0635\u0648\u062A\u064A\u0629</b><div class="mut">\u0628\u062A\u0642\u0631\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0648\u0627\u0644\u0645\u0644\u062E\u0635 \u0628\u0633\u060C \u0628\u062F\u0648\u0646 \u0627\u0644\u0631\u0648\u0627\u0628\u0637.</div></div>' + (S3.speaking ? '<button class="btn danger" data-speakstop="1">\u23F9 \u0648\u0642\u0651\u0641</button>' : '<button class="chip pri" data-speakall="1">\u{1F50A} \u0627\u0633\u0645\u0639 \u0627\u0644\u0643\u0644</button>') + '<button class="chip" data-ttsrate="1">\u23E9 ' + S3.ttsRate + 'x</button><button class="chip" data-ttsvoice="1">\u{1F5E3} ' + esc2(vn ? vn.name.slice(0, 18) : "\u0635\u0648\u062A \u062A\u0644\u0642\u0627\u0626\u064A") + '</button></div></div><div class="card"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><b>\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645</b><div class="mut">' + (q ? "\u0645\u0633\u0643\u0651\u0631\u0629: \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0628\u062A\u0637\u0644\u0639 \u0647\u0648\u0646 \u0628\u0633." : "\u0634\u063A\u0651\u0627\u0644\u0629: \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0628\u062A\u0646\u0628\u0639\u062A \u0644\u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645 \u0643\u0645\u0627\u0646.") + '</div></div><button class="chip' + (q ? " pri" : "") + '" data-tgq="1">' + (q ? "\u0634\u063A\u0651\u0644\u0647\u0627" : "\u0633\u0643\u0651\u0631\u0647\u0627") + '</button></div><div class="acts" style="margin-top:10px"><button class="btn danger" data-stopall="1">\u25A0 \u0623\u0648\u0642\u0641 \u0643\u0644 \u0627\u0644\u0645\u0647\u0627\u0645</button><button class="chip" data-feedclear="1">\u0645\u0633\u062D \u0627\u0644\u0642\u0627\u0626\u0645\u0629</button></div></div>' + resCard + '<details style="margin:0 0 10px"><summary class="mut" style="padding:6px 2px">\u2699\uFE0F \u0645\u062A\u0642\u062F\u0645: \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0641\u0648\u0631\u064A\u0629 \u0639\u0628\u0631 ntfy</summary>' + ntfyCard + "</details>";
     const items = [...S3.feed || []].reverse();
     if (!items.length) return h + empty("\u0645\u0627 \u0641\u064A \u0646\u062A\u0627\u0626\u062C \u0644\u0633\u0627. \u0623\u064A \u0648\u0643\u064A\u0644 \u0628\u064A\u062E\u0644\u0635 (\u0645\u062C\u062F\u0648\u0644 \u0623\u0648 \u0645\u0634\u063A\u0651\u0644 \u0645\u0646 \u0623\u064A \u0645\u0643\u0627\u0646) \u0628\u062A\u0637\u0644\u0639 \u0646\u062A\u064A\u062C\u062A\u0648 \u0647\u0648\u0646.");
     return h + items.map((i) => {
@@ -41911,6 +41913,12 @@
       async startKeepAlive() {
       },
       async stopKeepAlive() {
+      },
+      async notifyConfig() {
+      },
+      async notifyCursor() {
+      },
+      async notifyStop() {
       }
     })
   });
@@ -41984,6 +41992,7 @@
     feedOpen: 0,
     agView: "list",
     tgQuiet: lsGet("trl.tgq", null),
+    resNotify: lsGet("trl.resnotify", false),
     agentOut: Object.fromEntries(Object.entries(lsGet("trl.agentout", {})).map(([k, v]) => [k, { ...v, running: false }])),
     mode: lsGet("trl.mode", { kind: "free" }),
     project: lsGet("trl.project", null),
@@ -42565,6 +42574,12 @@
       lsSet("trl.feed", S2.feed);
       lsSet("trl.feedLast", S2.feedLast);
       lsSet("trl.feedSeen", S2.feedSeen);
+      if (S2.resNotify) {
+        try {
+          void AirNative.notifyCursor({ last: S2.feedLast });
+        } catch {
+        }
+      }
       if (S2.view === "main") {
         renderTabs();
         if (S2.tab === "agents" && !(document.activeElement && document.activeElement.matches("textarea"))) renderPage();
@@ -42867,6 +42882,35 @@
           toast("\u0645\u0627 \u0642\u062F\u0631\u062A \u0623\u063A\u064A\u0651\u0631 \u0627\u0644\u0625\u0639\u062F\u0627\u062F");
         } else toast(v ? "\u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645 \u0627\u0646\u0633\u0643\u0651\u0631\u060C \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0647\u0648\u0646 \u0628\u0633" : "\u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645 \u0631\u062C\u0639 \u0634\u063A\u0651\u0627\u0644");
       });
+      return true;
+    }
+    if (d.resnotify) {
+      const on = !S2.resNotify;
+      void (async () => {
+        if (on) {
+          if (!S2.gate) return toast("\u0627\u0631\u0628\u0637 \u0627\u0644\u0628\u0648\u0627\u0628\u0629 \u0627\u0644\u0633\u062D\u0627\u0628\u064A\u0629 \u0623\u0648\u0644 \u0634\u064A");
+          try {
+            const p = await LocalNotifications.requestPermissions();
+            if (p.display !== "granted") return toast("\u0644\u0627\u0632\u0645 \u062A\u0633\u0645\u062D \u0628\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0628\u0627\u064A\u0644");
+          } catch {
+          }
+          try {
+            await AirNative.notifyConfig({ url: S2.gate.url, key: S2.gate.key, last: S2.feedLast });
+          } catch {
+            return toast("\u0647\u0627\u0644\u0646\u0633\u062E\u0629 \u0645\u0627 \u0628\u062A\u062F\u0639\u0645 \u0627\u0644\u0641\u062D\u0635 \u0628\u0627\u0644\u062E\u0644\u0641\u064A\u0629");
+          }
+          toast("\u0634\u063A\u0651\u0627\u0644\u0629. \u0628\u062A\u0648\u0635\u0644\u0643 \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u062D\u062A\u0649 \u0648\u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0645\u0633\u0643\u0651\u0631 (\u0628\u062A\u0623\u062E\u064A\u0631 \u0644\u062D\u062F ~15 \u062F\u0642\u064A\u0642\u0629)");
+        } else {
+          try {
+            await AirNative.notifyStop();
+          } catch {
+          }
+          toast("\u0627\u0646\u0637\u0641\u062A");
+        }
+        S2.resNotify = on;
+        lsSet("trl.resnotify", on);
+        renderPage();
+      })();
       return true;
     }
     if (d.ntfyon || d.ntfyoff || d.ntfyrot) {
