@@ -1,7 +1,8 @@
 // 5.21.9: extras for the side browser panel. Open a local file, save the page (HTML / PDF / screenshot), per-site zoom + font +
 // reader mode, and an OPTIONAL import of history and bookmarks from Chrome / Edge / Brave / Chromium.
 // Only History and Bookmarks are ever read from another browser. Cookies and saved passwords are never touched.
-import { app, dialog, type BrowserWindow, type WebContents } from 'electron'
+import { app, dialog, session, type BrowserWindow, type WebContents } from 'electron'
+import { partitionOfService, SIDE_DEFAULT_PARTITION } from '../core/side-partition'
 import { promises as fsp } from 'node:fs'
 import { join, extname } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
@@ -108,6 +109,38 @@ export async function viewInfo(): Promise<ViewInfo> {
 
 export function initSideExtras(): void {
   setSidePageHook((wc) => { cssKeys.delete(wc); void applyPrefs(wc) })
+  void migrateMicrosoftCookies().catch((e) => console.warn('[side] microsoft cookie move failed:', (e as Error).message))
+}
+
+// 5.21.9, once: before Microsoft sign-in pages were mapped to the Designer session, a Designer login could land in the
+// shared default session. Copy those Microsoft cookies into the Designer session so the user is not asked to sign in again.
+async function migrateMicrosoftCookies(): Promise<void> {
+  const marker = join(app.getPath('userData'), 'side-ms-cookies-moved')
+  try { await fsp.access(marker); return } catch { /* not moved yet */ }
+  const from = session.fromPartition(SIDE_DEFAULT_PARTITION).cookies
+  const to = session.fromPartition(partitionOfService('designer')).cookies
+  if ((await to.get({ domain: 'live.com' })).length > 0) { await fsp.writeFile(marker, 'skip'); return }
+  let moved = 0
+  for (const d of ['live.com', 'microsoftonline.com', 'microsoft.com']) {
+    for (const c of await from.get({ domain: d })) {
+      const host = (c.domain ?? d).replace(/^\./, '')
+      try {
+        await to.set({
+          url: `https://${host}${c.path}`,
+          name: c.name,
+          value: c.value,
+          ...(c.hostOnly ? {} : { domain: c.domain }),
+          path: c.path,
+          secure: c.secure,
+          httpOnly: c.httpOnly,
+          ...(c.expirationDate ? { expirationDate: c.expirationDate } : {}),
+          sameSite: c.sameSite
+        })
+        moved++
+      } catch { /* one bad cookie must not stop the rest */ }
+    }
+  }
+  await fsp.writeFile(marker, String(moved))
 }
 
 // ---- open file / save page ----

@@ -8,7 +8,9 @@ export interface SideService { id: string; domains: string[] }
 export const SIDE_SERVICES: SideService[] = [
   { id: 'leonardo', domains: ['leonardo.ai'] },
   { id: 'ideogram', domains: ['ideogram.ai'] },
-  { id: 'designer', domains: ['designer.microsoft.com'] },
+  // 5.21.9: Microsoft sign-in happens on login.live.com / login.microsoftonline.com, so those belong to the same session,
+  // otherwise the login lands in the shared default session and Designer opens signed out.
+  { id: 'designer', domains: ['designer.microsoft.com', 'microsoft.com', 'live.com', 'microsoftonline.com'] },
   { id: 'canva', domains: ['canva.com'] },
   { id: 'morphic', domains: ['morphic.com', 'morphic.sh'] }
 ]
