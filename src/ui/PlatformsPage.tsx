@@ -20,6 +20,14 @@ export function PlatformsPage() {
   const load = useCallback(() => window.api.platforms.overview(freeOnly).then(setOv), [freeOnly])
   useEffect(() => {
     void load()
+    // تحديث تلقائي: كل 20 ثانية وكل ما ترجع للنافذة.
+    const t = setInterval(() => void load(), 20000)
+    const onFocus = (): void => void load()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(t)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [load])
 
   const toggle = (id: string): void => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
