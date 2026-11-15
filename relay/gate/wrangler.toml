@@ -3,7 +3,8 @@ main = "index.js"
 compatibility_date = "2025-01-01"
 
 [vars]
-GH_REPO = "YOUR-GITHUB-USER/Alto-AI"
+# setup-cloud.ps1 overrides this with --var; a plain `wrangler deploy` now keeps the right repo instead of a 404.
+GH_REPO = "tareknahas85-star/Alto-AI"
 
 [triggers]
 crons = ["*/5 * * * *"]
