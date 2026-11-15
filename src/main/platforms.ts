@@ -121,18 +121,27 @@ export function registerPlatformHandlers(): void {
       const key = String(apiKey ?? '').trim()
       if (!n || !/^https?:\/\//i.test(base) || !key) return { ok: false, message: 'الاسم وعنوان الـ API والمفتاح مطلوبين (العنوان بيبدأ بـ https://)' }
       // موديل «مصدر» مؤقت لحمل المفتاح، بيتحول بعدها لأول موديل مجاني مسحوب أو بيتشال إذا ما لقينا.
+      const { removeCustomModel } = await import('../core/custom-models')
       const seed = addCustomModel({ name: n + ' (مصدر)', model: 'seed', baseURL: base, apiKey: key, tier: 'TIER_2_CHEAP' })
-      const r = await fetchRemoteModels(seed.id, false)
+      const r = await fetchRemoteModels(seed.id, true)
       if (!r.ok) {
-        const { removeCustomModel } = await import('../core/custom-models')
         removeCustomModel(seed.id)
         return { ok: false, message: '❌ فشل الاتصال: ' + (r.error ?? '') }
       }
-      const free = (r.models ?? []).filter((m) => m.free)
-      const added = importRemoteModels(seed.id, free.map((m) => ({ id: m.id, free: true })))
-      const { removeCustomModel } = await import('../core/custom-models')
+      const everything = r.models ?? []
+      if (everything.length === 0) {
+        removeCustomModel(seed.id)
+        return { ok: false, message: '❌ المفتاح اشتغل بس المنصة ما رجّعت أي موديل. تأكد إن العنوان بيخلص بـ /v1 وإنو متوافق مع OpenAI.' }
+      }
+      const free = everything.filter((m) => m.free)
+      // إذا المنصة ما بتعلّم موديلات مجانية، منحتفظ بالمنصة وموديلاتها (آخر خيار بالتوجيه) بدل ما يضيع المفتاح.
+      const items = free.length ? free.map((m) => ({ id: m.id, free: true })) : everything.map((m) => ({ id: m.id, free: false }))
+      const added = importRemoteModels(seed.id, items)
       removeCustomModel(seed.id)
-      return { ok: true, message: `✅ انضافت المنصة ${n}: ${free.length} موديل مجاني، انضاف ${added}.`, count: added }
+      const msg = free.length
+        ? `✅ انضافت المنصة ${n}: ${free.length} موديل مجاني، انضاف ${added} جديد.`
+        : `✅ انضافت المنصة ${n} وانحفظ المفتاح: ما في موديلات معلّمة مجانية، فانضاف ${added} موديل (آخر خيار بالتوجيه). شيل علامة «المجاني فقط» لتشوفها.`
+      return { ok: true, message: msg, count: added }
     } catch (e) {
       return { ok: false, message: e instanceof Error ? e.message.slice(0, 160) : String(e) }
     }
