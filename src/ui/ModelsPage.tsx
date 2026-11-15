@@ -6,6 +6,7 @@ import { Loader2, Plug, Plus, Trash2 } from 'lucide-react'
 import type { CustomModelInfo, Tier } from '../preload/index.d'
 import { KeyField, type KeyName } from './KeyField'
 import { CatalogPanel } from './CatalogPanel'
+import { OpenRouterFreePanel } from './OpenRouterFreePanel'
 import { HfPanel } from './HfPanel'
 import { estimateStrength } from '../core/model-rank'
 import { CapIcons, guessCaps, type Caps } from './Caps'
@@ -365,6 +366,7 @@ export function ModelsPage() {
               {head('OpenRouter')}
               <KeyField name="OPENROUTER_API_KEY" verify={() => window.api.catalog.test()} onChange={setKeyHas('OPENROUTER_API_KEY')} />
               <HostField id="openrouter" />
+              <OpenRouterFreePanel />
               <CatalogPanel />
               <FreeProbePanel />
               <UsageChart />
