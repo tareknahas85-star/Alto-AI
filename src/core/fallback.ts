@@ -678,6 +678,29 @@ async function executeWithFallbackInner(
         capHit = false
         break
       }
+      // 5.21.12: وصل سقف الخطوات بدون جواب نهائي وما في موديل تاني بالقايمة: بدل ما نرمي النتايج بصمت، نطلب من نفس الموديل يلخّص اللي تم فعلاً حسب نتايج الأدوات.
+      if (capHit && calls_.length && (queue.length === 0 || opts.escalate === false)) {
+        try {
+          emitProgress('وصلنا لحد الخطوات، عم لخّص النتايج يلي وصلت')
+          const log = calls_.slice(-12).map((c) => c.key.slice(0, 160) + ' => ' + c.out.slice(0, 700)).join('\n---\n')
+          const fin = await chat({
+            model: modelId,
+            messages: [
+              { role: 'system', content: baseSystem },
+              { role: 'user', content: userInput + '\n\n[نتايج الأدوات يلي تنفذت حتى وصلنا للحد — هي مصدر الحقيقة]\n' + log + '\n\nلخّص للمستخدم بوضوح وبلغته: شو تم فعلاً حسب النتايج أعلاه (مع الأرقام والأسماء)، وشو لسا ما انعرف. لا تستدعي أي أداة.' }
+            ],
+            temperature: 0.3,
+            max_tokens: 2500
+          })
+          const t = fin.choices[0]?.message?.content || ''
+          if (t.trim()) {
+            content = '⚠️ وصلنا لحد الخطوات قبل ما تخلص المهمة كاملة. هاي النتيجة يلي وصلنا إلها:\n\n' + t
+            capHit = false
+          }
+        } catch (e) {
+          console.warn('[Fallback] cap summary failed', (e as Error).message)
+        }
+      }
       // Objective failure signals (not the model's own opinion): ran out of rounds, got stuck repeating itself / failing, or claimed success without proof.
       if (toolset && toolset.defs.length && (!toolsRejected || textMode)) {
         const why = attemptFailure(calls_, capHit, content, unverifiedClaimWarning(model, userInput, content, toolsUsed, toolset, toolsRejected && !textMode, false, history))
