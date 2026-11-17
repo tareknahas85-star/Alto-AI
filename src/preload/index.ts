@@ -245,6 +245,7 @@ const api = {
       ipcRenderer.invoke('memory:import', entries, source),
     preview: () => ipcRenderer.invoke('memory:preview')
   },
+  masterTest: { run: (): Promise<unknown> => ipcRenderer.invoke('masterTest:run') },
   catalog: {
     list: () => ipcRenderer.invoke('catalog:list'),
     test: () => ipcRenderer.invoke('catalog:test'),

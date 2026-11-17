@@ -483,6 +483,7 @@ declare global {
         import: (entries: { title: string; content: string }[], source?: string) => Promise<number>
         preview: () => Promise<{ text: string; count: number; truncated: boolean }>
       }
+      masterTest: { run: () => Promise<{ ok: boolean; file?: string; summary?: string; error?: string }> },
       catalog: {
         list: () => Promise<{
           fetchedAt: number
