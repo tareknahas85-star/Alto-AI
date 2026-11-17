@@ -115,6 +115,7 @@ export function Settings({ onClose, variant = 'modal' }: { onClose?: () => void;
             <RemotePanel />
             <TransferPanel />
             <UpdatePanel />
+            <MasterTestPanel />
           </>
         )}
         {tab === 'connectors' && (
