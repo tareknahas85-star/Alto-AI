@@ -75,7 +75,7 @@ function fallbackAnalysis(): Analysis {
     complexity: 'simple',
     type: 'chat',
     need_skill: 'none',
-    need_tools: false,
+    need_tools: true,
     reason: 'fallback',
     source: 'fallback'
   }
