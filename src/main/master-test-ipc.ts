@@ -6,7 +6,7 @@ import { runMasterTests } from '../core/master-test'
 export function registerMasterTestHandlers(): void {
   ipcMain.handle('masterTest:run', async () => {
     try {
-      const models = await runMasterTests(['gemini-4-carbon', 'gemini-4-hydrogen'])
+      const models = await runMasterTests(['gemini-4-hydrogen', 'gemini-4-carbon'])
       const dir = path.join(app.getPath('userData'), 'master-tests')
       fs.mkdirSync(dir, { recursive: true })
       const file = path.join(dir, 'master-test-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json')
