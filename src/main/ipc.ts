@@ -147,7 +147,7 @@ export function registerIpcHandlers(): void {
       .map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: isLocalBase(m.baseURL) ? 'LOCAL' : m.tier, keyed: m.hasKey })),
     ...listCatalog()
       .models.filter((m) => m.enabled)
-      .map((m) => ({ value: m.id, label: m.name || m.id, tier: m.tier })),
+      .map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier })),
     // 5.18.0: موديلات apinex المجانية بقائمة المحادثة (مجرد ما يكون مفتاحو موجود).
     ...(hasApinexKey() ? apinexFreeIds().map((id) => ({ value: id, label: id.replace(/^apinex:/, '') + ' (apinex)', tier: 'TIER_1_FREE' })) : []),
     // 5.18.0: موديلات Hugging Face المجانية يلي بتدعم الأدوات (بعد سحب القائمة من الإعدادات).

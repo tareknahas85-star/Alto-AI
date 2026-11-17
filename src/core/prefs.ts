@@ -11,6 +11,7 @@ export type Prefs = {
   askBeforeNewTools: boolean // ask before the first few uses of a tool group (learning period)
   approvedTools: string[] // tool groups the user approved for good
   securityToolsEnabled: boolean // pwned_password_check / virustotal_hash_lookup (off until the user turns them on)
+  masterModel: string // الماستر اللي اختاره المستخدم (custom:<id>)، فاضي = الافتراضي gemini-4-hydrogen
 }
 
 const DEFAULTS: Prefs = {
@@ -22,7 +23,8 @@ const DEFAULTS: Prefs = {
   catalogEnabled: [],
   askBeforeNewTools: true,
   approvedTools: [],
-  securityToolsEnabled: false
+  securityToolsEnabled: false,
+  masterModel: ''
 }
 
 export function getPrefs(): Prefs {
@@ -36,7 +38,8 @@ export function getPrefs(): Prefs {
     catalogEnabled: Array.isArray(s.catalogEnabled) ? s.catalogEnabled.filter((x) => typeof x === 'string') : [],
     askBeforeNewTools: s.askBeforeNewTools !== false,
     approvedTools: Array.isArray(s.approvedTools) ? s.approvedTools.filter((x) => typeof x === 'string') : [],
-    securityToolsEnabled: s.securityToolsEnabled === true
+    securityToolsEnabled: s.securityToolsEnabled === true,
+    masterModel: typeof s.masterModel === 'string' ? s.masterModel : ''
   }
 }
 
@@ -47,6 +50,7 @@ export function setPrefs(patch: Partial<Prefs>): Prefs {
     if (!(k in patch)) continue
     const v = patch[k]
     if (typeof DEFAULTS[k] === 'boolean' && typeof v === 'boolean') (next as Record<string, unknown>)[k] = v
+    else if (typeof DEFAULTS[k] === 'string' && typeof v === 'string') (next as Record<string, unknown>)[k] = v.slice(0, 200)
     else if (Array.isArray(DEFAULTS[k]) && Array.isArray(v)) (next as Record<string, unknown>)[k] = v.filter((x) => typeof x === 'string').slice(0, 200)
   }
   writeJson('prefs.json', next)
