@@ -21,6 +21,7 @@ import { registerMediaIpc } from './media-gen'
 import { registerMediaAccountsIpc } from './media-accounts'
 import { registerAttachHandlers } from './attach'
 import { registerExtrasHandlers } from './extras'
+import { registerMasterTestHandlers } from './master-test-ipc'
 import { registerTransferHandlers } from './transfer'
 import { registerUpdateHandlers } from './updates'
 import { registerHfHandlers, hfFreeCached } from './hf'
@@ -98,6 +99,7 @@ export function registerIpcHandlers(): void {
   registerConnectorsHandlers()
   registerAttachHandlers()
   registerExtrasHandlers()
+  registerMasterTestHandlers()
   registerTransferHandlers()
   registerUpdateHandlers()
   registerHfHandlers()

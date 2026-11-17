@@ -51,7 +51,7 @@ export type Analysis = {
 }
 
 
-const SYSTEM_PROMPT =
+export const SYSTEM_PROMPT =
   'You are a request classifier. Analyze the user request and return ONLY valid JSON without markdown. ' +
   'Format: {"complexity":"simple|medium|complex","type":"chat|code|research|file_task","need_skill":"none|delegate-coding|delegate-research|delegate-file","need_tools":true/false,"reason":"short reason"} ' +
   'Rules: simple=general chat/translation/summary, medium=simple code/explanation, complex=full project/file operations/multi-step. ' +
@@ -99,7 +99,7 @@ function getClient(): OpenAI {
   return client
 }
 
-function parseAnalysis(text: string, skillNames: string[] = []): Analysis | null {
+export function parseAnalysis(text: string, skillNames: string[] = []): Analysis | null {
   const match = text.match(/\{.*\}/s)
   if (!match) return null
 
