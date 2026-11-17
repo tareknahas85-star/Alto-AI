@@ -146,7 +146,7 @@ export function registerIpcHandlers(): void {
       .filter((m) => m.enabled)
       .map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: isLocalBase(m.baseURL) ? 'LOCAL' : m.tier, keyed: m.hasKey })),
     ...listCatalog()
-      .models.filter((m) => m.enabled && m.pricePerM === 0)
+      .models.filter((m) => m.pricePerM === 0)
       .map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier })),
     // 5.18.0: موديلات apinex المجانية بقائمة المحادثة (مجرد ما يكون مفتاحو موجود).
     ...(hasApinexKey() ? apinexFreeIds().map((id) => ({ value: id, label: id.replace(/^apinex:/, '') + ' (apinex)', tier: 'TIER_1_FREE' })) : []),

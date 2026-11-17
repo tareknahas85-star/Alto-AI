@@ -85,14 +85,14 @@ function ApinexPanel() {
   )
 }
 
-// OpenRouter بسيط: مفتاح فوق (KeyField)، زر سحب للموديلات، وقائمة تفعيل. المفعّل بيظهر بقائمة المحادثة مع (OpenRouter).
+// OpenRouter: زر سحب + قائمة المجاني بس، بدون تفعيل ولا تسكير (نفس بساطة APInex).
 function OpenRouterSimplePanel() {
-  const [models, setModels] = useState<{ id: string; name: string; tier: string; enabled: boolean }[]>([])
+  const [models, setModels] = useState<{ id: string; name: string; pricePerM: number }[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const load = async (): Promise<void> => {
     const c = await window.api.catalog.list()
-    setModels(c.models as typeof models)
+    setModels((c.models as typeof models).filter((m) => m.pricePerM === 0))
   }
   useEffect(() => {
     void load()
@@ -108,35 +108,26 @@ function OpenRouterSimplePanel() {
       setBusy(false)
     }
   }
-  const toggle = async (id: string, on: boolean): Promise<void> => {
-    await window.api.catalog.setEnabled([id], on)
-    await load()
-  }
-  const onCount = models.filter((m) => m.enabled).length
   return (
-    <div className={cardCls + ' mt-3'}>
-      <h3 className="mb-2 text-sm font-semibold">موديلات OpenRouter</h3>
+    <div className={`mt-3 ${cardCls}`}>
+      <h3 className="mb-2 text-sm font-semibold">الموديلات المجانية من OpenRouter</h3>
       <div className="flex flex-wrap items-center gap-2">
         <button className={ghostBtn} onClick={() => void pull()} disabled={busy}>
           {busy ? 'جاري السحب…' : 'اسحب الموديلات'}
         </button>
-        <span className="text-xs text-muted">{models.length} موديل · {onCount} مفعّل</span>
+        {models.length > 0 && <span className="text-xs text-muted">{models.length} موديل مجاني</span>}
       </div>
       {msg && <p className="mt-2 text-xs">{msg}</p>}
       {models.length > 0 && (
-        <ul className="mt-3 max-h-80 space-y-1 overflow-y-auto pe-1" dir="ltr">
-          {models.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-2 text-xs">
-              <span className="truncate font-mono">{m.id}</span>
-              <Toggle checked={m.enabled} label={`تفعيل ${m.id}`} onChange={() => void toggle(m.id, !m.enabled)} />
-            </li>
+        <ul className="mt-2 max-h-72 list-disc overflow-auto pr-5 text-xs text-muted" dir="ltr">
+          {models.slice().sort((a, b) => estimateStrength(b.id) - estimateStrength(a.id)).map((m) => (
+            <li key={m.id}>{m.id} <span className="text-[10px]">· {Math.round(estimateStrength(m.id))}</span></li>
           ))}
         </ul>
       )}
     </div>
   )
 }
-
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai/'
 const empty = { name: '', model: '', baseURL: '', apiKey: '', tier: 'TIER_2_CHEAP' as Tier, kind: 'chat' as 'chat' | 'image' | 'audio' | 'video', desc: '', limit: '' }
 const KIND_LABEL = { chat: 'محادثة', image: 'توليد صور', audio: 'توليد صوت', video: 'توليد فيديو' } as const
