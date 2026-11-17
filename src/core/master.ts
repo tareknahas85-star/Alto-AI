@@ -1,7 +1,7 @@
 import { hostOf } from './hosts'
 import OpenAI from 'openai'
 import { MASTER_MODELS } from './config'
-import { listCustomModels, clientForCustomModel, CUSTOM_PREFIX } from './custom-models'
+import { listCustomModels, getCustomModel, clientForCustomModel, CUSTOM_PREFIX } from './custom-models'
 import { getPrefs } from './prefs'
 import { getApiKey } from '../store/secure-store'
 import { apinexClient, apinexModelId, hasApinexKey, isApinexModel } from './apinex'
@@ -195,7 +195,7 @@ function pickStrongestGoogle(ids: string[]): string | null {
 // الماستر المختار من القائمة: موديل مخصص، أو موديل OpenRouter (المفتاح نفسه)، أو موديل apinex.
 function masterClientFor(chosen: string): { client: OpenAI; modelId: string } | null {
   if (chosen.startsWith(CUSTOM_PREFIX)) {
-    const m = listCustomModels().find((x) => CUSTOM_PREFIX + x.id === chosen)
+    const m = getCustomModel(chosen.slice(CUSTOM_PREFIX.length))
     return m ? clientForCustomModel(m) : null
   }
   if (isApinexModel(chosen)) return hasApinexKey() ? { client: apinexClient(), modelId: apinexModelId(chosen) } : null
