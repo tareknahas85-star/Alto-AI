@@ -64,6 +64,8 @@ import {
   setCustomModelPrice
 } from '../core/custom-models'
 import { getEffort, setEffort } from '../core/effort'
+import { getPrefs, setPrefs } from '../core/prefs'
+import { CUSTOM_PREFIX, listCustomModels as listMasterCandidates } from '../core/custom-models'
 import { clearGeneral, getMasterMemory, updateProjectMemory } from '../core/master-memory'
 import {
   addCustomTool,
@@ -114,6 +116,12 @@ export function registerManagementHandlers(): void {
   ipcMain.handle('spend:set', (_e, on: unknown) => setFreeOnly(on !== false))
   ipcMain.handle('freeFirst:get', () => freeFirst())
   ipcMain.handle('freeFirst:set', (_e, v: unknown) => setFreeFirst(v === 'apinex' ? 'apinex' : 'openrouter'))
+  // الماستر: المستخدم يختار من كل الموديلات المخصصة، وgemini-4-hydrogen هو الموصى فيه.
+  ipcMain.handle('master:get', () => {
+    const hyd = listMasterCandidates().find((m) => m.model.includes('gemini-4-hydrogen'))
+    return { value: getPrefs().masterModel, recommended: hyd ? CUSTOM_PREFIX + hyd.id : '' }
+  })
+  ipcMain.handle('master:set', (_e, v: unknown) => setPrefs({ masterModel: typeof v === 'string' ? v : '' }).masterModel)
   ipcMain.handle('apinex:refresh', () => apinexRefreshNow())
   ipcMain.handle('computer:reset', () => {
     resetComputerSession()

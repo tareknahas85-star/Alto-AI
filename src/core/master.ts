@@ -1,7 +1,8 @@
 import { hostOf } from './hosts'
 import OpenAI from 'openai'
 import { MASTER_MODELS } from './config'
-import { listCustomModels, clientForCustomModel } from './custom-models'
+import { listCustomModels, clientForCustomModel, CUSTOM_PREFIX } from './custom-models'
+import { getPrefs } from './prefs'
 import { skillCatalog } from '../skills/loader'
 import { emitProgress, currentSignal } from './progress'
 
@@ -312,7 +313,8 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
   }
 
   // 1) Primary: gemini-4-hydrogen with the app's Google key.
-  const primary = listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
+  const chosen = getPrefs().masterModel
+  const primary = (chosen ? listCustomModels().find((m) => CUSTOM_PREFIX + m.id === chosen) : undefined) ?? listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
   const google = primary ? clientForCustomModel(primary) : null
   if (google && !coolingDown(google.modelId)) {
     try {

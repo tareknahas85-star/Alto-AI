@@ -168,6 +168,10 @@ declare global {
         get: () => Promise<boolean>
         set: (on: boolean) => Promise<boolean>
       }
+      master: {
+        get: () => Promise<{ value: string; recommended: string }>
+        set: (v: string) => Promise<string>
+      }
       freeFirst: {
         get: () => Promise<'openrouter' | 'apinex'>
         set: (v: 'openrouter' | 'apinex') => Promise<'openrouter' | 'apinex'>

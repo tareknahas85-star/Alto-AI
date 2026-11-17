@@ -5,15 +5,11 @@ import { askConfirm } from './components/confirm'
 import { Loader2, Plug, Plus, Trash2 } from 'lucide-react'
 import type { CustomModelInfo, Tier } from '../preload/index.d'
 import { KeyField, type KeyName } from './KeyField'
-import { CatalogPanel } from './CatalogPanel'
-import { OpenRouterFreePanel } from './OpenRouterFreePanel'
-import { HfPanel } from './HfPanel'
 import { estimateStrength } from '../core/model-rank'
 import { CapIcons, guessCaps, type Caps } from './Caps'
 import { guessKind } from '../core/media-custom'
 import { nameColor } from './brandColor'
 import { HostField } from './HostField'
-import { FreeProbePanel } from './FreeProbePanel'
 import { toneOf } from '../core/check-soften'
 import { CheckButton, CheckPanel, useFullCheck } from './FullCheck'
 import { Chip, Empty, Modal, PageShell, TIER_LABEL, Toggle, cardCls, ghostBtn, inputCls, primaryBtn, useTab } from './components/ui'
@@ -29,7 +25,6 @@ const PROVIDERS = [
   { id: 'general', name: 'عام: المجاني والتكلفة' },
   { id: 'openrouter', name: 'OpenRouter', key: 'OPENROUTER_API_KEY' },
   { id: 'apinex', name: 'APInex', key: 'APINEX_API_KEY' },
-  { id: 'huggingface', name: 'Hugging Face', key: 'HUGGINGFACE_API_KEY' },
   { id: 'gemini', name: 'Gemini', key: 'GEMINI_API_KEY' },
   { id: 'openai', name: 'OpenAI', key: 'OPENAI_API_KEY' },
   { id: 'anthropic', name: 'Anthropic', key: 'ANTHROPIC_API_KEY' },
@@ -86,6 +81,58 @@ function ApinexPanel() {
         </ul>
       )}
       <p className="mt-2 text-xs text-muted">القائمة بتتحدث تلقائياً كل كم ساعة. الموديلات اللي عليها اشتراك مستبعدة.</p>
+    </div>
+  )
+}
+
+// OpenRouter بسيط: مفتاح فوق (KeyField)، زر سحب للموديلات، وقائمة تفعيل. المفعّل بيظهر بقائمة المحادثة مع (OpenRouter).
+function OpenRouterSimplePanel() {
+  const [models, setModels] = useState<{ id: string; name: string; tier: string; enabled: boolean }[]>([])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const load = async (): Promise<void> => {
+    const c = await window.api.catalog.list()
+    setModels(c.models as typeof models)
+  }
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const pull = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      const r = await window.api.catalog.fetch()
+      setMsg(r.ok ? `✅ ${r.total} موديل مسحوب` : '❌ ' + r.message)
+      await load()
+    } finally {
+      setBusy(false)
+    }
+  }
+  const toggle = async (id: string, on: boolean): Promise<void> => {
+    await window.api.catalog.setEnabled([id], on)
+    await load()
+  }
+  const onCount = models.filter((m) => m.enabled).length
+  return (
+    <div className={cardCls + ' mt-3'}>
+      <h3 className="mb-2 text-sm font-semibold">موديلات OpenRouter</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={ghostBtn} onClick={() => void pull()} disabled={busy}>
+          {busy ? 'جاري السحب…' : 'اسحب الموديلات'}
+        </button>
+        <span className="text-xs text-muted">{models.length} موديل · {onCount} مفعّل</span>
+      </div>
+      {msg && <p className="mt-2 text-xs">{msg}</p>}
+      {models.length > 0 && (
+        <ul className="mt-3 max-h-80 space-y-1 overflow-y-auto pe-1" dir="ltr">
+          {models.map((m) => (
+            <li key={m.id} className="flex items-center justify-between gap-2 text-xs">
+              <span className="truncate font-mono">{m.id}</span>
+              <Toggle checked={m.enabled} label={`تفعيل ${m.id}`} onChange={() => void toggle(m.id, !m.enabled)} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -365,10 +412,7 @@ export function ModelsPage() {
             <>
               {head('OpenRouter')}
               <KeyField name="OPENROUTER_API_KEY" verify={() => window.api.catalog.test()} onChange={setKeyHas('OPENROUTER_API_KEY')} />
-              <HostField id="openrouter" />
-              <OpenRouterFreePanel />
-              <CatalogPanel />
-              <FreeProbePanel />
+              <OpenRouterSimplePanel />
               <UsageChart />
               <h3 className="mb-2 mt-6 text-sm font-semibold text-muted">الموديلات المدمجة (حسب الطبقة)</h3>
               <div className="grid gap-3 md:grid-cols-3">
@@ -381,21 +425,6 @@ export function ModelsPage() {
                   </div>
                 ))}
               </div>
-            </>
-          )}
-          {prov === 'huggingface' && (
-            <>
-              {head('Hugging Face')}
-              <KeyField
-                name="HUGGINGFACE_API_KEY"
-                onChange={setKeyHas('HUGGINGFACE_API_KEY')}
-                verify={async () => {
-                  const r = await window.api.hf.models()
-                  return { ok: r.ok, message: r.ok ? `المفتاح شغّال، ${r.models.length} موديل بيقبل صور` : (r.error ?? 'فشل') }
-                }}
-              />
-              <HostField id="huggingface" />
-              <HfPanel />
             </>
           )}
           {prov === 'gemini' && (

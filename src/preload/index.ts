@@ -58,6 +58,10 @@ const api = {
     get: (): Promise<boolean> => ipcRenderer.invoke('spend:get'),
     set: (on: boolean): Promise<boolean> => ipcRenderer.invoke('spend:set', on)
   },
+  master: {
+    get: (): Promise<{ value: string; recommended: string }> => ipcRenderer.invoke('master:get'),
+    set: (v: string): Promise<string> => ipcRenderer.invoke('master:set', v)
+  },
   freeFirst: {
     get: (): Promise<'openrouter' | 'apinex'> => ipcRenderer.invoke('freeFirst:get'),
     set: (v: 'openrouter' | 'apinex'): Promise<'openrouter' | 'apinex'> => ipcRenderer.invoke('freeFirst:set', v)
