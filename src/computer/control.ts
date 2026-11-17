@@ -15,7 +15,7 @@ import { classifyApp } from '../core/hands-guard'
 import { readJson } from '../core/json-store'
 import { addBrowserTools } from './browser-agent'
 import { readState } from '../core/state'
-import { isUnattended, currentMode } from '../core/progress'
+import { isUnattended, currentMode, emitProgress } from '../core/progress'
 import { buildProject } from '../core/workspace'
 import { isBuildDeleteCommand } from '../core/build-guards'
 
@@ -231,8 +231,18 @@ async function diskGuard(cmd: string): Promise<string | null> {
   return null
 }
 
+const taskLogFile = (): string => path.join(app.getPath('userData'), 'task-logs', new Date().toISOString().slice(0, 10) + '.log')
+function taskLog(line: string): void {
+  try {
+    fs.mkdirSync(path.dirname(taskLogFile()), { recursive: true })
+    fs.appendFileSync(taskLogFile(), new Date().toISOString() + ' ' + line + '\n', 'utf8')
+  } catch {
+    /* logging must never break a run */
+  }
+}
+
 // ---------- powershell runner ----------
-function runPs(script: string, args: unknown = {}, timeoutMs = 60000, signal?: AbortSignal): Promise<string> {
+function runPs(script: string, args: unknown = {}, timeoutMs = 60000, signal?: AbortSignal, label = 'PowerShell'): Promise<string> {
   const b64 = Buffer.from(JSON.stringify(args), 'utf-8').toString('base64')
   const full =
     "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; $ErrorActionPreference='Stop'; " +
@@ -246,10 +256,27 @@ function runPs(script: string, args: unknown = {}, timeoutMs = 60000, signal?: A
     let out = ''
     let err = ''
     let done = false
+    const startedAt = Date.now()
+    let lastOutAt = startedAt
+    taskLog('START ' + label)
+    // Heartbeat: every 15s show what is running, how long, and the last output lines (so a long build is visibly alive).
+    const tick = setInterval(() => {
+      if (done) return
+      const secs = Math.round((Date.now() - startedAt) / 1000)
+      const idle = Math.round((Date.now() - lastOutAt) / 1000)
+      const tail = (out + err).trim().split(/\r?\n/).filter(Boolean).slice(-2).join(' | ').slice(0, 220)
+      let line = '⏳ ' + label.slice(0, 80) + ' — شغّال منذ ' + secs + 'ث'
+      line += tail ? ' — آخر ناتج: ' + tail : ' — ما طلع ناتج لحد الحين'
+      if (idle >= 120) line += ' ⚠️ ما في ناتج من ' + idle + 'ث، ممكن يكون عالق أو ينتظر إدخال'
+      emitProgress(line)
+      taskLog('RUNNING ' + secs + 's idle=' + idle + 's ' + label)
+    }, 15000)
     const finish = (s: string): void => {
       if (done) return
       done = true
       clearTimeout(t)
+      clearInterval(tick)
+      taskLog('END ' + Math.round((Date.now() - startedAt) / 1000) + 's ' + label)
       resolve(s)
     }
     const t = setTimeout(() => {
@@ -268,8 +295,14 @@ function runPs(script: string, args: unknown = {}, timeoutMs = 60000, signal?: A
       }
       finish('[cancelled]')
     })
-    p.stdout.on('data', (d) => (out += d.toString('utf-8')))
-    p.stderr.on('data', (d) => (err += d.toString('utf-8')))
+    p.stdout.on('data', (d) => {
+      out += d.toString('utf-8')
+      lastOutAt = Date.now()
+    })
+    p.stderr.on('data', (d) => {
+      err += d.toString('utf-8')
+      lastOutAt = Date.now()
+    })
     // A child it started (e.g. the Gradle daemon) can keep the pipes open long after the command ended: finish on exit.
     p.on('exit', () => {
       setTimeout(() => {
@@ -407,7 +440,7 @@ export function addComputerTools(
       if (!isReadOnly(cmd) && !(await ask('بدو ينفذ أمر PowerShell', (a.cwd ? '[' + s(a.cwd) + '] ' : '') + cmd))) return 'Error: the user denied this command.'
       cmd = cmd.replace(/(?<![\w.-])(?:\.[\\/])?gradlew(?:\.bat)?(?![\w-])/gi, '__gw')
       const secs = Math.min(1800, Math.max(60, Number(a.timeout_seconds) || 120))
-      const out = await runPs(BUILD_ENV_PS + "\nif($A.cwd){ Set-Location -LiteralPath $A.cwd }\n" + cmd, { cwd: s(a.cwd) }, secs * 1000, getSignal?.())
+      const out = await runPs(BUILD_ENV_PS + "\nif($A.cwd){ Set-Location -LiteralPath $A.cwd }\n" + cmd, { cwd: s(a.cwd) }, secs * 1000, getSignal?.(), 'pc_run: ' + cmd.replace(/\s+/g, ' ').slice(0, 80))
       return out.length > 5500 ? '…[start of output cut]\n' + out.slice(-5500) : out
     }
   )
