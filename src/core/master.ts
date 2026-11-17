@@ -160,6 +160,72 @@ export async function warmLocalMaster(): Promise<void> {
 const APPROVED_LOCAL_MASTERS = ['qwen3:32b', 'qwen2.5:32b', 'qwen3:14b', 'qwen2.5:14b', 'gemma3:12b']
 // Primary cloud master: used whenever its key is in the app.
 const PRIMARY_MASTER = 'gemini-4-hydrogen'
+const COOLDOWN_MS = 10 * 60 * 1000
+
+// A model that answered 429 (quota) is skipped for a while instead of being hammered.
+const cooldown = new Map<string, number>()
+function coolingDown(id: string): boolean {
+  return (cooldown.get(id) ?? 0) > Date.now()
+}
+function noteFailure(id: string, error: unknown): void {
+  const status = (error as { status?: number } | null)?.status
+  if (status === 429) cooldown.set(id, Date.now() + COOLDOWN_MS)
+}
+const utcDay = (): string => new Date().toISOString().slice(0, 10)
+
+// Strongest other Gemini chat model on the same Google key (picked once per day).
+let googleCache: { day: string; id: string | null } | null = null
+const NOT_CHAT = /embedding|image|tts|live|audio|aqa|veo|imagen|learnlm|computer|robotics/i
+function pickStrongestGoogle(ids: string[]): string | null {
+  const scored = ids
+    .map((raw) => raw.replace(/^models\//, ''))
+    .filter((id) => /^gemini-/.test(id) && !NOT_CHAT.test(id) && id !== PRIMARY_MASTER)
+    .map((id) => {
+      const v = parseFloat(id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0')
+      const tier = /pro/.test(id) ? 2 : /flash/.test(id) && !/lite/.test(id) ? 1 : 0
+      const preview = /preview|exp/.test(id) ? -0.5 : 0
+      return { id, s: v * 10 + tier * 3 + preview }
+    })
+    .sort((a, b) => b.s - a.s)
+  return scored[0]?.id ?? null
+}
+async function googleFallbackModel(client: OpenAI): Promise<string | null> {
+  const day = utcDay()
+  if (googleCache?.day === day) return googleCache.id
+  try {
+    const ids: string[] = []
+    for await (const m of client.models.list()) ids.push(m.id)
+    const id = pickStrongestGoogle(ids)
+    googleCache = { day, id }
+    return id
+  } catch (error) {
+    console.warn('[Master] could not list Google models:', error)
+    return null
+  }
+}
+
+// Free OpenRouter models that support tools, refreshed once per day from the public catalog.
+let openRouterCache: { day: string; ids: string[] } | null = null
+async function openRouterFreeTools(): Promise<string[]> {
+  const day = utcDay()
+  if (openRouterCache?.day === day) return openRouterCache.ids
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(10000) })
+    const j = (await r.json()) as { data?: { id: string; context_length?: number; supported_parameters?: string[] }[] }
+    const ids = (j.data ?? [])
+      .filter((m) => m.id.endsWith(':free') && (m.supported_parameters ?? []).includes('tools'))
+      .sort((a, b) => (b.context_length ?? 0) - (a.context_length ?? 0))
+      .slice(0, 8)
+      .map((m) => m.id)
+    if (ids.length) {
+      openRouterCache = { day, ids }
+      return ids
+    }
+  } catch (error) {
+    console.warn('[Master] could not load free OpenRouter models:', error)
+  }
+  return MASTER_MODELS
+}
 
 async function installedLocalModels(): Promise<string[]> {
   try {
@@ -205,6 +271,22 @@ async function tryLocalMaster(userInput: string, system: string, names: string[]
   return null
 }
 
+async function askCloud(client: OpenAI, modelId: string, system: string, userInput: string, names: string[]): Promise<Analysis | null> {
+  const completion = await client.chat.completions.create(
+    {
+      model: modelId,
+      temperature: 0.1,
+      max_tokens: 1000,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userInput }
+      ]
+    },
+    { signal: currentSignal(), timeout: 25000, maxRetries: 0 }
+  )
+  return parseAnalysis(completion.choices[0]?.message?.content ?? '', names)
+}
+
 export async function analyzeRequest(userInput: string, localOnly = false): Promise<Analysis> {
   let catalog: { name: string; description: string }[] = []
   try {
@@ -229,57 +311,52 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
     return { ...fallbackAnalysis(), complexity: 'complex' }
   }
 
-  // 1) Primary cloud master (gemini-4-hydrogen with the app's key).
+  // 1) Primary: gemini-4-hydrogen with the app's Google key.
   const primary = listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
-  if (primary) {
+  const google = primary ? clientForCustomModel(primary) : null
+  if (google && !coolingDown(google.modelId)) {
     try {
-      emitProgress('الماستر: ' + PRIMARY_MASTER)
-      const { client, modelId } = clientForCustomModel(primary)
-      const completion = await client.chat.completions.create(
-        {
-          model: modelId,
-          temperature: 0.1,
-          max_tokens: 1000,
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: userInput }
-          ]
-        },
-        { signal: currentSignal(), timeout: 25000, maxRetries: 0 }
-      )
-      const parsed = parseAnalysis(completion.choices[0]?.message?.content ?? '', names)
-      if (parsed) return { ...parsed, source: 'hydrogen', masterModel: modelId }
-      console.warn('[Master] unparseable answer from', modelId)
+      emitProgress('الماستر: ' + google.modelId)
+      const a = await askCloud(google.client, google.modelId, system, userInput, names)
+      if (a) return { ...a, source: 'hydrogen', masterModel: google.modelId }
+      console.warn('[Master] unparseable answer from', google.modelId)
     } catch (error) {
-      // Quota exhausted or any other failure: move on at once, no retries.
-      console.warn('[Master] primary master failed, switching:', error)
+      noteFailure(google.modelId, error)
+      console.warn('[Master] primary failed, switching:', error)
       emitProgress('الماستر الأساسي ما اشتغل، بنحوّل للاحتياطي')
     }
   }
 
-  // 2) Strongest approved local model installed on this machine.
+  // 2) Strongest other Gemini model on the same Google key.
+  if (google) {
+    const gid = await googleFallbackModel(google.client)
+    if (gid && !coolingDown(gid)) {
+      try {
+        emitProgress('الماستر البديل (Google): ' + gid)
+        const a = await askCloud(google.client, gid, system, userInput, names)
+        if (a) return { ...a, source: 'google', masterModel: gid }
+      } catch (error) {
+        noteFailure(gid, error)
+        console.warn('[Master] google fallback failed:', error)
+      }
+    }
+  }
+
+  // 3) Strongest approved local model installed on this machine.
   const local = await tryLocalMaster(userInput, system, names)
   if (local) return local
 
-  // 3) Cloud fallbacks (OpenRouter chain).
-  for (const model of MASTER_MODELS) {
+  // 4) Second provider: free OpenRouter models that support tools.
+  for (const model of await openRouterFreeTools()) {
     if (currentSignal()?.aborted) break
+    if (coolingDown(model)) continue
     try {
       emitProgress('الماستر (OpenRouter): ' + model)
-      const completion = await getClient().chat.completions.create({
-        model,
-        temperature: 0.1,
-        max_tokens: 1000,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userInput }
-        ]
-      }, { signal: currentSignal() })
-      const text = completion.choices[0]?.message?.content ?? ''
-      const parsed = parseAnalysis(text, names)
-      if (parsed) return { ...parsed, source: 'openrouter', masterModel: model }
+      const a = await askCloud(getClient(), model, system, userInput, names)
+      if (a) return { ...a, source: 'openrouter', masterModel: model }
       console.warn('[Master] unparseable answer from', model)
     } catch (error) {
+      noteFailure(model, error)
       console.warn('[Master] model failed, trying next:', model, error)
     }
   }
