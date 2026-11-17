@@ -57,7 +57,7 @@ async function runCase(client: Client, modelId: string, c: TestCase): Promise<Te
       {
         model: modelId,
         temperature: 0.1,
-        max_tokens: 300,
+        max_tokens: 1000,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: c.q }

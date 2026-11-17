@@ -218,7 +218,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
           think: false,
           format: 'json',
           keep_alive: '5m',
-          options: { temperature: 0, num_predict: 300 },
+          options: { temperature: 0, num_predict: 1000 },
           messages: [
             { role: 'system', content: sys },
             { role: 'user', content: userInput }
@@ -254,7 +254,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
       const completion = await getClient().chat.completions.create({
         model,
         temperature: 0.1,
-        max_tokens: 300,
+        max_tokens: 1000,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: userInput }
