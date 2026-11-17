@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { hostOf } from '../core/hosts'
 import { getApiKey } from '../store/secure-store'
+import { setDirectModels } from '../core/custom-models'
 
 // "Test key + discover models": one call per provider that hits its model-list endpoint with the saved key.
 export type ProviderCheck = { ok: boolean; message: string; models: string[] }
@@ -52,6 +53,7 @@ export async function checkProvider(p: P): Promise<ProviderCheck> {
     }
     if (!r.ok) return { ok: false, message: `خطأ ${r.status}: ` + (await r.text().catch(() => '')).slice(0, 140), models: [] }
     const models = [...new Set(s.pick(await r.json()))].sort()
+    if (p === 'openai' || p === 'anthropic') setDirectModels(p, models)
     return { ok: true, message: `المفتاح شغّال، ${models.length} موديل متاح`, models }
   } catch (e) {
     return { ok: false, message: 'ما قدرت أوصل: ' + (e instanceof Error ? e.message : String(e)), models: [] }

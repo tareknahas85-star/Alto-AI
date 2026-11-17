@@ -1,7 +1,7 @@
 import { hostOf } from './hosts'
 import OpenAI from 'openai'
 import { readJson, writeJson, newId } from './json-store'
-import { getSecret, setSecret } from '../store/secure-store'
+import { getApiKey, getSecret, setSecret } from '../store/secure-store'
 import { knownPrice, type Price } from './pricing'
 import { isChatKind, normKind } from './media-custom'
 
@@ -19,6 +19,7 @@ export type CustomModel = {
   last?: boolean // true => tried after the OpenRouter models of its tier
   priceIn?: number // USD per 1M input tokens (manual; wins over the built-in table)
   priceOut?: number // USD per 1M output tokens
+  keyRef?: 'OPENAI_API_KEY' | 'ANTHROPIC_API_KEY' // virtual direct-provider model: uses the saved provider key
 }
 export type CustomModelView = CustomModel & { hasKey: boolean; autoPrice: Price | null }
 
@@ -31,12 +32,40 @@ export const CUSTOM_PREFIX = 'custom:'
 const isFreeByName = (model: string): boolean => /^free\//i.test(model) || /:free$/i.test(model)
 export const listCustomModels = (): CustomModel[] =>
   readJson<CustomModel[]>(FILE, []).map((m) => (m.tier !== 'TIER_1_FREE' && isFreeByName(m.model) ? { ...m, tier: 'TIER_1_FREE' as Tier } : m))
-export const getCustomModel = (id: string): CustomModel | undefined =>
-  listCustomModels().find((m) => m.id === id)
+export const getCustomModel = (id: string): CustomModel | undefined => {
+  if (id.startsWith('d:')) {
+    const [, p, ...rest] = id.split(':')
+    return DIRECT[p] ? directView(p, rest.join(':')) : undefined
+  }
+  return listCustomModels().find((m) => m.id === id)
+}
 
-const toView = (m: CustomModel): CustomModelView => ({ ...m, hasKey: !!getSecret(`model:${m.id}`), autoPrice: knownPrice(m.model) })
+// Direct providers (OpenAI / Anthropic) with the user's own key: their model list is cached when "اختبار وكشف الموديلات" runs.
+const DIRECT: Record<string, { label: string; baseURL: string; keyRef: 'OPENAI_API_KEY' | 'ANTHROPIC_API_KEY' }> = {
+  openai: { label: 'OpenAI', baseURL: 'https://api.openai.com/v1', keyRef: 'OPENAI_API_KEY' },
+  anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1/', keyRef: 'ANTHROPIC_API_KEY' }
+}
+const DIRECT_FILE = 'direct-models.json'
+const NOT_CHAT = /(tts|whisper|transcribe|embedding|image|dall-e|moderation|realtime|audio|search|computer-use)/i
+export function setDirectModels(p: string, ids: string[]): void {
+  if (!DIRECT[p]) return
+  const all = readJson<Record<string, string[]>>(DIRECT_FILE, {})
+  all[p] = ids.filter((x) => p !== 'openai' || !NOT_CHAT.test(x))
+  writeJson(DIRECT_FILE, all)
+}
+function directView(p: string, model: string): CustomModel {
+  const d = DIRECT[p]
+  return { id: `d:${p}:${model}`, name: `${model} (${d.label})`, model, baseURL: d.baseURL, tier: 'TIER_3_EXPENSIVE', enabled: true, keyRef: d.keyRef }
+}
+function directModels(): CustomModel[] {
+  const all = readJson<Record<string, string[]>>(DIRECT_FILE, {})
+  return Object.keys(DIRECT).flatMap((p) => (all[p] ?? []).map((m) => directView(p, m)))
+}
+const keyOf = (m: CustomModel): string => (m.keyRef ? getApiKey(m.keyRef) ?? '' : getSecret(`model:${m.id}`) ?? '')
+
+const toView = (m: CustomModel): CustomModelView => ({ ...m, hasKey: !!keyOf(m), autoPrice: knownPrice(m.model) })
 // Chat routing (picker, tiers, reviewers) only ever sees chat models; the Models page sees everything.
-export const listCustomModelViews = (): CustomModelView[] => listCustomModels().filter((m) => isChatKind(m.kind)).map(toView)
+export const listCustomModelViews = (): CustomModelView[] => [...listCustomModels().filter((m) => isChatKind(m.kind)), ...directModels()].map(toView)
 export const listAllCustomModelViews = (): CustomModelView[] => listCustomModels().map(toView)
 
 export function customModelsForTier(tier: Tier, last = false): string[] {
@@ -125,11 +154,11 @@ export function toggleCustomModel(id: string): boolean | null {
 
 /** Endpoint + key of a custom model, for the image/speech calls that the OpenAI SDK wrapper does not cover. */
 export function customEndpoint(m: CustomModel): { base: string; key: string } {
-  return { base: m.baseURL || hostOf('openrouter'), key: getSecret(`model:${m.id}`) || (m.baseURL ? '' : process.env.OPENROUTER_API_KEY || '') }
+  return { base: m.baseURL || hostOf('openrouter'), key: keyOf(m) || (m.baseURL ? '' : process.env.OPENROUTER_API_KEY || '') }
 }
 
 export function clientForCustomModel(m: CustomModel): { client: OpenAI; modelId: string } {
-  const key = getSecret(`model:${m.id}`) || (m.baseURL ? '' : process.env.OPENROUTER_API_KEY || '')
+  const key = keyOf(m) || (m.baseURL ? '' : process.env.OPENROUTER_API_KEY || '')
   return {
     client: new OpenAI({
       baseURL: m.baseURL || hostOf('openrouter'),
