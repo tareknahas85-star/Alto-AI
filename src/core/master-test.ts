@@ -2,8 +2,6 @@ import { clientForCustomModel, listCustomModels } from './custom-models'
 import { SYSTEM_PROMPT, parseAnalysis } from './master'
 
 type TestCase = { q: string; tools: boolean; type: string }
-
-// Expected labels written by hand: tools=true when the request needs live data, files, code execution or the computer.
 export const MASTER_TEST_CASES: TestCase[] = [
   // 1) الفكرة الأساسية: مشغل موسيقى للموبايل مدعوم بالذكاء الاصطناعي
   { q: 'ابني تطبيق مشغل موسيقى للموبايل مدعوم بالذكاء الاصطناعي، وبيجيب كلمات الأغاني من النت تلقائياً. خطط للمشروع وابدأ بالكود', tools: true, type: 'code' },
@@ -41,61 +39,92 @@ export type TestRow = {
   raw?: string
 }
 
-export async function runMasterTest(modelHint: string): Promise<{ model: string; summary: Record<string, string | number>; rows: TestRow[] }> {
-  const m = listCustomModels().find((x) => x.model.includes(modelHint))
-  if (!m) throw new Error('ما لقيت موديل ' + modelHint + ' مضاف بالبرنامج. أضفه من صفحة الموديلات أولاً.')
-  const { client, modelId } = clientForCustomModel(m)
-  const rows: TestRow[] = []
-  for (const c of MASTER_TEST_CASES) {
-    const t0 = Date.now()
-    try {
-      const r = await client.chat.completions.create(
-        {
-          model: modelId,
-          temperature: 0.1,
-          max_tokens: 300,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: c.q }
-          ]
-        },
-        { timeout: 60000, maxRetries: 0 }
-      )
-      const text = r.choices[0]?.message?.content ?? ''
-      const a = parseAnalysis(text, [])
-      rows.push({
-        q: c.q,
-        expTools: c.tools,
-        expType: c.type,
-        parsed: !!a,
-        gotTools: a?.need_tools,
-        gotType: a?.type,
-        toolsOk: !!a && a.need_tools === c.tools,
-        typeOk: !!a && a.type === c.type,
-        ms: Date.now() - t0,
-        raw: text.slice(0, 300)
-      })
-    } catch (e) {
-      rows.push({
-        q: c.q,
-        expTools: c.tools,
-        expType: c.type,
-        parsed: false,
-        toolsOk: false,
-        typeOk: false,
-        ms: Date.now() - t0,
-        error: e instanceof Error ? e.message.slice(0, 200) : String(e)
-      })
+export type ModelResult = {
+  model: string
+  summary: Record<string, string | number>
+  rows: TestRow[]
+}
+
+const CONCURRENCY = 4
+const TIMEOUT_MS = 45000
+
+type Client = ReturnType<typeof clientForCustomModel>['client']
+
+async function runCase(client: Client, modelId: string, c: TestCase): Promise<TestRow> {
+  const t0 = Date.now()
+  try {
+    const r = await client.chat.completions.create(
+      {
+        model: modelId,
+        temperature: 0.1,
+        max_tokens: 300,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: c.q }
+        ]
+      },
+      { timeout: TIMEOUT_MS, maxRetries: 0 }
+    )
+    const text = r.choices[0]?.message?.content ?? ''
+    const a = parseAnalysis(text, [])
+    return {
+      q: c.q,
+      expTools: c.tools,
+      expType: c.type,
+      parsed: !!a,
+      gotTools: a?.need_tools,
+      gotType: a?.type,
+      toolsOk: !!a && a.need_tools === c.tools,
+      typeOk: !!a && a.type === c.type,
+      ms: Date.now() - t0,
+      raw: text.slice(0, 300)
+    }
+  } catch (e) {
+    return {
+      q: c.q,
+      expTools: c.tools,
+      expType: c.type,
+      parsed: false,
+      toolsOk: false,
+      typeOk: false,
+      ms: Date.now() - t0,
+      error: e instanceof Error ? e.message.slice(0, 200) : String(e)
     }
   }
-  const n = rows.length
-  const summary = {
-    total: n,
-    parsed: rows.filter((r) => r.parsed).length,
-    toolsCorrect: rows.filter((r) => r.toolsOk).length,
-    typeCorrect: rows.filter((r) => r.typeOk).length,
-    errors: rows.filter((r) => r.error).length,
-    avgMs: Math.round(rows.reduce((s, r) => s + r.ms, 0) / Math.max(n, 1))
+}
+
+async function runModel(hint: string): Promise<ModelResult> {
+  const m = listCustomModels().find((x) => x.model.includes(hint))
+  if (!m) {
+    return { model: hint, summary: { error: 'الموديل غير مضاف بالبرنامج' }, rows: [] }
   }
-  return { model: m.name + ' (' + modelId + ')', summary, rows }
+  const { client, modelId } = clientForCustomModel(m)
+  const rows: TestRow[] = new Array(MASTER_TEST_CASES.length)
+  let next = 0
+  const worker = async (): Promise<void> => {
+    while (next < MASTER_TEST_CASES.length) {
+      const i = next++
+      rows[i] = await runCase(client, modelId, MASTER_TEST_CASES[i])
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker))
+  const n = rows.length
+  return {
+    model: m.name + ' (' + modelId + ')',
+    summary: {
+      total: n,
+      parsed: rows.filter((r) => r.parsed).length,
+      toolsCorrect: rows.filter((r) => r.toolsOk).length,
+      typeCorrect: rows.filter((r) => r.typeOk).length,
+      errors: rows.filter((r) => r.error).length,
+      avgMs: Math.round(rows.reduce((s, r) => s + r.ms, 0) / Math.max(n, 1))
+    },
+    rows
+  }
+}
+
+export async function runMasterTests(hints: string[]): Promise<ModelResult[]> {
+  const out: ModelResult[] = []
+  for (const h of hints) out.push(await runModel(h))
+  return out
 }
