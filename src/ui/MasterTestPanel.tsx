@@ -18,7 +18,7 @@ export function MasterTestPanel() {
   return (
     <div className="mt-4 border-t pt-3">
       <button onClick={run} disabled={busy} className="px-3 py-1.5 rounded bg-slate-700 text-white text-sm disabled:opacity-50">
-        اختبار الماستر (Gemini 4 Carbon)
+        اختبار الماستر (Gemini 4 Hydrogen)
       </button>
       {msg && <pre className="text-xs whitespace-pre-wrap mt-2">{msg}</pre>}
     </div>
