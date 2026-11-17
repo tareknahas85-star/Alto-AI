@@ -3,6 +3,8 @@ import OpenAI from 'openai'
 import { MASTER_MODELS } from './config'
 import { listCustomModels, clientForCustomModel, CUSTOM_PREFIX } from './custom-models'
 import { getPrefs } from './prefs'
+import { getApiKey } from '../store/secure-store'
+import { apinexClient, apinexModelId, hasApinexKey, isApinexModel } from './apinex'
 import { skillCatalog } from '../skills/loader'
 import { emitProgress, currentSignal } from './progress'
 
@@ -190,6 +192,18 @@ function pickStrongestGoogle(ids: string[]): string | null {
     .sort((a, b) => b.s - a.s)
   return scored[0]?.id ?? null
 }
+// الماستر المختار من القائمة: موديل مخصص، أو موديل OpenRouter (المفتاح نفسه)، أو موديل apinex.
+function masterClientFor(chosen: string): { client: OpenAI; modelId: string } | null {
+  if (chosen.startsWith(CUSTOM_PREFIX)) {
+    const m = listCustomModels().find((x) => CUSTOM_PREFIX + x.id === chosen)
+    return m ? clientForCustomModel(m) : null
+  }
+  if (isApinexModel(chosen)) return hasApinexKey() ? { client: apinexClient(), modelId: apinexModelId(chosen) } : null
+  const key = getApiKey('OPENROUTER_API_KEY').trim()
+  if (!key) return null
+  return { client: new OpenAI({ baseURL: hostOf('openrouter'), apiKey: key, timeout: 90000, maxRetries: 0 }), modelId: chosen }
+}
+
 async function googleFallbackModel(client: OpenAI): Promise<string | null> {
   const day = utcDay()
   if (googleCache?.day === day) return googleCache.id
@@ -314,8 +328,8 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
 
   // 1) Primary: gemini-4-hydrogen with the app's Google key.
   const chosen = getPrefs().masterModel
-  const primary = (chosen ? listCustomModels().find((m) => CUSTOM_PREFIX + m.id === chosen) : undefined) ?? listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
-  const google = primary ? clientForCustomModel(primary) : null
+  const primary = listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
+  const google = (chosen ? masterClientFor(chosen) : null) ?? (primary ? clientForCustomModel(primary) : null)
   if (google && !coolingDown(google.modelId)) {
     try {
       emitProgress('الماستر: ' + google.modelId)
