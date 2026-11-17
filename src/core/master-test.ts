@@ -5,28 +5,28 @@ type TestCase = { q: string; tools: boolean; type: string }
 
 // Expected labels written by hand: tools=true when the request needs live data, files, code execution or the computer.
 export const MASTER_TEST_CASES: TestCase[] = [
-  { q: 'ترجم هالجملة للإنجليزي: مرحبا كيفك', tools: false, type: 'chat' },
-  { q: 'شو عاصمة فرنسا؟', tools: false, type: 'chat' },
-  { q: 'اكتبلي دالة بايثون تحسب الفيبوناتشي', tools: true, type: 'code' },
-  { q: 'شو استهلاك الـ CPU الحالي على جهازي؟', tools: true, type: 'file_task' },
-  { q: 'افتح الحاسبة', tools: true, type: 'file_task' },
-  { q: 'لخّص هالنص بجملتين: الذكاء الاصطناعي تقنية تحاكي التفكير البشري في حل المشاكل', tools: false, type: 'chat' },
-  { q: 'ابحث على النت عن آخر أخبار Gemini', tools: true, type: 'research' },
-  { q: 'شو في داخل الملف C:\\temp\\notes.txt؟', tools: true, type: 'file_task' },
-  { q: 'اشرحلي شو هو الـ Kubernetes Pod ببساطة', tools: false, type: 'chat' },
-  { q: 'عدّل الدالة بهالملف وصلّح الباغ', tools: true, type: 'code' },
-  { q: 'احسب 17 ضرب 23', tools: false, type: 'chat' },
-  { q: 'شو الطقس بدمشق اليوم؟', tools: true, type: 'research' },
-  { q: 'اكتبلي رسالة شكر قصيرة لمديري', tools: false, type: 'chat' },
-  { q: 'ارسم صورة قطة فضائية', tools: true, type: 'file_task' },
-  { q: 'اعمللي صفحة HTML بسيطة لعرض منتجاتي', tools: true, type: 'code' },
-  { q: 'افتحلي Gmail وشوف آخر إيميل', tools: true, type: 'file_task' },
-  { q: 'شو الفرق بين TCP و UDP؟', tools: false, type: 'chat' },
-  { q: 'شغّل سكربت PowerShell يعرض الملفات الأكبر من 1 غيغا', tools: true, type: 'file_task' },
-  { q: 'ترجم هالفقرة للفرنسي: الطقس جميل اليوم', tools: false, type: 'chat' },
-  { q: 'اقترحلي اسم لمشروعي الجديد', tools: false, type: 'chat' }
+  // 1) الفكرة الأساسية: مشغل موسيقى للموبايل مدعوم بالذكاء الاصطناعي
+  { q: 'ابني تطبيق مشغل موسيقى للموبايل مدعوم بالذكاء الاصطناعي، وبيجيب كلمات الأغاني من النت تلقائياً. خطط للمشروع وابدأ بالكود', tools: true, type: 'code' },
+  { q: 'صمم بنية قاعدة البيانات لتطبيق المشغل: أغاني، قوائم تشغيل، وكلمات مخزنة أوفلاين', tools: false, type: 'code' },
+  { q: 'اكتبلي دالة Kotlin تجيب كلمات الأغنية من Genius API وترجع نص نظيف بدون وسوم HTML', tools: true, type: 'code' },
+  { q: 'ابحث عن أفضل مكتبات Android لتشغيل الصوت بالخلفية (background playback) وقارن بينهم', tools: true, type: 'research' },
+  { q: 'شو الفرق بين ExoPlayer و MediaPlayer في Android؟ أيهم أنسب لمشغل موسيقى؟', tools: false, type: 'chat' },
+  { q: 'رتّب ملفات الموسيقى في مجلد Music على جهازي حسب الفنان ثم الألبوم', tools: true, type: 'file_task' },
+  { q: 'شغّل اختبارات الوحدات لمشروع المشغل وقلي شو فشل ولييش', tools: true, type: 'code' },
+  { q: 'اعمل صفحة landing بسيطة لتطبيق المشغل بالعربي والإنجليزي مع زر تحميل', tools: true, type: 'code' },
+  { q: 'ترجم هالكلمات من أغنية إنجليزية للعربي الشامي بشكل طبيعي: I walk alone through the rain', tools: false, type: 'chat' },
+  { q: 'شو أحسن طريقة أخزن كلمات الأغاني أوفلاين بدون ما أستهلك مساحة كبيرة؟', tools: false, type: 'chat' },
+  { q: 'ابحث عن رسوم نشر تطبيق على Google Play Console وشروطه الحالية', tools: true, type: 'research' },
+  { q: 'عدّل ملف AndroidManifest.xml وضيف صلاحيات الإنترنت وقراءة الملفات الصوتية', tools: true, type: 'file_task' },
+  { q: 'اكتب سكربت PowerShell ينقل كل ملفات mp3 من مجلد Downloads لمجلد Music بدون ما يكرر الملفات', tools: true, type: 'file_task' },
+  { q: 'صمم خطة مراحل لبناء المشغل من الصفر لحد النشر على المتجر، مع تقدير الوقت لكل مرحلة', tools: false, type: 'chat' },
+  { q: 'راجع أمنياً كود يخزن مفتاح API بالـ SharedPreferences وقلي شو الحل الصحيح', tools: false, type: 'code' },
+  { q: 'افتح المتصفح وشوف آخر إصدار من ExoPlayer على GitHub وقلي شو الجديد', tools: true, type: 'research' },
+  { q: 'اقترحلي 5 أسماء عربية وإنجليزية لتطبيق المشغل', tools: false, type: 'chat' },
+  { q: 'حلّل ملف logcat.txt الموجود على جهازي وقلي ليش التطبيق بيقفل فجأة', tools: true, type: 'file_task' },
+  { q: 'ضيف زر في المشغل يعرض الكلمات متزامنة مع الأغنية (karaoke style) وعدّل الواجهة', tools: true, type: 'code' },
+  { q: 'احسب تكلفة استدعاء Gemini API إذا كان عندي 10 آلاف مستخدم يومياً، كل واحد يطلب 20 كلمة أغنية', tools: false, type: 'chat' }
 ]
-
 export type TestRow = {
   q: string
   expTools: boolean
