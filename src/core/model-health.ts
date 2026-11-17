@@ -23,6 +23,10 @@ export function noteModelFailure(model: string, message: string): void {
   if (/free-models-per-day/i.test(message)) {
     h.freeUntil = nextUtcMidnight()
     changed = true
+  } else if (/\b402\b|Make a single top-up|Daily check-in required/i.test(message)) {
+    // 402 = الموديل يحتاج شحن أو check-in (apinex المجاني): ما بنعيد تجربته كل طلب، ينحجب 24 ساعة.
+    h.blocked[model] = Date.now() + 24 * 3600 * 1000
+    changed = true
   } else if (/only available on agentic harness|No endpoints found|model not found|is not a valid model/i.test(message)) {
     h.blocked[model] = Date.now() + 24 * 3600 * 1000
     changed = true
