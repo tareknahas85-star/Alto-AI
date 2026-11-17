@@ -125,7 +125,7 @@ export function registerManagementHandlers(): void {
   ipcMain.handle('master:candidates', () => {
     ensureCatalogFresh()
     const custom = listCustomModelViews().filter((m) => m.enabled).map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: m.tier }))
-    const router = listCatalog().models.map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier }))
+    const router = listCatalog().models.filter((m) => m.pricePerM === 0).map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier }))
     const apinex = hasApinexKey() ? apinexFreeIds().map((id) => ({ value: id, label: id.replace(/^apinex:/, '') + ' (apinex)', tier: 'TIER_1_FREE' })) : []
     return [...custom, ...router, ...apinex]
   })
