@@ -6,14 +6,14 @@ import { lintSkill } from '../skills/lint'
 import { freeOnly, setFreeOnly } from '../core/spend'
 import { freeFirst, setFreeFirst } from '../core/free-provider'
 import { localChatModel, setLocalChatModel } from '../core/local-chat'
-import { apinexRefreshNow } from '../core/apinex'
+import { apinexFreeIds, apinexRefreshNow, hasApinexKey } from '../core/apinex'
 import { getRoles, setRoles } from '../core/roles'
 import { getClaudeUsage, setClaudeCap } from '../core/claude-usage'
 import { getEngineSeries } from '../core/usage-log'
 import { freeUsage } from '../core/model-health'
 import { moveCatalogModel } from '../core/catalog'
 import { deleteMemoryEntry, importMemory, listMemory, memoryPrompt, saveMemoryEntry, toggleMemoryEntry } from '../core/memory'
-import { fetchOpenRouterModels, listCatalog, resetCatalogEnabled, setCatalogEnabled, testOpenRouterKey } from '../core/catalog'
+import { ensureCatalogFresh, fetchOpenRouterModels, listCatalog, resetCatalogEnabled, setCatalogEnabled, testOpenRouterKey } from '../core/catalog'
 import { HOST_DEFAULTS, hostOf, hostsInfo, setHost, type HostId } from '../core/hosts'
 import { getApiKey } from '../store/secure-store'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
@@ -120,6 +120,14 @@ export function registerManagementHandlers(): void {
   ipcMain.handle('master:get', () => {
     const hyd = listMasterCandidates().find((m) => m.model.includes('gemini-4-hydrogen'))
     return { value: getPrefs().masterModel, recommended: hyd ? CUSTOM_PREFIX + hyd.id : '' }
+  })
+  // كل الموديلات النازلة على البرنامج: مخصصة مفعّلة + كل كتالوج OpenRouter + مجاني apinex. الكتالوج بيتحدث تلقائي.
+  ipcMain.handle('master:candidates', () => {
+    ensureCatalogFresh()
+    const custom = listCustomModelViews().filter((m) => m.enabled).map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: m.tier }))
+    const router = listCatalog().models.map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier }))
+    const apinex = hasApinexKey() ? apinexFreeIds().map((id) => ({ value: id, label: id.replace(/^apinex:/, '') + ' (apinex)', tier: 'TIER_1_FREE' })) : []
+    return [...custom, ...router, ...apinex]
   })
   ipcMain.handle('master:set', (_e, v: unknown) => setPrefs({ masterModel: typeof v === 'string' ? v : '' }).masterModel)
   ipcMain.handle('apinex:refresh', () => apinexRefreshNow())

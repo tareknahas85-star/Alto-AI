@@ -170,6 +170,7 @@ declare global {
       }
       master: {
         get: () => Promise<{ value: string; recommended: string }>
+        candidates: () => Promise<{ value: string; label: string; tier: string }[]>
         set: (v: string) => Promise<string>
       }
       freeFirst: {
