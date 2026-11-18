@@ -7,6 +7,7 @@ import { apinexClient, apinexModelId, hasApinexKey, isApinexModel } from './apin
 import { listCatalog } from './catalog'
 import { getRoles } from './roles'
 import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel, listCustomModelViews } from './custom-models'
+import { WEAK_MODEL } from './reply-quality'
 
 // العيلة: نفس العيلة = ما نعتبر المراجعة مستقلة. الموديل المخصص يتصنّف حسب اسم موديله (claude / gemini / gpt).
 const family = (e: string): string => {
@@ -97,7 +98,11 @@ export async function independentReview(author: string, task: string, authorSumm
   const pref = getRoles().reviewer
   if (pref !== 'auto' && family(pref) === family(author)) c.emit('المراجع المفضّل من نفس عيلة المنفّذ، بنختار مراجع من عيلة تانية')
   const preferred: string[] = pref !== 'auto' && family(pref) !== family(author) ? [pref] : []
-  const candidates = [...preferred, ...others.filter((e) => !preferred.includes(e)), author]
+  // الموديلات الخفيفة/المجانية ما بتراجع بثقة: نجرّب القوي من عيلة تانية أولاً، بعدين القوي من نفس العيلة (مع علامة مو مستقل)، وآخر شي الخفيف.
+  const isWeakRev = (e: string): boolean => { const n = e.startsWith(CUSTOM_PREFIX) ? (getCustomModel(e.slice(CUSTOM_PREFIX.length))?.model ?? e) : e; const tier = e.startsWith(CUSTOM_PREFIX) ? getCustomModel(e.slice(CUSTOM_PREFIX.length))?.tier : undefined; return WEAK_MODEL.test(n) || tier === 'TIER_1_FREE' || /:free$/i.test(e) }
+  const sameFamStrong = apiReviewers.filter((e) => e !== author && family(e) === family(author) && !isWeakRev(e) && !preferred.includes(e))
+  const ordered = [...preferred, ...others.filter((e) => !isWeakRev(e) && !preferred.includes(e)), ...sameFamStrong, ...others.filter((e) => isWeakRev(e) && !preferred.includes(e))]
+  const candidates = [...new Set([...ordered, author])]
   const body = 'TASK GIVEN TO THE AUTHOR:\n' + task.slice(0, 3000) + '\n\nAUTHOR\'S OWN FINAL SUMMARY (unverified claims):\n' + authorSummary.slice(0, 4000) + '\n\nReview the actual project folder now.' + (c.cwd ? '\n\nPROJECT FOLDER (your working directory; write REVIEW-AUTO.md ONLY inside this exact folder, never in any other folder): ' + c.cwd : '')
   for (const eng of candidates) {
     try {

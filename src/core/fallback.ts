@@ -17,7 +17,7 @@ import { emitProgress, emitStream, emitAgent, currentSignal, currentMode } from 
 import { rotateLogFile } from './log-rotate'
 import { buildProject, setRunProject } from './workspace'
 import { quarantineEmptyFragments, appendRunLog } from './run-report'
-import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel } from './custom-models'
+import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel, listCustomModels } from './custom-models'
 import { isTinyModelId } from './model-size'
 import { textProtocol, textToolLoop } from './text-tools'
 import { effortExtra, getEffort, type EffortRoute } from './effort'
@@ -154,7 +154,7 @@ export async function executeWithFallback(
 ): Promise<FallbackResult> {
   // 5.17.8: بناء مشروع مع أدوات تحكم بالجهاز: موديلات apinex المجانية ما بتنفّذ بثقة، ما بننزّل مهمة تنفيذ عليها. إذا ما بقي غيرها نوقف برسالة واضحة.
   let list = customExecutorFirst(fastGeminiRoute(models, userInput), toolset)
-  const autoPc = currentMode()?.kind === 'auto' && !!toolset?.defs.some((d) => (d as { function?: { name?: string } }).function?.name?.startsWith('pc_'))
+  const autoPc = !!toolset?.defs.some((d) => (d as { function?: { name?: string } }).function?.name?.startsWith('pc_'))
   if (autoPc) {
     // قائمة سماح: الموديلات القوية المدفوعة + محركات CLI + الموديل المختار يدوياً كمنفّذ + المخصصة غير الخفيفة (flash/lite/mini/free).
     const roleEx = getRoles().executor
@@ -162,11 +162,14 @@ export async function executeWithFallback(
     // المنفّذ المختار يدوياً بيتخطّى لو موديل خفيف (flash/lite/mini...): ما بينفّذ بثقة.
     const weakId = (m: string): boolean => WEAK_MODEL.test(m.startsWith(CUSTOM_PREFIX) ? (getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? '') : m)
     if (roleEx !== 'auto' && weakId(roleEx)) emitProgress('المنفّذ المختار موديل خفيف وما بينفّذ بثقة، تخطّيتو. اختار Claude/GPT أو Gemini Pro من قائمة المنفّذ.')
+    const hyd = listCustomModels().find((m) => m.model.includes('gemini-4-hydrogen'))
+    if (hyd) list = [CUSTOM_PREFIX + hyd.id, ...list.filter((m) => m !== CUSTOM_PREFIX + hyd.id)]
     const strongOnly = list.filter((m) => (m === roleEx && !weakId(m)) || isCliModel(m) || isAgentEngine(m) || strongSet.has(m) || (m.startsWith(CUSTOM_PREFIX) && !WEAK_MODEL.test(getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? 'flash')))
     if (!strongOnly.length) {
       return { content: '❌ ما في موديل مناسب لتنفيذ مهمة بناء بأدوات الجهاز (الباقي بس موديلات مجانية أو خفيفة متل Flash وapinex، وهدول ما بينفّذوا بثقة). اختار من قائمة المنفّذ موديل Claude/GPT أو Gemini Pro وأعد الطلب.', modelUsed: 'none', success: false, triedModels: [] as string[] } as unknown as FallbackResult
     }
     list = strongOnly
+    try { fs.appendFileSync(dataFile('router.log'), new Date().toISOString() + ' PC-ORDER :: hyd=' + (hyd ? hyd.id : 'NONE') + ' | ' + list.join(' << ') + '\n') } catch { /* السجل اختياري */ }
   }
   const r = await executeWithFallbackInner(list, userInput, analysis, systemPrompt, toolset, history, opts)
   // تحقق فعلي من ادعاءات السيرفر (بدون موديل): لو الرد بيذكر localhost:PORT وما في سيرفر شغّال، بنقلب الحكم.

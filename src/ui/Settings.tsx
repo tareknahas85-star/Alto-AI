@@ -12,6 +12,7 @@ import { TelegramPanel } from './TelegramPanel'
 import { RemotePanel } from './RemotePanel'
 import { TransferPanel } from './TransferPanel'
 import { UpdatePanel } from './UpdatePanel'
+import { MasterTestPanel } from './MasterTestPanel'
 
 const KEY_NAMES = ['OPENROUTER_API_KEY', 'APINEX_API_KEY', 'GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'HUGGINGFACE_API_KEY'] as const
 type KeyName = (typeof KEY_NAMES)[number]
@@ -114,6 +115,7 @@ export function Settings({ onClose, variant = 'modal' }: { onClose?: () => void;
             <RemotePanel />
             <TransferPanel />
             <UpdatePanel />
+            <MasterTestPanel />
           </>
         )}
         {tab === 'connectors' && (
@@ -136,6 +138,7 @@ export function Settings({ onClose, variant = 'modal' }: { onClose?: () => void;
   return (
     <Modal title="الإعدادات" onClose={onClose ?? (() => undefined)}>
       {form}
+      <MasterTestPanel />
     </Modal>
   )
 }

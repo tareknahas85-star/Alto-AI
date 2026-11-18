@@ -1,43 +1,14 @@
 import { hostOf } from './hosts'
 import OpenAI from 'openai'
 import { MASTER_MODELS } from './config'
+import { listCustomModels, getCustomModel, clientForCustomModel, CUSTOM_PREFIX } from './custom-models'
+import { getPrefs } from './prefs'
+import { getApiKey } from '../store/secure-store'
+import { apinexClient, apinexModelId, hasApinexKey, isApinexModel } from './apinex'
 import { skillCatalog } from '../skills/loader'
 import { emitProgress, currentSignal } from './progress'
 
-// Small local maestro (Ollama). Used first when the model is installed; falls back to the OpenRouter maestros.
-const LOCAL_MASTER = 'qwen3:4b'
 const LOCAL_BASE = 'http://127.0.0.1:11434'
-let localCheck: { at: number; ok: boolean } = { at: 0, ok: false }
-async function localMasterAvailable(): Promise<boolean> {
-  if (Date.now() - localCheck.at < 30000) return localCheck.ok
-  let ok = false
-  try {
-    const r = await fetch(LOCAL_BASE + '/api/tags', { signal: AbortSignal.timeout(1500) })
-    const j = (await r.json()) as { models?: { name: string }[] }
-    ok = !!j.models?.some((m) => m.name === LOCAL_MASTER)
-  } catch {
-    ok = false
-  }
-  localCheck = { at: Date.now(), ok }
-  return ok
-}
-
-// Keyword pre-filter so a small maestro only sees the few most relevant skills.
-function topSkillsScored(input: string, all: { name: string; description: string }[], n = 8) {
-  const words = new Set(input.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])
-  const scored = all
-    .map((c) => {
-      const hay = (c.name.replace(/[-_]/g, ' ') + ' ' + c.description).toLowerCase()
-      let sc = 0
-      for (const w of words) if (hay.includes(w)) sc += c.name.toLowerCase().includes(w) ? 3 : 1
-      return { c, sc }
-    })
-    .filter((x) => x.sc > 0)
-    .sort((a, b) => b.sc - a.sc)
-    .slice(0, n)
-  return scored
-}
-
 export type Analysis = {
   complexity: 'simple' | 'medium' | 'complex'
   type: 'chat' | 'code' | 'research' | 'file_task'
@@ -51,7 +22,7 @@ export type Analysis = {
 }
 
 
-const SYSTEM_PROMPT =
+export const SYSTEM_PROMPT =
   'You are a request classifier. Analyze the user request and return ONLY valid JSON without markdown. ' +
   'Format: {"complexity":"simple|medium|complex","type":"chat|code|research|file_task","need_skill":"none|delegate-coding|delegate-research|delegate-file","need_tools":true/false,"reason":"short reason"} ' +
   'Rules: simple=general chat/translation/summary, medium=simple code/explanation, complex=full project/file operations/multi-step. ' +
@@ -75,7 +46,7 @@ function fallbackAnalysis(): Analysis {
     complexity: 'simple',
     type: 'chat',
     need_skill: 'none',
-    need_tools: false,
+    need_tools: true,
     reason: 'fallback',
     source: 'fallback'
   }
@@ -99,7 +70,7 @@ function getClient(): OpenAI {
   return client
 }
 
-function parseAnalysis(text: string, skillNames: string[] = []): Analysis | null {
+export function parseAnalysis(text: string, skillNames: string[] = []): Analysis | null {
   const match = text.match(/\{.*\}/s)
   if (!match) return null
 
@@ -173,17 +144,162 @@ function parseLocal(text: string, skillNames: string[], input: string, boost?: s
 }
 
 export async function warmLocalMaster(): Promise<void> {
-  if (!(await localMasterAvailable())) return
+  const installed = await installedLocalModels()
+  const pick = APPROVED_LOCAL_MASTERS.find((m) => installed.includes(m))
+  if (!pick) return
   try {
     await fetch(LOCAL_BASE + '/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: LOCAL_MASTER, prompt: '', keep_alive: '5m' }),
+      body: JSON.stringify({ model: pick, prompt: '', keep_alive: '5m' }),
       signal: AbortSignal.timeout(90000)
     })
   } catch {
     /* ollama busy */
   }
+}
+
+// Approved local masters, strongest first. Small models (e.g. qwen3:4b) are never used as the master.
+const APPROVED_LOCAL_MASTERS = ['qwen3:32b', 'qwen2.5:32b', 'qwen3:14b', 'qwen2.5:14b', 'gemma3:12b']
+// Primary cloud master: used whenever its key is in the app.
+const PRIMARY_MASTER = 'gemini-4-hydrogen'
+const COOLDOWN_MS = 10 * 60 * 1000
+
+// A model that answered 429 (quota) is skipped for a while instead of being hammered.
+const cooldown = new Map<string, number>()
+function coolingDown(id: string): boolean {
+  return (cooldown.get(id) ?? 0) > Date.now()
+}
+function noteFailure(id: string, error: unknown): void {
+  const status = (error as { status?: number } | null)?.status
+  if (status === 429) cooldown.set(id, Date.now() + COOLDOWN_MS)
+}
+const utcDay = (): string => new Date().toISOString().slice(0, 10)
+
+// Strongest other Gemini chat model on the same Google key (picked once per day).
+let googleCache: { day: string; id: string | null } | null = null
+const NOT_CHAT = /embedding|image|tts|live|audio|aqa|veo|imagen|learnlm|computer|robotics/i
+function pickStrongestGoogle(ids: string[]): string | null {
+  const scored = ids
+    .map((raw) => raw.replace(/^models\//, ''))
+    .filter((id) => /^gemini-/.test(id) && !NOT_CHAT.test(id) && id !== PRIMARY_MASTER)
+    .map((id) => {
+      const v = parseFloat(id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0')
+      const tier = /pro/.test(id) ? 2 : /flash/.test(id) && !/lite/.test(id) ? 1 : 0
+      const preview = /preview|exp/.test(id) ? -0.5 : 0
+      return { id, s: v * 10 + tier * 3 + preview }
+    })
+    .sort((a, b) => b.s - a.s)
+  return scored[0]?.id ?? null
+}
+// الماستر المختار من القائمة: موديل مخصص، أو موديل OpenRouter (المفتاح نفسه)، أو موديل apinex.
+function masterClientFor(chosen: string): { client: OpenAI; modelId: string } | null {
+  if (chosen.startsWith(CUSTOM_PREFIX)) {
+    const m = getCustomModel(chosen.slice(CUSTOM_PREFIX.length))
+    return m ? clientForCustomModel(m) : null
+  }
+  if (isApinexModel(chosen)) return hasApinexKey() ? { client: apinexClient(), modelId: apinexModelId(chosen) } : null
+  const key = getApiKey('OPENROUTER_API_KEY').trim()
+  if (!key) return null
+  return { client: new OpenAI({ baseURL: hostOf('openrouter'), apiKey: key, timeout: 90000, maxRetries: 0 }), modelId: chosen }
+}
+
+async function googleFallbackModel(client: OpenAI): Promise<string | null> {
+  const day = utcDay()
+  if (googleCache?.day === day) return googleCache.id
+  try {
+    const ids: string[] = []
+    for await (const m of client.models.list()) ids.push(m.id)
+    const id = pickStrongestGoogle(ids)
+    googleCache = { day, id }
+    return id
+  } catch (error) {
+    console.warn('[Master] could not list Google models:', error)
+    return null
+  }
+}
+
+// Free OpenRouter models that support tools, refreshed once per day from the public catalog.
+let openRouterCache: { day: string; ids: string[] } | null = null
+async function openRouterFreeTools(): Promise<string[]> {
+  const day = utcDay()
+  if (openRouterCache?.day === day) return openRouterCache.ids
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(10000) })
+    const j = (await r.json()) as { data?: { id: string; context_length?: number; supported_parameters?: string[] }[] }
+    const ids = (j.data ?? [])
+      .filter((m) => m.id.endsWith(':free') && (m.supported_parameters ?? []).includes('tools'))
+      .sort((a, b) => (b.context_length ?? 0) - (a.context_length ?? 0))
+      .slice(0, 8)
+      .map((m) => m.id)
+    if (ids.length) {
+      openRouterCache = { day, ids }
+      return ids
+    }
+  } catch (error) {
+    console.warn('[Master] could not load free OpenRouter models:', error)
+  }
+  return MASTER_MODELS
+}
+
+async function installedLocalModels(): Promise<string[]> {
+  try {
+    const r = await fetch(LOCAL_BASE + '/api/tags', { signal: AbortSignal.timeout(1500) })
+    const j = (await r.json()) as { models?: { name: string }[] }
+    return (j.models ?? []).map((m) => m.name)
+  } catch {
+    return []
+  }
+}
+
+async function tryLocalMaster(userInput: string, system: string, names: string[]): Promise<Analysis | null> {
+  const installed = await installedLocalModels()
+  const pick = APPROVED_LOCAL_MASTERS.find((m) => installed.includes(m))
+  if (!pick) return null
+  try {
+    emitProgress('الماستر المحلي: ' + pick)
+    const cs = currentSignal()
+    const r = await fetch(LOCAL_BASE + '/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.any([AbortSignal.timeout(60000), ...(cs ? [cs] : [])]),
+      body: JSON.stringify({
+        model: pick,
+        stream: false,
+        think: false,
+        format: 'json',
+        keep_alive: '5m',
+        options: { temperature: 0, num_predict: 1000 },
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: userInput }
+        ]
+      })
+    })
+    const j = (await r.json()) as { message?: { content?: string } }
+    const parsed = parseLocal(j.message?.content ?? '', names, userInput, undefined)
+    if (parsed) return { ...parsed, source: 'local', masterModel: pick }
+    console.warn('[Master] local master unparseable:', pick)
+  } catch (error) {
+    console.warn('[Master] local master failed:', pick, error)
+  }
+  return null
+}
+
+async function askCloud(client: OpenAI, modelId: string, system: string, userInput: string, names: string[]): Promise<Analysis | null> {
+  const completion = await client.chat.completions.create(
+    {
+      model: modelId,
+      temperature: 0.1,
+      max_tokens: 1000,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userInput }
+      ]
+    },
+    { signal: currentSignal(), timeout: 25000, maxRetries: 0 }
+  )
+  return parseAnalysis(completion.choices[0]?.message?.content ?? '', names)
 }
 
 export async function analyzeRequest(userInput: string, localOnly = false): Promise<Analysis> {
@@ -195,82 +311,74 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
   }
   const names = catalog.map((c) => c.name)
   emitProgress('الماستر يحلل الطلب…')
-  const useLocal = await localMasterAvailable()
-  if (useLocal) {
-    const scored = topSkillsScored(userInput, catalog)
-    const shortlist = scored.map((x) => x.c)
-    // Strong keyword match with a clear lead => hint the skill even if the small model misses it.
-    const boost = scored[0] && scored[0].sc >= 4 && scored[0].sc >= 1.5 * (scored[1]?.sc ?? 0) ? scored[0].c.name : undefined
-    const sys = shortlist.length
-      ? SYSTEM_PROMPT +
-        ' Add an optional field "skill": the EXACT name of ONE skill from AVAILABLE_SKILLS only if it clearly fits the request, otherwise omit it. AVAILABLE_SKILLS:\n' +
-        shortlist.map((c) => `- ${c.name}: ${c.description}`).join('\n')
-      : SYSTEM_PROMPT
-    try {
-      const cs = currentSignal()
-      const r = await fetch(LOCAL_BASE + '/api/chat', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        signal: AbortSignal.any([AbortSignal.timeout(40000), ...(cs ? [cs] : [])]),
-        body: JSON.stringify({
-          model: LOCAL_MASTER,
-          stream: false,
-          think: false,
-          format: 'json',
-          keep_alive: '5m',
-          options: { temperature: 0, num_predict: 300 },
-          messages: [
-            { role: 'system', content: sys },
-            { role: 'user', content: userInput }
-          ]
-        })
-      })
-      const j = (await r.json()) as { message?: { content?: string } }
-      const parsed = parseLocal(j.message?.content ?? '', names, userInput, boost)
-      if (parsed) {
-        console.log('[Master] local maestro answered')
-        return { ...parsed, source: 'local', masterModel: LOCAL_MASTER }
-      }
-      console.warn('[Master] local maestro unparseable')
-    } catch (error) {
-      console.warn('[Master] local maestro failed, using OpenRouter:', error)
-    }
-  }
-  if (localOnly) {
-    // Confidential project: the request text never goes to a cloud maestro.
-    emitProgress('مشروع سري: التحليل محلي بس')
-    return { ...fallbackAnalysis(), complexity: 'complex' }
-  }
   const system = catalog.length
     ? SYSTEM_PROMPT +
       ' Add an optional field "skill": the EXACT name of ONE skill from AVAILABLE_SKILLS only if it clearly fits the request, otherwise omit it or use null. ' +
       'AVAILABLE_SKILLS:\n' +
       catalog.map((c) => `- ${c.name}: ${c.description}`).join('\n')
     : SYSTEM_PROMPT
-  for (const model of MASTER_MODELS) {
+
+  if (localOnly) {
+    // Confidential project: the request text never goes to a cloud maestro.
+    const local = await tryLocalMaster(userInput, system, names)
+    if (local) return { ...local, complexity: 'complex' }
+    emitProgress('مشروع سري: ما في ماستر محلي قوي، وضع احتياطي')
+    return { ...fallbackAnalysis(), complexity: 'complex' }
+  }
+
+  // 1) Primary: gemini-4-hydrogen with the app's Google key.
+  const chosen = getPrefs().masterModel
+  const primary = listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
+  const google = (chosen ? masterClientFor(chosen) : null) ?? (primary ? clientForCustomModel(primary) : null)
+  if (google && !coolingDown(google.modelId)) {
+    try {
+      emitProgress('الماستر: ' + google.modelId)
+      const a = await askCloud(google.client, google.modelId, system, userInput, names)
+      if (a) return { ...a, source: 'hydrogen', masterModel: google.modelId }
+      console.warn('[Master] unparseable answer from', google.modelId)
+    } catch (error) {
+      noteFailure(google.modelId, error)
+      console.warn('[Master] primary failed, switching:', error)
+      emitProgress('الماستر الأساسي ما اشتغل، بنحوّل للاحتياطي')
+    }
+  }
+
+  // 2) Strongest other Gemini model on the same Google key.
+  if (google) {
+    const gid = await googleFallbackModel(google.client)
+    if (gid && !coolingDown(gid)) {
+      try {
+        emitProgress('الماستر البديل (Google): ' + gid)
+        const a = await askCloud(google.client, gid, system, userInput, names)
+        if (a) return { ...a, source: 'google', masterModel: gid }
+      } catch (error) {
+        noteFailure(gid, error)
+        console.warn('[Master] google fallback failed:', error)
+      }
+    }
+  }
+
+  // 3) Strongest approved local model installed on this machine.
+  const local = await tryLocalMaster(userInput, system, names)
+  if (local) return local
+
+  // 4) Second provider: free OpenRouter models that support tools.
+  for (const model of await openRouterFreeTools()) {
     if (currentSignal()?.aborted) break
+    if (coolingDown(model)) continue
     try {
       emitProgress('الماستر (OpenRouter): ' + model)
-      const completion = await getClient().chat.completions.create({
-        model,
-        temperature: 0.1,
-        max_tokens: 300,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userInput }
-        ]
-      }, { signal: currentSignal() })
-      const text = completion.choices[0]?.message?.content ?? ''
-      const parsed = parseAnalysis(text, names)
-      if (parsed) return { ...parsed, source: 'openrouter', masterModel: model }
+      const a = await askCloud(getClient(), model, system, userInput, names)
+      if (a) return { ...a, source: 'openrouter', masterModel: model }
       console.warn('[Master] unparseable answer from', model)
     } catch (error) {
+      noteFailure(model, error)
       console.warn('[Master] model failed, trying next:', model, error)
     }
   }
+  emitProgress('الماستر ما قدر يحلل، الأدوات مفعّلة (وضع احتياطي)')
   return fallbackAnalysis()
 }
-
 // --- Simple test (uncomment to try; needs OPENROUTER_API_KEY in the environment) ---
 // import 'dotenv/config'
 //

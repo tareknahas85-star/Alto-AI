@@ -15,6 +15,9 @@ files:
   - '!*.{log,apk}'
   - '!build-*.txt'
   - '!{mobile,relay,tests,scripts,.github,.vscode}/**'
+  - '!archive/**'
+  - '!_to_delete/**'
+  - '!_local/**'
 extraResources:
   - from: src/skills/delegate-skills
     to: skills

@@ -5,15 +5,11 @@ import { askConfirm } from './components/confirm'
 import { Loader2, Plug, Plus, Trash2 } from 'lucide-react'
 import type { CustomModelInfo, Tier } from '../preload/index.d'
 import { KeyField, type KeyName } from './KeyField'
-import { CatalogPanel } from './CatalogPanel'
-import { OpenRouterFreePanel } from './OpenRouterFreePanel'
-import { HfPanel } from './HfPanel'
 import { estimateStrength } from '../core/model-rank'
 import { CapIcons, guessCaps, type Caps } from './Caps'
 import { guessKind } from '../core/media-custom'
 import { nameColor } from './brandColor'
 import { HostField } from './HostField'
-import { FreeProbePanel } from './FreeProbePanel'
 import { toneOf } from '../core/check-soften'
 import { CheckButton, CheckPanel, useFullCheck } from './FullCheck'
 import { Chip, Empty, Modal, PageShell, TIER_LABEL, Toggle, cardCls, ghostBtn, inputCls, primaryBtn, useTab } from './components/ui'
@@ -29,7 +25,6 @@ const PROVIDERS = [
   { id: 'general', name: 'عام: المجاني والتكلفة' },
   { id: 'openrouter', name: 'OpenRouter', key: 'OPENROUTER_API_KEY' },
   { id: 'apinex', name: 'APInex', key: 'APINEX_API_KEY' },
-  { id: 'huggingface', name: 'Hugging Face', key: 'HUGGINGFACE_API_KEY' },
   { id: 'gemini', name: 'Gemini', key: 'GEMINI_API_KEY' },
   { id: 'openai', name: 'OpenAI', key: 'OPENAI_API_KEY' },
   { id: 'anthropic', name: 'Anthropic', key: 'ANTHROPIC_API_KEY' },
@@ -90,6 +85,49 @@ function ApinexPanel() {
   )
 }
 
+// OpenRouter: زر سحب + قائمة المجاني بس، بدون تفعيل ولا تسكير (نفس بساطة APInex).
+function OpenRouterSimplePanel() {
+  const [models, setModels] = useState<{ id: string; name: string; pricePerM: number }[]>([])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const load = async (): Promise<void> => {
+    const c = await window.api.catalog.list()
+    setModels((c.models as typeof models).filter((m) => m.pricePerM === 0))
+  }
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const pull = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      const r = await window.api.catalog.fetch()
+      setMsg(r.ok ? `✅ ${r.total} موديل مسحوب` : '❌ ' + r.message)
+      await load()
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className={`mt-3 ${cardCls}`}>
+      <h3 className="mb-2 text-sm font-semibold">الموديلات المجانية من OpenRouter</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={ghostBtn} onClick={() => void pull()} disabled={busy}>
+          {busy ? 'جاري السحب…' : 'اسحب الموديلات'}
+        </button>
+        {models.length > 0 && <span className="text-xs text-muted">{models.length} موديل مجاني</span>}
+      </div>
+      {msg && <p className="mt-2 text-xs">{msg}</p>}
+      {models.length > 0 && (
+        <ul className="mt-2 max-h-72 list-disc overflow-auto pr-5 text-xs text-muted" dir="ltr">
+          {models.slice().sort((a, b) => estimateStrength(b.id) - estimateStrength(a.id)).map((m) => (
+            <li key={m.id}>{m.id} <span className="text-[10px]">· {Math.round(estimateStrength(m.id))}</span></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai/'
 const empty = { name: '', model: '', baseURL: '', apiKey: '', tier: 'TIER_2_CHEAP' as Tier, kind: 'chat' as 'chat' | 'image' | 'audio' | 'video', desc: '', limit: '' }
 const KIND_LABEL = { chat: 'محادثة', image: 'توليد صور', audio: 'توليد صوت', video: 'توليد فيديو' } as const
@@ -365,10 +403,7 @@ export function ModelsPage() {
             <>
               {head('OpenRouter')}
               <KeyField name="OPENROUTER_API_KEY" verify={() => window.api.catalog.test()} onChange={setKeyHas('OPENROUTER_API_KEY')} />
-              <HostField id="openrouter" />
-              <OpenRouterFreePanel />
-              <CatalogPanel />
-              <FreeProbePanel />
+              <OpenRouterSimplePanel />
               <UsageChart />
               <h3 className="mb-2 mt-6 text-sm font-semibold text-muted">الموديلات المدمجة (حسب الطبقة)</h3>
               <div className="grid gap-3 md:grid-cols-3">
@@ -381,21 +416,6 @@ export function ModelsPage() {
                   </div>
                 ))}
               </div>
-            </>
-          )}
-          {prov === 'huggingface' && (
-            <>
-              {head('Hugging Face')}
-              <KeyField
-                name="HUGGINGFACE_API_KEY"
-                onChange={setKeyHas('HUGGINGFACE_API_KEY')}
-                verify={async () => {
-                  const r = await window.api.hf.models()
-                  return { ok: r.ok, message: r.ok ? `المفتاح شغّال، ${r.models.length} موديل بيقبل صور` : (r.error ?? 'فشل') }
-                }}
-              />
-              <HostField id="huggingface" />
-              <HfPanel />
             </>
           )}
           {prov === 'gemini' && (
