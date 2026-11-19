@@ -7,6 +7,8 @@ const LIGHT = /flash|lite|mini|nano|nemo|small|tiny|lightning|spark|\bhy4\b/i
 export function modelCaps(value: string, label: string, tier: string): Caps {
   const s = (value + ' ' + label).toLowerCase()
   const kind = /coder|code|codex/.test(s) ? 'برمجة' : /\bvl\b|vision|omni|image|-vl/.test(s) ? 'صور' : /reason|think|\br1\b/.test(s) ? 'تفكير عميق' : LIGHT.test(s) ? 'سريع' : 'عام'
+  // LFM3 (Liquid AI) صغير بس مدرَّب على استدعاء الأدوات (BFCL V4 ≈ 71 حسب الشركة)، فما بيتصنّف «نص فقط».
+  if (/\blfm-?3\b|lfm3/.test(s)) return { tools: 'yes', kind: 'سريع', note: 'LFM3: صغير ومدرَّب على استدعاء الأدوات، مو للبرمجة الثقيلة أو التفكير المعقّد.' }
   if (/(^|[^\d.])(0\.\d|[1-3](\.\d)?)b\b/.test(s)) return { tools: 'no', kind: 'محادثة بسيطة', note: 'موديل صغير جداً: بيجاوب أسئلة بسيطة، ما بيمسك أدوات.' }
   if (tier === 'LOCAL') return { tools: 'weak', kind, note: 'موديل محلي: الأدوات حسب حجمو، الأفضل للأسئلة العادية.' }
   if (/openrouter/.test(s) && /free|:free/.test(s)) return { tools: 'no', kind, note: 'مجاني على OpenRouter: غالباً المزوّد بيرفض الأدوات، بيجاوب نص بس.' }
