@@ -252,7 +252,8 @@ export function registerIpcHandlers(): void {
               return goAhead ? { ...a, need_tools: true, complexity: a.complexity === 'simple' ? 'medium' : a.complexity } : a
             }
             // 5.21.14: موديل مختار يدوياً والمايسترو مطفي (الافتراضي): ما في تحليل ولا تحويل، الموديل المختار بيجاوب لحاله.
-            if (o.mode.kind === 'model') analysis = o.master === true ? await analyzed() : { complexity: 'medium', type: 'chat', need_skill: 'none', need_tools: false, reason: 'موديل مختار يدوياً: المايسترو مطفي', source: 'none' }
+            // 5.21.15: الواجهة بتبعت master=true تلقائياً لهالوضع مع إنو المربع معطّل، فما منعتمد عليها: الموديل المختار يدوياً ما بيمر بمايسترو أبداً.
+            if (o.mode.kind === 'model') analysis = { complexity: 'medium', type: 'chat', need_skill: 'none', need_tools: false, reason: 'موديل مختار يدوياً: المايسترو مطفي', source: 'none' }
             else if (o.mode.kind === 'auto') {
               if (useMaster) {
                 const a = await analyzed()
@@ -264,7 +265,7 @@ export function registerIpcHandlers(): void {
             else analysis = { complexity: 'medium', type: 'chat', need_skill: 'none', need_tools: false, reason: 'محادثة عادية: المايسترو مطفي', source: 'none' }
             masterMs = Date.now() - started
           }
-          setRunMaster(o.mode.kind === 'model' ? o.master === true : (o.master ?? o.mode.kind !== 'auto'))
+          setRunMaster(o.mode.kind === 'model' ? false : (o.master ?? o.mode.kind !== 'auto'))
           addStage('تحليل المايسترو', masterMs)
           if (signal.aborted) return { content: '', cancelled: true }
           console.log('[UI] Analysis:', analysis)

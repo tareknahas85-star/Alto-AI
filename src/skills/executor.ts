@@ -93,7 +93,7 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   const PROJECT_TOOLISH = /ملف|ملفات|مجلد|مشروع|افتح|اقرأ|راجع|حلل|شوف|file|folder|project|readme|open|read|review|analy[sz]e|\.[a-z0-9]{1,5}\b/i
   // Agent mode: whenever a project is open or PC control is on, the tools (and skills) are always offered.
   // 5.21.14: «التحكم بالجهاز» شغّال ما يعني نبعت أدوات الجهاز (حوالي 11 ألف توكن) مع كل رسالة. بنبعتها بوضع المشروع أو لما الطلب فعلاً عن الجهاز.
-  const PC_INTENT = /(افتح|شغّل|شغل|سكّر|اغلق|ثبّت|ثبت|نزّل|نزل|حمّل|حمل|لقطة|سكرين|سطح المكتب|على الجهاز|بالجهاز|الكمبيوتر|الكومبيوتر|ملف|مجلد|screenshot|desktop|open|launch|install|download|folder|file)/i
+  const PC_INTENT = /(افتح|شغّل|شغل|سكّر|اغلق|ثبّت|ثبت|نزّل|نزل|حمّل|حمل|لقطة|سكرين|سطح المكتب|على الجهاز|بالجهاز|الكمبيوتر|الكومبيوتر|ملف|مجلد|أدوات|ادوات|أداة|اداة|screenshot|desktop|tools?|open|launch|install|download|folder|file)/i
   if (go || analysis.need_tools || fresh || needsBrowser(ri) || buildReq || project || (computerEnabled() && (mode?.kind === 'auto' || PC_INTENT.test(ri))) || PROJECT_TOOLISH.test(ri) && !!project) {
     try {
       toolset = await buildToolset(ri, project?.path, { fresh, confidential: !!project?.confidential })
@@ -101,6 +101,8 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
       console.warn('[Tools] toolset failed:', err)
     }
   }
+  // 5.21.15: لما الأدوات مو مرفقة بهالرسالة، الموديل لازم يعرف إنها بتتفعّل لحالها لما الطلب يحتاجها (بدل ما يقول «ما عندي أدوات»).
+  if (!toolset?.defs.length && computerEnabled()) systemPrompt += '\n\nNOTE: device, file and web tools are not attached to this particular message, to keep replies fast. They are attached automatically when the user asks for something about the device, files, apps, the web, or mentions tools. If asked whether you can use tools, say yes: they switch on when a request needs them, and ask what the user wants done. Do not claim you have no tools.'
   const canAct = !!toolset?.defs.some((d) => (d as { function?: { name?: string } }).function?.name?.startsWith('pc_'))
   if (buildReq && project && !canAct) {
     const why = toolset?.notes?.length ? '\nالسبب: ' + toolset.notes.join('؛ ') : ''

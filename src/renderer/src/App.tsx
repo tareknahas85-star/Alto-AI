@@ -280,7 +280,8 @@ function Shell(): ReactElement {
       loadProjects()
       try {
         // New tabs start on free-only unless the user turned the global guard off.
-        defaultMode.current = (await window.api.spend.get()) ? { kind: 'free' } : { kind: 'auto' }
+        // 5.21.15: أي تبويب جديد بيفتح دايماً بوضع «محادثة عادية» (مش بناء مشروع).
+        defaultMode.current = { kind: 'free' }
       } catch {
         /* keep free */
       }
@@ -619,7 +620,7 @@ function Shell(): ReactElement {
                 role="tab"
                 aria-selected={on}
                 onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
-                onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); e.stopPropagation() } }}
+                onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); e.stopPropagation(); closeTab(t.id) } }}
                 className={`group flex max-w-[200px] shrink-0 items-center gap-1.5 rounded-t-xl border border-b-0 px-3 py-1.5 text-xs ${
                   on ? 'border-outline bg-bg font-medium text-fg' : 'border-transparent text-muted hover:bg-surface2'
                 }`}
