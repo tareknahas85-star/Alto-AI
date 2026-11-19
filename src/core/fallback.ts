@@ -13,11 +13,11 @@ import { refuseDowngrade, STRONG_WAIT_MAX_SEC, strongRequiredFor } from './stron
 import { notePinOutcome } from './free-pin'
 import type { Analysis } from './master'
 import type { Toolset } from '../mcp/runtime'
-import { emitProgress, emitStream, emitAgent, currentSignal, currentMode } from './progress'
+import { emitProgress, emitStream, emitAgent, currentSignal, currentMode, runMasterOn, addStage } from './progress'
 import { rotateLogFile } from './log-rotate'
 import { buildProject, setRunProject } from './workspace'
 import { quarantineEmptyFragments, appendRunLog } from './run-report'
-import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel, listCustomModels } from './custom-models'
+import { CUSTOM_PREFIX, clientForCustomModel, getCustomModel } from './custom-models'
 import { isTinyModelId } from './model-size'
 import { textProtocol, textToolLoop } from './text-tools'
 import { effortExtra, getEffort, type EffortRoute } from './effort'
@@ -162,14 +162,12 @@ export async function executeWithFallback(
     // المنفّذ المختار يدوياً بيتخطّى لو موديل خفيف (flash/lite/mini...): ما بينفّذ بثقة.
     const weakId = (m: string): boolean => WEAK_MODEL.test(m.startsWith(CUSTOM_PREFIX) ? (getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? '') : m)
     if (roleEx !== 'auto' && weakId(roleEx)) emitProgress('المنفّذ المختار موديل خفيف وما بينفّذ بثقة، تخطّيتو. اختار Claude/GPT أو Gemini Pro من قائمة المنفّذ.')
-    const hyd = listCustomModels().find((m) => m.model.includes('gemini-4-hydrogen'))
-    if (hyd) list = [CUSTOM_PREFIX + hyd.id, ...list.filter((m) => m !== CUSTOM_PREFIX + hyd.id)]
     const strongOnly = list.filter((m) => (m === roleEx && !weakId(m)) || isCliModel(m) || isAgentEngine(m) || strongSet.has(m) || (m.startsWith(CUSTOM_PREFIX) && !WEAK_MODEL.test(getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? 'flash')))
     if (!strongOnly.length) {
       return { content: '❌ ما في موديل مناسب لتنفيذ مهمة بناء بأدوات الجهاز (الباقي بس موديلات مجانية أو خفيفة متل Flash وapinex، وهدول ما بينفّذوا بثقة). اختار من قائمة المنفّذ موديل Claude/GPT أو Gemini Pro وأعد الطلب.', modelUsed: 'none', success: false, triedModels: [] as string[] } as unknown as FallbackResult
     }
     list = strongOnly
-    try { fs.appendFileSync(dataFile('router.log'), new Date().toISOString() + ' PC-ORDER :: hyd=' + (hyd ? hyd.id : 'NONE') + ' | ' + list.join(' << ') + '\n') } catch { /* السجل اختياري */ }
+    try { fs.appendFileSync(dataFile('router.log'), new Date().toISOString() + ' PC-ORDER :: ' + list.join(' << ') + '\n') } catch { /* السجل اختياري */ }
   }
   const r = await executeWithFallbackInner(list, userInput, analysis, systemPrompt, toolset, history, opts)
   // تحقق فعلي من ادعاءات السيرفر (بدون موديل): لو الرد بيذكر localhost:PORT وما في سيرفر شغّال، بنقلب الحكم.
@@ -192,8 +190,12 @@ export async function executeWithFallback(
     // المنفّذ = المحرّك اللي أنجز الشغل (CLI أو موديل API مخصص). المراجعة المستقلة تشتغل على أي منهم.
     const who = r.engine || r.modelUsed
     const longRun = !!who && !!r.startedAt && Date.now() - r.startedAt > 8 * 60 * 1000
-    if (action && r.success && (longRun || autoPc) && who) {
+    // 5.21.14: المراجعة المستقلة بس بوضع المشروع أو المجلس أو لما المستخدم يشغّل المايسترو. بالمحادثة العادية والمايسترو مطفي بيجاوب الموديل المختار وبس.
+    const rmode = currentMode()?.kind
+    const reviewAllowed = rmode === 'auto' || rmode === 'council' || runMasterOn()
+    if (action && r.success && reviewAllowed && (longRun || autoPc) && who) {
       const ctx = { signal: currentSignal(), emit: emitProgress, effort: getEffort(), cwd: buildProject()?.path }
+      const reviewT0 = Date.now()
       let rv = await independentReview(who, userInput, r.content, ctx)
       // التصليح التلقائي بس لمنفّذ عنده أدوات (CLI/وكيل). الموديل النصي ما بيقدر يعدّل ملفات، فما منضيّع جولات عالفاضي.
       const canRepair = who.startsWith('cli:') || isCliModel(who) || isAgentEngine(who)
@@ -205,6 +207,7 @@ export async function executeWithFallback(
         rounds = round
         rv = (await independentReview(who, userInput, r.content + '\n\n[تصليح بعد المراجعة]\n' + fx.text, ctx)) ?? rv
       }
+      addStage('مراجعة مستقلة', Date.now() - reviewT0)
       if (rv) {
         // ملخص قصير: الحكم + أهم 3 ملاحظات خطيرة. النص الكامل ما بينضاف للرد.
         const top = rv.text

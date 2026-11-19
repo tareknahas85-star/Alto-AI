@@ -92,7 +92,9 @@ export async function executeWithSkill(userInput: string, analysis: Analysis, ex
   // With an active project, file tools are offered whenever the request looks project/file related, even if the master did not flag tools.
   const PROJECT_TOOLISH = /ملف|ملفات|مجلد|مشروع|افتح|اقرأ|راجع|حلل|شوف|file|folder|project|readme|open|read|review|analy[sz]e|\.[a-z0-9]{1,5}\b/i
   // Agent mode: whenever a project is open or PC control is on, the tools (and skills) are always offered.
-  if (go || analysis.need_tools || fresh || needsBrowser(ri) || buildReq || project || computerEnabled() || PROJECT_TOOLISH.test(ri) && !!project) {
+  // 5.21.14: «التحكم بالجهاز» شغّال ما يعني نبعت أدوات الجهاز (حوالي 11 ألف توكن) مع كل رسالة. بنبعتها بوضع المشروع أو لما الطلب فعلاً عن الجهاز.
+  const PC_INTENT = /(افتح|شغّل|شغل|سكّر|اغلق|ثبّت|ثبت|نزّل|نزل|حمّل|حمل|لقطة|سكرين|سطح المكتب|على الجهاز|بالجهاز|الكمبيوتر|الكومبيوتر|ملف|مجلد|screenshot|desktop|open|launch|install|download|folder|file)/i
+  if (go || analysis.need_tools || fresh || needsBrowser(ri) || buildReq || project || (computerEnabled() && (mode?.kind === 'auto' || PC_INTENT.test(ri))) || PROJECT_TOOLISH.test(ri) && !!project) {
     try {
       toolset = await buildToolset(ri, project?.path, { fresh, confidential: !!project?.confidential })
     } catch (err) {

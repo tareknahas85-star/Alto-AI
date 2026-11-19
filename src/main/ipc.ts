@@ -44,7 +44,7 @@ import { registerOrbIpc } from './orb'
 import { recordTurn as recordLearning } from '../core/learning'
 import { needsFreshInfo, needsLocation } from '../core/guidance'
 import { memoryPrompt } from '../core/memory'
-import { runInContext, cancelRun, isUnattended, type RunMode } from '../core/progress'
+import { runInContext, cancelRun, isUnattended, setRunMaster, addStage, getStages, type RunMode } from '../core/progress'
 import { createStreamBatcher } from '../core/stream-batch'
 import { ensureCatalogFresh, listCatalog } from '../core/catalog'
 import { apinexFreeIds, hasApinexKey } from '../core/apinex'
@@ -251,7 +251,8 @@ export function registerIpcHandlers(): void {
               const a = await analyzeRequest(routingInput(userMsg, history), !!confP?.confidential)
               return goAhead ? { ...a, need_tools: true, complexity: a.complexity === 'simple' ? 'medium' : a.complexity } : a
             }
-            if (o.mode.kind === 'model') analysis = await analyzed()
+            // 5.21.14: موديل مختار يدوياً والمايسترو مطفي (الافتراضي): ما في تحليل ولا تحويل، الموديل المختار بيجاوب لحاله.
+            if (o.mode.kind === 'model') analysis = o.master === true ? await analyzed() : { complexity: 'medium', type: 'chat', need_skill: 'none', need_tools: false, reason: 'موديل مختار يدوياً: المايسترو مطفي', source: 'none' }
             else if (o.mode.kind === 'auto') {
               if (useMaster) {
                 const a = await analyzed()
@@ -263,6 +264,8 @@ export function registerIpcHandlers(): void {
             else analysis = { complexity: 'medium', type: 'chat', need_skill: 'none', need_tools: false, reason: 'محادثة عادية: المايسترو مطفي', source: 'none' }
             masterMs = Date.now() - started
           }
+          setRunMaster(o.mode.kind === 'model' ? o.master === true : (o.master ?? o.mode.kind !== 'auto'))
+          addStage('تحليل المايسترو', masterMs)
           if (signal.aborted) return { content: '', cancelled: true }
           console.log('[UI] Analysis:', analysis)
           const project = projectId ? (listProjects().projects.find((p) => p.id === projectId) ?? null) : null
@@ -280,6 +283,7 @@ export function registerIpcHandlers(): void {
             council = c.info
           }
           const execMs = Date.now() - execStart
+          addStage('تنفيذ + مراجعة', execMs)
           if (signal.aborted) return { content: '', cancelled: true }
           if (result.modelUsed === 'none' && retry) return { content: result.content, failed: true, needsChoice: true }
           lastRuns.set(o.tabId, { userMsg, analysis, tried: [...exclude, ...result.triedModels], masterMs, history, projectId })
@@ -308,6 +312,7 @@ export function registerIpcHandlers(): void {
             tools: result.toolsUsed ?? [],
             why: (result.toolsUsed ?? []).length ? [needsFreshInfo(userMsg) ? 'الطلب بيحتاج معلومة حديثة أو خارجية فانفرضت أدوات البحث' : '', needsLocation(userMsg) ? 'الطلب عن مكانك فانعرضت أدوات الموقع' : '', analysis.need_tools ? 'المايسترو صنّف الطلب كبيحتاج أدوات' : ''].filter(Boolean).join(' + ') || 'الموديل اختارها لأنها بتناسب الطلب' : '',
             failures: result.failures ?? [],
+            stages: getStages(),
             retried: retry
           }
           const nm = (id?: string): string | undefined => (id && isCliModel(id) ? cliModelName(id) : id?.startsWith(CUSTOM_PREFIX) ? (getCustomModel(id.slice(CUSTOM_PREFIX.length))?.name ?? id) : id)

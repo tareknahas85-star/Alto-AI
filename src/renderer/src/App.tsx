@@ -618,6 +618,8 @@ function Shell(): ReactElement {
                 key={t.id}
                 role="tab"
                 aria-selected={on}
+                onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
+                onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); e.stopPropagation() } }}
                 className={`group flex max-w-[200px] shrink-0 items-center gap-1.5 rounded-t-xl border border-b-0 px-3 py-1.5 text-xs ${
                   on ? 'border-outline bg-bg font-medium text-fg' : 'border-transparent text-muted hover:bg-surface2'
                 }`}

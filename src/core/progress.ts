@@ -7,7 +7,7 @@ type StreamSink = (kind: 'chunk' | 'reset', text?: string) => void
 // How the user wants this run to pick models: free chain only, free+paid chain, or one explicit model.
 export type RunMode = { kind: 'free' } | { kind: 'auto' } | { kind: 'council'; author?: string; critic?: string } | { kind: 'model'; id: string }
 
-type Ctx = { progress: Sink; stream: StreamSink; ctl: AbortController; mode: RunMode; muted?: boolean; unattended?: boolean }
+type Ctx = { progress: Sink; stream: StreamSink; ctl: AbortController; mode: RunMode; muted?: boolean; unattended?: boolean; master?: boolean; stages?: { label: string; ms: number }[] }
 
 // Every chat request runs inside its own async context, so several tabs can work in parallel
 // without sharing progress/stream sinks, cancel signals or the model mode.
@@ -65,3 +65,15 @@ export const cancelRun = (tabId: string): void => runs.get(tabId)?.abort()
 export const currentSignal = (): AbortSignal | undefined => als.getStore()?.ctl.signal
 export const isUnattended = (): boolean => !!als.getStore()?.unattended
 export const currentMode = (): RunMode | undefined => als.getStore()?.mode
+/** 5.21.14: هل المايسترو شغّال بهالطلب؟ (المراجعة المستقلة بتعتمد عليه). */
+export const setRunMaster = (on: boolean): void => {
+  const c = als.getStore()
+  if (c) c.master = on
+}
+export const runMasterOn = (): boolean => !!als.getStore()?.master
+/** 5.21.14: توقيت كل مرحلة (مايسترو، تنفيذ، مراجعة) بيظهر بزر «شو صار بالخلفية» عشان نعرف وين الوقت. */
+export const addStage = (label: string, ms: number): void => {
+  const c = als.getStore()
+  if (c) (c.stages ??= []).push({ label, ms: Math.round(ms) })
+}
+export const getStages = (): { label: string; ms: number }[] => als.getStore()?.stages ?? []
