@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronUp, Search } from 'lucide-react'
 import type { ChatMode } from '../preload/index.d'
 import { nameColor } from './brandColor'
+import { modelCaps } from '../core/model-caps'
 
 type Entry = { value: string; label: string; tier: string }
 
@@ -11,6 +12,7 @@ const TIERS: { id: string; title: string; badge: string; cls: string }[] = [
   { id: 'SUBSCRIPTION', title: 'اشتراكك', badge: 'اشتراك', cls: 'bg-primary/15 text-primary' },
   { id: 'PAID', title: 'مدفوع', badge: 'مدفوع', cls: 'bg-warning/20 text-warning' }
 ]
+const TOOL_CHIP = { yes: { t: '🛠 أدوات', cls: 'bg-success/15 text-success' }, weak: { t: '🛠 جزئي', cls: 'bg-warning/20 text-warning' }, no: { t: '💬 نص فقط', cls: 'bg-surface2 text-muted' }, maybe: { t: '🛠 ؟', cls: 'bg-surface2 text-muted' } } as const
 const tierOf = (t: string): string => (t === 'TIER_1_FREE' || t === 'SUBSCRIPTION' || t === 'LOCAL' ? t : 'PAID')
 
 // أوضاع المجلس (تلقائي / أنا أختار الكاتب والناقد) تظهر بالقائمة بس وانت بوضع المجلس. بوضع المحادثة العادية القائمة فيها موديلات بس.
@@ -94,7 +96,7 @@ export function ModelPicker({ mode, picker, onModeChange }: { mode: ChatMode; pi
       {open && (
         <div
           role="listbox"
-          className="absolute bottom-full start-0 z-50 mb-1 w-[22rem] max-w-[90vw] overflow-hidden rounded-card border border-outline bg-surface text-[12px] text-fg shadow-card"
+          className="absolute bottom-full start-0 z-50 mb-1 w-[30rem] max-w-[92vw] overflow-hidden rounded-card border border-outline bg-surface text-[12px] text-fg shadow-card"
         >
           <div className="flex items-center gap-2 border-b border-outline px-3 py-2">
             <Search size={14} className="shrink-0 text-muted" />
@@ -142,6 +144,15 @@ export function ModelPicker({ mode, picker, onModeChange }: { mode: ChatMode; pi
                     <span dir="ltr" className="min-w-0 flex-1 truncate text-start" style={{ color: nameColor(p.value + ' ' + p.label) }}>
                       {p.label}
                     </span>
+                    {(() => {
+                      const cp = modelCaps(p.value, p.label, p.tier)
+                      return (
+                        <span className="flex shrink-0 items-center gap-1" title={cp.note + ' (تقدير من الاسم)'}>
+                          <span className="text-[10px] text-muted">{cp.kind}</span>
+                          <span className={`rounded-full px-1.5 text-[10px] ${TOOL_CHIP[cp.tools].cls}`}>{TOOL_CHIP[cp.tools].t}</span>
+                        </span>
+                      )
+                    })()}
                     <span className={`shrink-0 rounded-full px-1.5 text-[10px] ${g.cls}`}>{g.badge}</span>
                     {cur === p.value && <Check size={14} className="shrink-0 text-primary" />}
                   </button>

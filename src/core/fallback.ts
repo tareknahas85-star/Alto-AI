@@ -780,6 +780,10 @@ async function executeWithFallbackInner(
         // Safety net that does not depend on the model being honest: it claimed an action but used no tool.
         const warn = unverifiedClaimWarning(model, userInput, content, toolsUsed, toolset, toolsRejected && !textMode, false, history)
         if (warn) content = warn + '\n\n' + content
+        else if (!toolsUsed.length && !isCliModel(model) && ACTION_REQ.test(userInput) && CANT_USE_TOOLS.test(content)) {
+          content = '⚠️ تنبيه من البرنامج (مو من الموديل): «' + model + '» قال إنو ما بقدر يستعمل أدوات الجهاز. السبب الأرجح إنو هالموديل ما بيدعم الأدوات (شائع بالمجاني). اختار موديل عليه علامة «🛠 أدوات» من القائمة وأعد الطلب. تفسيره تحت تخمين منو.\n\n' + content
+          failures.push({ model, reason: 'رفض/ما قدر يستعمل الأدوات (غالباً ما بيدعمها)' })
+        }
         // 5.17.8: ادّعى نجاح بناء/اختبار بدون ما ينشغّل أي أمر build/test/tsc بنفس الجولة (أو ناتجو فيه أخطاء): تحذير واضح من البرنامج، مو من الموديل.
         if (pcMode && BUILD_TEST_CLAIM.test(content) && !hasBuildProof(calls_)) {
           content = '⚠️ تنبيه من البرنامج (مو من الموديل): الرد بيقول إنو البناء/الاختبار نجح، بس ما شفت أي أمر build أو test أو tsc انشغّل بهالجولة ناتجو نظيف. ما تعتمد على "✅" قبل ما تتأكد بنفسك (شغّل البناء وشوف الناتج).\n\n' + content
@@ -1011,6 +1015,7 @@ function unverifiedClaimWarning(
   )
 }
 
+const CANT_USE_TOOLS = /(ما\s*(بقدّ?ر|أقدر|اقدر)(ش)?|لا\s*(أقدر|يمكنني)|cannot|can't|unable)[^\n]{0,80}(أدوات|ادوات|tools?|pc_run|ملف|تنفيذ)/i
 // Models that cannot be trusted to drive tools: free-tier routes and small/nano variants. Strong families (gemini/gpt/claude) stay allowed.
 function isWeakForActions(model: string): boolean {
   if (model.startsWith('custom:')) return false // the user added it himself: trust his choice
