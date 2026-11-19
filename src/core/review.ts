@@ -19,11 +19,11 @@ const family = (e: string): string => {
   return e.startsWith('cli:claude') ? 'claude' : (e === CODEX_CLI || e.startsWith(CODEX_MODEL_PREFIX)) ? 'openai' : e === GEMINI_CLI ? 'google' : e
 }
 
-export type Ctx = { signal?: AbortSignal; emit: (t: string) => void; effort?: string; cwd?: string }
+export type Ctx = { signal?: AbortSignal; emit: (t: string) => void; effort?: string; cwd?: string; reviewer?: string; trace?: string }
 
 // المراجع عبر API ما عنده وصول للملفات. نقولها له صراحة عشان ما يدّعي إنه فحص شي ما فحصه.
 const API_REVIEW_NOTE =
-  '\n\nIMPORTANT: you have NO access to the project files in this review. Judge only the task and the author summary given to you. Say so in the CHECKS line, and never claim you ran or read anything.'
+  '\n\nIMPORTANT: you have NO access to files or the machine in this review. Judge from the task, the executor summary and the TOOL TRACE (the real commands and outputs). Say so in the CHECKS line, and never claim you ran or read anything yourself.'
 
 async function runApiReview(eng: string, prompt: string, system: string, c: Ctx): Promise<AgentResult> {
   const m = getCustomModel(eng.slice(CUSTOM_PREFIX.length))
@@ -66,9 +66,29 @@ function runOn(eng: string, prompt: string, system: string, c: Ctx, role: string
 }
 
 const REVIEW_SYS =
-  'You are an INDEPENDENT adversarial reviewer. You did NOT write this work. SCOPE: stay strictly inside the project folder (your working directory); never scan or read outside it (no recursive searches of the user home or drives). Also check that every file the author mentions really lives inside the project folder; a file outside it is a high finding. Be efficient: a small task (up to 3 files) needs at most ~8 commands, then answer. Never take the author\'s claims on trust: verify against the real files and real command output (run the project\'s typecheck/tests/build if they exist; read the docs and code). ' +
-  'If the project has UI screenshots (png/jpg, e.g. in reports/ or screenshots/), open and LOOK at them: flag raw template placeholders such as {{...}}, overlapping elements, cut-off or wrong-language text. If you cannot view images say so explicitly. ' +
-  'Do not modify any file except a new REVIEW-AUTO.md. If any screen or page file is a stub (contains "stub", "TODO", "placeholder", "coming soon", or is nearly empty), the work is INCOMPLETE: report it as a high finding. Also, if the project has a test or e2e suite, run it TWICE: if the pass count differs between the two runs, report it as a medium finding (flaky). Output format, strictly: one line per issue as "FINDING [high|medium|low]: <issue> | evidence: <file/command/output>", then a line "CHECKS: <what you actually ran/read>", then a final line "VERDICT: PASS" or "VERDICT: FAIL". A review with no findings is suspicious: look harder before concluding. Answer in simple Levantine Arabic, technical terms in English.'
+  'You are the single reviewer/verifier of this task. You did NOT execute it. Your only job: confirm the user\'s request was actually carried out correctly, judging by EVIDENCE: the TOOL TRACE (commands that really ran and their outputs) and, if you have file access, the real files. ' +
+  'The user\'s explicit instructions in TASK (for example a specific path such as the Desktop) override any default project-folder convention: never flag work for living where the task asked it to live. Ignore unrelated earlier chat history and do not demand extra scope the user did not ask for. ' +
+  'If the evidence shows the request was done, answer PASS. If it was not done, is wrong, or the executor claims something the trace does not support, answer FAIL and give the executor precise redo instructions. A tool error followed by a successful retry is fine. ' +
+  'Be efficient (at most ~8 commands if you can run any); do not modify any file. Output format, strictly: one line per real issue as "FINDING [high|medium|low]: <issue> | evidence: <command/output/file>", then "CHECKS: <what you actually ran/read>", then, only when FAIL, "REDO: <exact instruction for the executor>", then a final line "VERDICT: PASS" or "VERDICT: FAIL". Answer in simple Levantine Arabic, technical terms in English.'
+
+/** المايسترو (Hydrogen) كمراجع لما يكون مشغّل: بيرجّع معرّف الموديل المخصص إذا موجود. */
+export function masterReviewer(): string | undefined {
+  const m = listCustomModelViews().find((x) => x.enabled && x.hasKey && /gemini-4-hydrogen/i.test(x.model ?? ''))
+  return m ? CUSTOM_PREFIX + m.id : undefined
+}
+
+/** سجل الأدوات الفعلي (أوامر + نواتجها) كدليل للمراجع. */
+export function traceOf(calls?: { key: string; out: string }[]): string {
+  if (!calls?.length) return ''
+  return calls.slice(-25).map((x) => x.key.slice(0, 220) + ' => ' + x.out.replace(/\s+/g, ' ').slice(0, 320)).join('\n---\n')
+}
+
+/** تعليمات الإعادة للمنفّذ من حكم المراجع. */
+export function redoNote(rv: { text: string }): string {
+  const redo = rv.text.split('\n').find((l) => /^\s*REDO:/i.test(l))
+  const high = rv.text.split('\n').filter((l) => /^\s*FINDING\s*\[(high|medium)\]/i.test(l)).slice(0, 6).join('\n')
+  return '\n\n[REVIEWER REJECTED YOUR PREVIOUS ATTEMPT. Redo the task correctly now and actually run the tools.]\n' + (redo ?? '') + '\n' + high
+}
 
 export type ReviewOutcome = { reviewer: string; independent: boolean; text: string; findings: number; high: number; medium: number; verdict: 'PASS' | 'FAIL' | 'UNKNOWN' }
 
@@ -95,25 +115,20 @@ export async function independentReview(author: string, task: string, authorSumm
   const orReviewers = [...orPick(/^anthropic\/claude/i), ...orPick(/^openai\/gpt/i)]
   const others = [...ENGINE_ORDER, ...apiReviewers, ...orReviewers].filter((e) => family(e) !== family(author))
   // Reviewer preference (Settings > roles). It is used only when it comes from a different family than the author.
-  const pref = getRoles().reviewer
-  if (pref !== 'auto' && family(pref) === family(author)) c.emit('المراجع المفضّل من نفس عيلة المنفّذ، بنختار مراجع من عيلة تانية')
-  const preferred: string[] = pref !== 'auto' && family(pref) !== family(author) ? [pref] : []
+  // 5.21.16: المراجع المختار (أو المايسترو إذا شغّال) بيتحترم دايماً، حتى لو من نفس عيلة المنفّذ.
+  const pref = c.reviewer ?? getRoles().reviewer
+  const preferred: string[] = pref !== 'auto' ? [pref] : []
   // الموديلات الخفيفة/المجانية ما بتراجع بثقة: نجرّب القوي من عيلة تانية أولاً، بعدين القوي من نفس العيلة (مع علامة مو مستقل)، وآخر شي الخفيف.
   const isWeakRev = (e: string): boolean => { const n = e.startsWith(CUSTOM_PREFIX) ? (getCustomModel(e.slice(CUSTOM_PREFIX.length))?.model ?? e) : e; const tier = e.startsWith(CUSTOM_PREFIX) ? getCustomModel(e.slice(CUSTOM_PREFIX.length))?.tier : undefined; return WEAK_MODEL.test(n) || tier === 'TIER_1_FREE' || /:free$/i.test(e) }
   const sameFamStrong = apiReviewers.filter((e) => e !== author && family(e) === family(author) && !isWeakRev(e) && !preferred.includes(e))
   const ordered = [...preferred, ...others.filter((e) => !isWeakRev(e) && !preferred.includes(e)), ...sameFamStrong, ...others.filter((e) => isWeakRev(e) && !preferred.includes(e))]
   const candidates = [...new Set([...ordered, author])]
-  const body = 'TASK GIVEN TO THE AUTHOR:\n' + task.slice(0, 3000) + '\n\nAUTHOR\'S OWN FINAL SUMMARY (unverified claims):\n' + authorSummary.slice(0, 4000) + '\n\nReview the actual project folder now.' + (c.cwd ? '\n\nPROJECT FOLDER (your working directory; write REVIEW-AUTO.md ONLY inside this exact folder, never in any other folder): ' + c.cwd : '')
+  const body = 'TASK GIVEN TO THE AUTHOR:\n' + task.slice(0, 3000) + '\n\nAUTHOR\'S OWN FINAL SUMMARY (unverified claims):\n' + authorSummary.slice(0, 4000) + (c.trace ? '\n\nTOOL TRACE (real commands and outputs, oldest first):\n' + c.trace : '\n\nTOOL TRACE: none recorded.') + (c.cwd ? '\n\nPROJECT FOLDER (your working directory; write REVIEW-AUTO.md ONLY inside this exact folder, never in any other folder): ' + c.cwd : '')
   for (const eng of candidates) {
     try {
       c.emit('مراجعة مستقلة بواسطة: ' + eng)
-      let r = await runOn(eng, body, REVIEW_SYS, c, 'مراجع')
-      let p = parse(r.text)
-      if (p.findings === 0 && p.verdict !== 'FAIL' && authorSummary.length > 900) {
-        c.emit('المراجع ما لقى ملاحظات — بنطلب منو يدقّق أكتر')
-        r = await runOn(eng, body + '\n\nYour first pass found nothing, which is statistically unlikely. List at least 3 real weaknesses, risks or unverified claims with evidence (or state exactly what you checked that proves there are none).', REVIEW_SYS, c, 'مراجع')
-        p = parse(r.text)
-      }
+      const r = await runOn(eng, body, REVIEW_SYS, c, 'مراجع')
+      const p = parse(r.text)
       return { reviewer: eng, independent: family(eng) !== family(author), text: r.text, ...p }
     } catch (e) {
       if (c.signal?.aborted) throw e

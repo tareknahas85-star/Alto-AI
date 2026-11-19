@@ -103,9 +103,10 @@ export type FallbackResult = {
   effort?: string
   engine?: string
   startedAt?: number
+  toolCalls?: { name: string; key: string; out: string }[]
 }
 
-import { independentReview, repairFromReview } from './review'
+import { independentReview, repairFromReview, masterReviewer, traceOf, redoNote } from './review'
 import { isAgentEngine, runClaudeAgent, runCodexAgent, runGeminiAgent, geminiLoggedIn, codexModelOf, CODEX_CLI, GEMINI_CLI, ENGINE_ORDER } from './cli-agent'
 import { getRoles } from './roles'
 import { looksLooping, ENDS_WITH_STALL, REFUSES_TOOLS, BUILD_TEST_CLAIM, hasBuildProof, WEAK_MODEL } from './reply-quality'
@@ -161,8 +162,8 @@ export async function executeWithFallback(
     const strongSet = new Set(strongPaidModels())
     // المنفّذ المختار يدوياً بيتخطّى لو موديل خفيف (flash/lite/mini...): ما بينفّذ بثقة.
     const weakId = (m: string): boolean => WEAK_MODEL.test(m.startsWith(CUSTOM_PREFIX) ? (getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? '') : m)
-    if (roleEx !== 'auto' && weakId(roleEx)) emitProgress('المنفّذ المختار موديل خفيف وما بينفّذ بثقة، تخطّيتو. اختار Claude/GPT أو Gemini Pro من قائمة المنفّذ.')
-    const strongOnly = list.filter((m) => (m === roleEx && !weakId(m)) || isCliModel(m) || isAgentEngine(m) || strongSet.has(m) || (m.startsWith(CUSTOM_PREFIX) && !WEAK_MODEL.test(getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? 'flash')))
+    if (roleEx !== 'auto' && weakId(roleEx)) emitProgress('المنفّذ المختار موديل خفيف: بنحترم اختيارك، والمراجع القوي بيتأكد من النتيجة ويطلب إعادة لو غلط.')
+    const strongOnly = list.filter((m) => m === roleEx || isCliModel(m) || isAgentEngine(m) || strongSet.has(m) || (m.startsWith(CUSTOM_PREFIX) && !WEAK_MODEL.test(getCustomModel(m.slice(CUSTOM_PREFIX.length))?.model ?? 'flash')))
     if (!strongOnly.length) {
       return { content: '❌ ما في موديل مناسب لتنفيذ مهمة بناء بأدوات الجهاز (الباقي بس موديلات مجانية أو خفيفة متل Flash وapinex، وهدول ما بينفّذوا بثقة). اختار من قائمة المنفّذ موديل Claude/GPT أو Gemini Pro وأعد الطلب.', modelUsed: 'none', success: false, triedModels: [] as string[] } as unknown as FallbackResult
     }
@@ -194,18 +195,28 @@ export async function executeWithFallback(
     const rmode = currentMode()?.kind
     const reviewAllowed = rmode === 'auto' || rmode === 'council' || runMasterOn()
     if (action && r.success && reviewAllowed && (longRun || autoPc) && who) {
-      const ctx = { signal: currentSignal(), emit: emitProgress, effort: getEffort(), cwd: buildProject()?.path }
+      const ctx = { signal: currentSignal(), emit: emitProgress, effort: getEffort(), cwd: buildProject()?.path, reviewer: runMasterOn() ? masterReviewer() : undefined, trace: traceOf(r.toolCalls) }
       const reviewT0 = Date.now()
       let rv = await independentReview(who, userInput, r.content, ctx)
-      // التصليح التلقائي بس لمنفّذ عنده أدوات (CLI/وكيل). الموديل النصي ما بيقدر يعدّل ملفات، فما منضيّع جولات عالفاضي.
+      // مراجع واحد: بيتأكد إنو الطلب انعمل فعلاً. لو غلط بيرجّع المنفّذ يعيد الشغل (لحد MAX_REPAIR_ROUNDS) والمراجع بيعيد الفحص.
       const canRepair = who.startsWith('cli:') || isCliModel(who) || isAgentEngine(who)
       let rounds = 0
-      // تصليح بس لما المراجع حدّد ملاحظات فعلية. "فشل" بدون ولا ملاحظة مفهومة = المراجعة ما حسمت، وإعادة تشغيل المنفّذ عالفاضي ضيّعت 49 دقيقة مرة.
-      for (let round = 1; canRepair && rv && rv.findings > 0 && (rv.verdict === 'FAIL' || rv.high > 0) && round <= MAX_REPAIR_ROUNDS; round++) {
-        const fx = await repairFromReview(who, userInput, rv, ctx)
-        if (!fx) break
+      for (let round = 1; rv && rv.verdict === 'FAIL' && rv.findings > 0 && round <= MAX_REPAIR_ROUNDS; round++) {
+        if (canRepair) {
+          const fx = await repairFromReview(who, userInput, rv, ctx)
+          if (!fx) break
+          r.content = r.content + '\n\n[تصليح بعد المراجعة]\n' + fx.text
+        } else {
+          emitProgress('المراجع رفض النتيجة، المنفّذ بيعيد الشغل (' + round + '/' + MAX_REPAIR_ROUNDS + ')')
+          const redo = await executeWithFallbackInner(list, userInput + redoNote(rv), analysis, systemPrompt, toolset, history, opts)
+          if (!redo.success) break
+          r.content = redo.content
+          r.toolCalls = redo.toolCalls
+          r.toolsUsed = redo.toolsUsed
+        }
         rounds = round
-        rv = (await independentReview(who, userInput, r.content + '\n\n[تصليح بعد المراجعة]\n' + fx.text, ctx)) ?? rv
+        ctx.trace = traceOf(r.toolCalls)
+        rv = (await independentReview(who, userInput, r.content, ctx)) ?? rv
       }
       addStage('مراجعة مستقلة', Date.now() - reviewT0)
       if (rv) {
@@ -377,7 +388,7 @@ async function executeWithFallbackInner(
       continue
     }
     // Action tasks (tools / file / device work) must never silently land on a weak model: skip it with a visible reason when stronger ones exist.
-    if ((toolset?.defs.length || opts.requireTools) && models.length > 1 && !isCliModel(model) && isWeakForActions(model)) {
+    if ((toolset?.defs.length || opts.requireTools) && models.length > 1 && !isCliModel(model) && model !== getRoles().executor && isWeakForActions(model)) {
       failures.push({ model, reason: 'موديل ضعيف لمهام التنفيذ، تخطّيناه عمداً (ما بنخلي مهمة تنفيذ تنزل لموديل ما بيمسك الأدوات)' })
       weakSkipped = true
       continue
@@ -779,6 +790,7 @@ async function executeWithFallbackInner(
           success: true,
           triedModels,
           toolsUsed,
+          toolCalls: calls_,
           failures,
           usage: {
             promptTokens: pt,
