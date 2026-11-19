@@ -37,10 +37,11 @@ export function translateSetup(target: string, echo: boolean): Record<string, un
       model: TRANSLATE_MODEL,
       generationConfig: {
         responseModalities: ['AUDIO'],
-        inputAudioTranscription: {},
-        outputAudioTranscription: {},
         translationConfig: { targetLanguageCode: target, echoTargetLanguage: echo }
-      }
+      },
+      // 5.21.19: الخادم رفض inputAudioTranscription داخل generationConfig. مكانها بمستوى setup.
+      inputAudioTranscription: {},
+      outputAudioTranscription: {}
     }
   }
 }

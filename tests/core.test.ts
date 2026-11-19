@@ -1322,12 +1322,12 @@ test('5.21.9 view prefs are sanitized and font CSS is safe', () => {
 })
 
 test('5.21.9 live translate: setup carries target language inside generationConfig', () => {
-  const s = translateSetup('ar', true) as { setup: { model: string; generationConfig: { responseModalities: string[]; translationConfig: { targetLanguageCode: string; echoTargetLanguage: boolean }; inputAudioTranscription: object; outputAudioTranscription: object } } }
+  const s = translateSetup('ar', true) as { setup: { model: string; generationConfig: { responseModalities: string[]; translationConfig: { targetLanguageCode: string; echoTargetLanguage: boolean } }; inputAudioTranscription: object; outputAudioTranscription: object } }
   assert.equal(s.setup.model, TRANSLATE_MODEL)
   assert.deepEqual(s.setup.generationConfig.responseModalities, ['AUDIO'])
   assert.deepEqual(s.setup.generationConfig.translationConfig, { targetLanguageCode: 'ar', echoTargetLanguage: true })
-  assert.deepEqual(s.setup.generationConfig.inputAudioTranscription, {})
-  assert.deepEqual(s.setup.generationConfig.outputAudioTranscription, {})
+  assert.deepEqual(s.setup.inputAudioTranscription, {})
+  assert.deepEqual(s.setup.outputAudioTranscription, {})
 })
 
 test('5.21.9 live translate: only listed language codes are accepted', () => {
