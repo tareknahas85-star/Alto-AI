@@ -1,6 +1,7 @@
 import { ipcMain, type WebContents } from 'electron'
 import { spawn } from 'child_process'
-import { loadMCPConfig, testMCPServer } from '../mcp/client'
+import { loadMCPConfig, testMCPServer, isRemoteLoginServer } from '../mcp/client'
+import { devToolsInfo } from '../computer/devtools'
 import { AVAILABLE_TOOLS } from '../tools/file-tools'
 import { listCustomTools } from '../core/workspace'
 import { readState } from '../core/state'
@@ -20,6 +21,7 @@ export type CheckItem = { id: string; label: string; state: 'ok' | 'fail' | 'ski
 export type CheckResult = { kind: CheckKind; items: CheckItem[]; ok: number; fail: number; skipped: number; cancelled: boolean }
 
 const PER_ITEM_MS = 20000
+const MCP_ITEM_MS = 75000 // أول تشغيل لسيرفر npx/uvx بيحمّل الحزمة، 20 ثانية ما بتكفي
 const runs = new Map<CheckKind, { cancelled: boolean }>()
 
 function withTimeout<T>(p: Promise<T>, ms: number, onTimeout: () => T): Promise<T> {
@@ -65,7 +67,8 @@ async function jobsFor(kind: CheckKind): Promise<Job[]> {
       label: s.name,
       run: async () => {
         if (s.enabled === false) return { state: 'skip' as const, message: 'معطّل يدوياً' }
-        const r = await withTimeout(testMCPServer(s, PER_ITEM_MS), PER_ITEM_MS + 2000, () => timeoutMsg)
+        if (isRemoteLoginServer(s)) return { state: 'skip' as const, message: 'بدو تسجيل دخول (OAuth). ما بنفتح المتصفح بالفحص، سجّل دخول من زر الاتصال أو عطّلو.' }
+        const r = await withTimeout(testMCPServer(s, MCP_ITEM_MS), MCP_ITEM_MS + 2000, () => ({ ok: false, message: 'ما رد بالوقت (' + MCP_ITEM_MS / 1000 + ' ث): غالباً بدو مفتاح API أو تسجيل دخول' }))
         return { state: r.ok ? ('ok' as const) : ('fail' as const), message: r.message.slice(0, 120) }
       }
     }))
@@ -77,6 +80,20 @@ async function jobsFor(kind: CheckKind): Promise<Job[]> {
       label: t.name,
       run: async () => (disabled.includes(t.name) ? { state: 'skip' as const, message: 'معطّلة يدوياً' } : { state: 'ok' as const, message: 'جاهزة' })
     }))
+    // أدوات المطوّر (git/gh/kubectl/gcloud/terraform + ويب + ملفات): الـCLI بنتأكد إنو موجود بالـ PATH، والباقي جاهز.
+    const CLI_BIN: Record<string, string> = { git_cli: 'git', gh_cli: 'gh', kubectl_cli: 'kubectl', gcloud_cli: 'gcloud', terraform_cli: 'terraform' }
+    for (const t of devToolsInfo()) {
+      jobs.push({
+        id: t.name,
+        label: t.name,
+        run: async () => {
+          if (disabled.includes(t.name)) return { state: 'skip' as const, message: 'معطّلة يدوياً' }
+          const bin = CLI_BIN[t.name]
+          if (!bin) return { state: 'ok' as const, message: 'جاهزة' }
+          return (await onPath(bin)) ? { state: 'ok' as const, message: 'الأمر موجود: ' + bin } : { state: 'fail' as const, message: bin + ' مو منزّل أو مو بالـ PATH (الأداة بتفشل لحد ما تنزّلو)' }
+        }
+      })
+    }
     for (const t of listCustomTools()) {
       jobs.push({
         id: t.name,
@@ -105,7 +122,7 @@ async function jobsFor(kind: CheckKind): Promise<Job[]> {
       run: async () => {
         if (!getPrefs().locationEnabled) return { state: 'skip' as const, message: 'مطفية (الإعدادات ← عام ← الموقع)' }
         try {
-          const r = await fetch('https://overpass-api.de/api/status', { signal: AbortSignal.timeout(PER_ITEM_MS) })
+          const r = await fetch('https://overpass-api.de/api/status', { headers: { 'User-Agent': 'Alto-AI/5.21 (personal assistant)', Accept: '*/*' }, signal: AbortSignal.timeout(PER_ITEM_MS) })
           return r.ok ? { state: 'ok' as const, message: 'Overpass شغّال' } : { state: 'fail' as const, message: 'Overpass رجّع ' + r.status }
         } catch (e) {
           return { state: 'fail' as const, message: 'ما وصلت لـ Overpass: ' + (e instanceof Error ? e.message : String(e)).slice(0, 80) }

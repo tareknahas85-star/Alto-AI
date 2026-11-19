@@ -383,6 +383,7 @@ declare global {
       onEvent: (cb: (ev: { type: string; [k: string]: unknown }) => void) => () => void
     }
     translate: {
+      text: (text: string, target: string) => Promise<{ ok: boolean; text?: string; error?: string }>
       available: () => Promise<boolean>
       start: (target: string, echo: boolean) => Promise<{ ok: boolean; error?: string }>
       audio: (b64: string) => void

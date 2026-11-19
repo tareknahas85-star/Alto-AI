@@ -55,6 +55,13 @@ export function PlatformsPage() {
       <label className="mb-3 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={freeOnly} onChange={(e) => setFreeOnly(e.target.checked)} />
         المجاني فقط
+        <button
+          disabled={busy !== null}
+          onClick={() => void (async () => { setBusy('all'); for (const pl of ov?.platforms ?? []) { try { await window.api.platforms.pull(pl.id) } catch { /* next */ } } setBusy(null); await load() })()}
+          className={ghostBtn + ' ms-3'}
+        >
+          {busy === 'all' ? 'عم بحدّث…' : '🔄 حدّث الكل'}
+        </button>
       </label>
 
       <div className={cardCls + ' mb-4'}>

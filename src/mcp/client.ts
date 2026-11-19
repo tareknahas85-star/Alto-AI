@@ -63,6 +63,12 @@ export async function toggleMCPServer(name: string): Promise<boolean | null> {
   return s.enabled
 }
 
+// 5.21.17: سيرفرات بعيدة بتحتاج تسجيل دخول OAuth (mcp-remote وأمثالها): الفحص ما بيشغّلها لأنها بتفتح صفحة تسجيل دخول بالمتصفح.
+export function isRemoteLoginServer(server: MCPServer): boolean {
+  const all = [server.command, ...(server.args ?? [])].join(' ')
+  return /mcp-remote|mcp-proxy|supergateway/i.test(all) || (/https?:\/\//i.test(all) && /\/(mcp|sse)(\b|\/|$)/i.test(all))
+}
+
 // Spawn the server and perform an MCP `initialize` handshake over stdio.
 export function testMCPServer(server: MCPServer, timeoutMs = 30000): Promise<{ ok: boolean; message: string }> {
   return new Promise((resolve) => {

@@ -5,7 +5,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import path from 'path'
 import type OpenAI from 'openai'
 import { listSkills, loadSkill } from '../skills/loader'
-import { loadMCPConfig, type MCPServer } from './client'
+import { loadMCPConfig, isRemoteLoginServer, type MCPServer } from './client'
 import { readFile, listFiles } from '../tools/file-tools'
 import { readState } from '../core/state'
 import { approveNewTool, approveWrite, auditLog, getAccounts } from '../core/accounts'
@@ -147,7 +147,8 @@ const safe = (s: string): string => s.replace(/[^a-zA-Z0-9_-]/g, '_')
 // opts.only: start/ask just this one server (an explicit test must not wait behind 25 cold starts), ignore its recent failure and wait longer.
 export async function listMcpTools(opts?: { only?: string; waitMs?: number }): Promise<McpToolInfo[]> {
   const cfg = await loadMCPConfig()
-  const active = cfg.servers.filter((s) => s.enabled !== false && (!opts?.only || s.name === opts.only))
+  // 5.21.17: سيرفرات OAuth البعيدة ما بتشتغل تلقائياً (بتفتح صفحة تسجيل دخول بالمتصفح)، بس إذا طلبتها بالاسم.
+  const active = cfg.servers.filter((s) => s.enabled !== false && (opts?.only ? s.name === opts.only : !isRemoteLoginServer(s)))
   const stale = active.filter((s) => {
     const hit = toolCache.get(s.name)
     if (hit && Date.now() - hit.at <= TTL) return false

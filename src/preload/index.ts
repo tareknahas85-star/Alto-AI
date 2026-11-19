@@ -402,6 +402,7 @@ const api = {
   },
   translate: {
     available: (): Promise<boolean> => ipcRenderer.invoke('translate:available'),
+    text: (text: string, target: string): Promise<{ ok: boolean; text?: string; error?: string }> => ipcRenderer.invoke('translate:text', text, target),
     start: (target: string, echo: boolean): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('translate:start', target, echo),
     audio: (b64: string): void => ipcRenderer.send('translate:audio', b64),
     stop: (): Promise<boolean> => ipcRenderer.invoke('translate:stop'),

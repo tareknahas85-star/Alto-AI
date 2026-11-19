@@ -155,6 +155,11 @@ export async function executeWithFallback(
 ): Promise<FallbackResult> {
   // 5.17.8: بناء مشروع مع أدوات تحكم بالجهاز: موديلات apinex المجانية ما بتنفّذ بثقة، ما بننزّل مهمة تنفيذ عليها. إذا ما بقي غيرها نوقف برسالة واضحة.
   let list = customExecutorFirst(fastGeminiRoute(models, userInput), toolset)
+  // 5.21.17: منفّذ مختار بإيدك + المايسترو مطفي: بيشتغل هو وحدو. إذا فشل بنوقف ونقلك السبب، بدون تحويل صامت لموديل تاني.
+  {
+    const exPick = getRoles().executor
+    if (exPick !== 'auto' && currentMode()?.kind === 'auto' && !runMasterOn() && list.includes(exPick)) list = [exPick]
+  }
   const autoPc = !!toolset?.defs.some((d) => (d as { function?: { name?: string } }).function?.name?.startsWith('pc_'))
   if (autoPc) {
     // قائمة سماح: الموديلات القوية المدفوعة + محركات CLI + الموديل المختار يدوياً كمنفّذ + المخصصة غير الخفيفة (flash/lite/mini/free).

@@ -16,6 +16,17 @@ export function TranslatePage(): ReactElement {
   const [orig, setOrig] = useState('')
   const [trans, setTrans] = useState('')
   const stopRef = useRef<(() => void) | null>(null)
+  const [tab, setTab] = useState<'text' | 'voice'>('text')
+  const [src, setSrc] = useState('')
+  const [out, setOut] = useState('')
+  const [tbusy, setTbusy] = useState(false)
+  const [tmsg, setTmsg] = useState('')
+  const doText = async (): Promise<void> => {
+    setTbusy(true); setTmsg(''); setOut('')
+    const r = await window.api.translate.text(src, target)
+    setTbusy(false)
+    if (r.ok) setOut(r.text ?? ''); else setTmsg(r.error ?? 'فشلت الترجمة')
+  }
 
   useEffect(() => {
     let off = false
@@ -54,6 +65,35 @@ export function TranslatePage(): ReactElement {
         احكي بأي لغة وبتسمع الترجمة لحظة بلحظة، ومعها نص الأصل ونص الترجمة. بتستعمل موديل الترجمة تبع Gemini بمفتاحك (إعدادات ← المفاتيح).
       </p>
 
+      <div className="mt-3 flex gap-2 text-sm">
+        <button onClick={() => setTab('text')} className={'rounded-full border border-outline px-4 py-1.5 ' + (tab === 'text' ? 'bg-primary text-white' : 'hover:bg-surface2')}>✍️ نص</button>
+        <button onClick={() => setTab('voice')} className={'rounded-full border border-outline px-4 py-1.5 ' + (tab === 'voice' ? 'bg-primary text-white' : 'hover:bg-surface2')}>🎙 صوت فوري</button>
+      </div>
+
+      {tab === 'text' && (
+        <section className="mt-4 rounded-card border border-outline bg-surface p-4 shadow-card">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex items-center gap-2">
+              ترجم إلى
+              <select className={field} value={target} onChange={(e) => setTarget(e.target.value)}>
+                {TRANSLATE_LANGS.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
+              </select>
+            </label>
+            <button disabled={tbusy || !src.trim() || hasKey === false} onClick={() => void doText()} className="rounded-full bg-primary px-4 py-1.5 text-white disabled:opacity-50">{tbusy ? 'عم بترجم…' : 'ترجم'}</button>
+          </div>
+          {hasKey === false && <p className="mt-2 text-xs text-danger">ما في مفتاح Gemini محفوظ. حطّو من الإعدادات أول شي.</p>}
+          {tmsg && <p className="mt-2 text-xs text-danger">{tmsg}</p>}
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <textarea className={field + ' min-h-40 w-full text-sm'} placeholder="الصق النص هون…" value={src} onChange={(e) => setSrc(e.target.value)} />
+            <div className="min-h-40 whitespace-pre-wrap rounded-lg border border-outline bg-bg p-3 text-sm">
+              {out || <span className="text-muted">الترجمة بتطلع هون.</span>}
+              {out && <button onClick={() => copy(out)} className="mt-2 block rounded-full border border-outline px-3 py-1 text-xs hover:bg-surface2">نسخ</button>}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {tab === 'voice' && <>
       <section className="mt-4 rounded-card border border-outline bg-surface p-4 shadow-card">
         {hasKey === false && <p className="mb-3 text-xs text-danger">ما في مفتاح Gemini محفوظ. حطّو من الإعدادات أول شي.</p>}
         <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -103,6 +143,7 @@ export function TranslatePage(): ReactElement {
           </section>
         ))}
       </div>
+      </>}
     </div>
   )
 }
