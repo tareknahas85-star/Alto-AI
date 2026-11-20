@@ -149,12 +149,13 @@ function alertsFor(msg: string, projectId: string | null, s: Store): string[] {
 export function masterMemoryPrompt(currentProjectId: string | null, userMsg = ''): { text: string; projects: number } | undefined {
   const s = syncRegistry()
   const list = Object.values(s.projects)
-  if (!list.length && !s.general.length) return undefined
+  // Isolation: a chat outside any project gets nothing about projects, and a project chat only sees its own entry (plus factual conflict alerts).
+  if (!currentProjectId) return undefined
+  if (!list.length) return undefined
   let out =
-    'MASTER MEMORY — overview of ALL the user\'s projects and recent topics. Use it to stay consistent across projects. ' +
-    'If the current request conflicts with another project (same port, incompatible tech or decision, overlapping resource), say so briefly and suggest an alternative. ' +
-    'Otherwise do not mention other projects and never recite this block.\n'
-  for (const p of list.sort((a, b) => Number(b.id === currentProjectId) - Number(a.id === currentProjectId))) {
+    'PROJECT MEMORY — only about the CURRENT project. Never bring up or mix in any other project. ' +
+    'If a CONFLICT/ALERT line appears below, mention it briefly; otherwise never recite this block.\n'
+  for (const p of list.filter((x) => x.id === currentProjectId)) {
     const line =
       `\n* ${p.id === currentProjectId ? '[CURRENT] ' : ''}${p.name}` +
       (p.summary ? ` — ${p.summary}` : '') +
@@ -164,8 +165,7 @@ export function masterMemoryPrompt(currentProjectId: string | null, userMsg = ''
     if (out.length + line.length > MAX_PROMPT) break
     out += line
   }
-  if (s.general.length) out += '\n\nRECENT TOPICS OUTSIDE PROJECTS: ' + s.general.slice(-8).map((g) => g.text).join(' | ')
-  const conflicts = findConflicts(s).map((c) => 'CONFLICT: ' + c.detail)
+  const conflicts: string[] = [] // global cross-project conflicts removed: they dragged other projects' names into this chat
   const alerts = alertsFor(userMsg, currentProjectId, s)
   if (conflicts.length || alerts.length) out += '\n\n' + [...conflicts, ...alerts].join('\n')
   return { text: out.slice(0, MAX_PROMPT + 600), projects: list.length }

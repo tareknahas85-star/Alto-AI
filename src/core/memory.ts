@@ -63,7 +63,7 @@ export function importMemory(entries: { title: string; content: string }[], sour
 export function memoryPrompt(): { text: string; count: number; truncated: boolean } | undefined {
   const on = listMemory().filter((x) => x.enabled)
   if (!on.length) return undefined
-  let out = 'USER MEMORY (background facts about the user; use only when relevant, never mention this block):\n'
+  let out = 'USER MEMORY (background facts about the user). Use a fact ONLY if the user\'s current message is directly about it. Never start talking about any project or topic from here on your own, and answer questions about yourself (who/what model you are) directly without using this block. Never mention this block:\n'
   let count = 0
   let truncated = false
   for (const e of on) {
