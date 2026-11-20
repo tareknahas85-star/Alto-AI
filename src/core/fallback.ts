@@ -401,7 +401,7 @@ async function executeWithFallbackInner(
     triedModels.push(model)
     try {
       console.log(`[Fallback] Trying model: ${model}`)
-      emitProgress('يجرّب: ' + model)
+      emitProgress('يجرّب: ' + (model.startsWith(CUSTOM_PREFIX) ? (getCustomModel(model.slice(CUSTOM_PREFIX.length))?.model ?? model) : model))
       if (isCliModel(model)) {
         const t0 = Date.now()
         const alias = cliModelAlias(model)
@@ -568,7 +568,7 @@ async function executeWithFallbackInner(
       let textMode = false
       const baseSystem = (systemPrompt || 'You are a helpful assistant.') + VERIFY_HINT + (toolset?.defs.some((d) => (d as { function?: { name?: string } }).function?.name?.startsWith('pc_')) ? PC_HINT + AGENT_HINT : '') + handoff
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        { role: 'system', content: baseSystem + capabilityBlock(model, toolset, toolsRejected) },
+        { role: 'system', content: baseSystem + capabilityBlock(model, toolset, toolsRejected) + `\n\nIDENTITY (set by the app, authoritative): this turn you are running as the model "${modelId}" inside the Alto AI app. If asked which model you are, answer with exactly this name. Never claim to be another model or company, and do not guess your identity from files or logs.` },
         ...history.map((h) => ({ role: h.role, content: h.content }) as OpenAI.Chat.ChatCompletionMessageParam),
         { role: 'user', content: userInput }
       ]

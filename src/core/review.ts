@@ -23,7 +23,7 @@ export type Ctx = { signal?: AbortSignal; emit: (t: string) => void; effort?: st
 
 // المراجع عبر API ما عنده وصول للملفات. نقولها له صراحة عشان ما يدّعي إنه فحص شي ما فحصه.
 const API_REVIEW_NOTE =
-  '\n\nIMPORTANT: you have NO access to files or the machine in this review. Judge from the task, the executor summary and the TOOL TRACE (the real commands and outputs). Say so in the CHECKS line, and never claim you ran or read anything yourself.'
+  '\n\nIMPORTANT: you have NO access to files or the machine in this review. Judge from the task, the executor summary and the TOOL TRACE (the real commands and outputs). Say so in the CHECKS line, and never claim you ran or read anything yourself. A trace entry ending with "[cut by the app for length" was only shortened for you: that is NOT a reason to FAIL; judge from what you can see and say if something is unverifiable instead of rejecting.'
 
 async function runApiReview(eng: string, prompt: string, system: string, c: Ctx): Promise<AgentResult> {
   const m = getCustomModel(eng.slice(CUSTOM_PREFIX.length))
@@ -80,7 +80,8 @@ export function masterReviewer(): string | undefined {
 /** سجل الأدوات الفعلي (أوامر + نواتجها) كدليل للمراجع. */
 export function traceOf(calls?: { key: string; out: string }[]): string {
   if (!calls?.length) return ''
-  return calls.slice(-25).map((x) => x.key.slice(0, 220) + ' => ' + x.out.replace(/\s+/g, ' ').slice(0, 320)).join('\n---\n')
+  const one = (x: { key: string; out: string }): string => { const o = x.out.replace(/\s+/g, ' '); return x.key.slice(0, 220) + ' => ' + o.slice(0, 1500) + (o.length > 1500 ? ' …[cut by the app for length, NOT by the executor]' : '') }
+  return calls.slice(-25).map(one).join('\n---\n').slice(-14000)
 }
 
 /** تعليمات الإعادة للمنفّذ من حكم المراجع. */
