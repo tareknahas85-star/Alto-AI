@@ -539,6 +539,8 @@ async function executeWithFallbackInner(
             ? 'openai'
             : 'openrouter'
       let extra = effortExtra(modelId, route)
+      // Local Ollama models think by default and burn the whole token budget on reasoning, returning an empty answer: turn thinking off for them.
+      if (model.startsWith(CUSTOM_PREFIX) && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]):11434/i.test(getCustomModel(model.slice(CUSTOM_PREFIX.length))?.baseURL ?? '')) extra = { ...extra, reasoning_effort: 'none' }
       if (!model.startsWith(CUSTOM_PREFIX)) modelDetail = modelId
       effortApplied = Object.keys(extra).length ? getEffort() : ''
       const isEffortErr = (e: unknown): boolean => Object.keys(extra).length > 0 && [400, 422].includes((e as { status?: number })?.status ?? 0)
