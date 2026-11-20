@@ -631,6 +631,7 @@ function GoogleAccountPanel({ onChanged }: { onChanged: () => void }): ReactElem
     setBusy('')
     setMsg({ ok: r.ok, text: r.ok ? (r.message ?? okText) : '✗ ' + (r.error ?? r.message ?? 'فشل') })
     refresh()
+    if (r.ok && (key === 'login' || key === 'test')) onChanged()
   }
   return (
     <div className={cardCls + ' mb-4 space-y-3 p-4'}>

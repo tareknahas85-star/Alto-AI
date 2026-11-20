@@ -287,6 +287,16 @@ export function registerManagementHandlers(): void {
     return n
   })
   // ---- Gemini بحساب غوغل (OAuth): ما بيشيل مفتاح API، طريق تاني بجنبو.
+  const importGoogleModels = async (): Promise<number> => {
+    const have = new Set(listCustomModelViews().filter((m) => m.auth === 'google').map((m) => m.model))
+    let n = 0
+    for (const id of await googleListModels()) {
+      if (have.has(id)) continue
+      addCustomModel({ name: id + ' · حساب شخصي', model: id, baseURL: hostOf('gemini'), auth: 'google', tier: /pro/i.test(id) ? 'TIER_3_EXPENSIVE' : 'TIER_2_CHEAP' })
+      n++
+    }
+    return n
+  }
   ipcMain.handle('gauth:status', () => googleStatus())
   ipcMain.handle('gauth:saveClient', (_e, id: unknown, secret: unknown) => {
     try {
@@ -311,7 +321,13 @@ export function registerManagementHandlers(): void {
   ipcMain.handle('gauth:login', async (_e, wide: unknown) => {
     try {
       await googleLogin(wide === true)
-      return { ok: true }
+      let added = 0
+      try {
+        added = await importGoogleModels()
+      } catch {
+        /* the user can still pull them by hand */
+      }
+      return { ok: true, added }
     } catch (e) {
       return { ok: false, error: msg(e) }
     }
@@ -344,6 +360,12 @@ export function registerManagementHandlers(): void {
       }
       if (!pick) return { ok: false, message: 'رد الموديل: ' + lastErr, steps }
       steps.push('رد ' + pick + ': ' + txt.slice(0, 60))
+      try {
+        const n = await importGoogleModels()
+        if (n) steps.push('انضافوا ' + n + ' موديل لقائمة الموديلات')
+      } catch {
+        /* ignore */
+      }
       return { ok: true, message: 'اشتغل. ' + steps.join(' · '), steps }
     } catch (e) {
       return { ok: false, message: 'قائمة الموديلات: ' + msg(e), steps }
@@ -363,7 +385,7 @@ export function registerManagementHandlers(): void {
     let n = 0
     for (const id of ids.filter((x): x is string => typeof x === 'string')) {
       if (have.has(id)) continue
-      addCustomModel({ name: id + ' (حساب غوغل)', model: id, baseURL: hostOf('gemini'), auth: 'google', tier: /pro/i.test(id) ? 'TIER_3_EXPENSIVE' : 'TIER_2_CHEAP' })
+      addCustomModel({ name: id + ' · حساب شخصي', model: id, baseURL: hostOf('gemini'), auth: 'google', tier: /pro/i.test(id) ? 'TIER_3_EXPENSIVE' : 'TIER_2_CHEAP' })
       n++
     }
     return n
