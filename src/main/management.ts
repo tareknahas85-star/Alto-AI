@@ -16,6 +16,7 @@ import { deleteMemoryEntry, importMemory, listMemory, memoryPrompt, saveMemoryEn
 import { ensureCatalogFresh, fetchOpenRouterModels, listCatalog, resetCatalogEnabled, setCatalogEnabled, testOpenRouterKey } from '../core/catalog'
 import { HOST_DEFAULTS, hostOf, hostsInfo, setHost, type HostId } from '../core/hosts'
 import { getApiKey } from '../store/secure-store'
+import { googleAccessToken, googleHeaders, googleImportClientFile, googleLogin, googleLogout, googleSaveClient, googleStatus } from '../core/google-gemini'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import {
   OLLAMA_DOWNLOAD_URL,
@@ -280,6 +281,98 @@ export function registerManagementHandlers(): void {
     for (const id of ids.filter((x): x is string => typeof x === 'string')) {
       if (have.has(id)) continue
       addCustomModel({ name: id, model: id, baseURL: hostOf('gemini'), apiKey: key, tier: /pro/i.test(id) ? 'TIER_3_EXPENSIVE' : 'TIER_2_CHEAP' })
+      n++
+    }
+    return n
+  })
+  // ---- Gemini بحساب غوغل (OAuth): ما بيشيل مفتاح API، طريق تاني بجنبو.
+  const gHeaders = async (): Promise<Record<string, string>> => ({ Authorization: 'Bearer ' + (await googleAccessToken()), ...googleHeaders() })
+  const gChatIds = (j: { data?: { id?: string }[] }): string[] =>
+    (j.data ?? [])
+      .map((m) => String(m.id ?? '').replace(/^models\//, ''))
+      .filter((id) => /^gemini/i.test(id) && !/embed|aqa|imagen|tts|veo|live|image|audio|robotics|computer-use/i.test(id))
+      .sort()
+  ipcMain.handle('gauth:status', () => googleStatus())
+  ipcMain.handle('gauth:saveClient', (_e, id: unknown, secret: unknown) => {
+    try {
+      googleSaveClient(String(id ?? ''), String(secret ?? ''))
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  })
+  ipcMain.handle('gauth:importFile', async () => {
+    const opts = { title: 'اختار ملف client_secret.json', properties: ['openFile' as const], filters: [{ name: 'JSON', extensions: ['json'] }] }
+    const w = BrowserWindow.getFocusedWindow()
+    const r = w ? await dialog.showOpenDialog(w, opts) : await dialog.showOpenDialog(opts)
+    if (r.canceled || !r.filePaths[0]) return { ok: false, error: 'انلغى' }
+    try {
+      await googleImportClientFile(r.filePaths[0])
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  })
+  ipcMain.handle('gauth:login', async (_e, wide: unknown) => {
+    try {
+      await googleLogin(wide === true)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  })
+  ipcMain.handle('gauth:logout', () => {
+    googleLogout()
+    return { ok: true }
+  })
+  // اختبار بخطوتين بيقول بالضبط وين بيفشل: قائمة الموديلات، وبعدين رد فعلي من موديل.
+  ipcMain.handle('gauth:test', async () => {
+    const steps: string[] = []
+    try {
+      const h = await gHeaders()
+      const lr = await fetch(hostOf('gemini') + '/models', { headers: h, signal: AbortSignal.timeout(20000) })
+      if (!lr.ok) return { ok: false, message: 'قائمة الموديلات: خطأ ' + lr.status + ' ' + (await lr.text()).replace(/\s+/g, ' ').slice(0, 220), steps }
+      const ids = gChatIds((await lr.json()) as { data?: { id?: string }[] })
+      steps.push('القائمة: ' + ids.length + ' موديل')
+      const pick = ids.find((x) => /flash/i.test(x) && !/lite/i.test(x)) ?? ids[0]
+      if (!pick) return { ok: false, message: 'ما في موديلات دردشة بالقائمة', steps }
+      const cr = await fetch(hostOf('gemini') + '/chat/completions', {
+        method: 'POST',
+        headers: { ...h, 'content-type': 'application/json' },
+        body: JSON.stringify({ model: pick, messages: [{ role: 'user', content: 'قول: تمام' }], max_tokens: 64 }),
+        signal: AbortSignal.timeout(40000)
+      })
+      const body = await cr.text()
+      if (!cr.ok) return { ok: false, message: 'رد من ' + pick + ': خطأ ' + cr.status + ' ' + body.replace(/\s+/g, ' ').slice(0, 260), steps }
+      let txt = ''
+      try {
+        txt = String((JSON.parse(body) as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? '')
+      } catch {
+        /* keep empty */
+      }
+      steps.push('رد ' + pick + ': ' + txt.slice(0, 60))
+      return { ok: true, message: 'اشتغل. ' + steps.join(' · '), steps }
+    } catch (e) {
+      return { ok: false, message: msg(e), steps }
+    }
+  })
+  ipcMain.handle('gauth:list', async () => {
+    try {
+      const r = await fetch(hostOf('gemini') + '/models', { headers: await gHeaders(), signal: AbortSignal.timeout(20000) })
+      if (!r.ok) return { ok: false, error: 'خطأ ' + r.status + ' ' + (await r.text()).replace(/\s+/g, ' ').slice(0, 160), models: [] }
+      const have = new Set(listCustomModelViews().filter((m) => m.auth === 'google').map((m) => m.model))
+      return { ok: true, models: gChatIds((await r.json()) as { data?: { id?: string }[] }).map((id) => ({ id, added: have.has(id) })) }
+    } catch (e) {
+      return { ok: false, error: msg(e), models: [] }
+    }
+  })
+  ipcMain.handle('gauth:import', (_e, ids: unknown) => {
+    if (!Array.isArray(ids)) return 0
+    const have = new Set(listCustomModelViews().filter((m) => m.auth === 'google').map((m) => m.model))
+    let n = 0
+    for (const id of ids.filter((x): x is string => typeof x === 'string')) {
+      if (have.has(id)) continue
+      addCustomModel({ name: id + ' (حساب غوغل)', model: id, baseURL: hostOf('gemini'), auth: 'google', tier: /pro/i.test(id) ? 'TIER_3_EXPENSIVE' : 'TIER_2_CHEAP' })
       n++
     }
     return n

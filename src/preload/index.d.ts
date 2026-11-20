@@ -37,6 +37,7 @@ export type CustomModelInfo = {
   tier: Tier
   enabled: boolean
   hasKey: boolean
+  auth?: 'google'
   last?: boolean
   kind?: 'chat' | 'image' | 'audio' | 'video'
   desc?: string
@@ -512,6 +513,16 @@ declare global {
         reset: () => Promise<number>
       }
       gemini: {
+        list: () => Promise<{ ok: boolean; error?: string; models: { id: string; added: boolean }[] }>
+        import: (ids: string[]) => Promise<number>
+      }
+      gauth: {
+        status: () => Promise<{ client: boolean; connected: boolean; project: string; wide: boolean }>
+        saveClient: (id: string, secret: string) => Promise<{ ok: boolean; error?: string }>
+        importFile: () => Promise<{ ok: boolean; error?: string }>
+        login: (wide?: boolean) => Promise<{ ok: boolean; error?: string }>
+        logout: () => Promise<{ ok: boolean }>
+        test: () => Promise<{ ok: boolean; message: string; steps: string[] }>
         list: () => Promise<{ ok: boolean; error?: string; models: { id: string; added: boolean }[] }>
         import: (ids: string[]) => Promise<number>
       }

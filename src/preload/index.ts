@@ -263,6 +263,16 @@ const api = {
     list: (): Promise<{ ok: boolean; error?: string; models: { id: string; added: boolean }[] }> => ipcRenderer.invoke('gemini:list'),
     import: (ids: string[]): Promise<number> => ipcRenderer.invoke('gemini:import', ids)
   },
+  gauth: {
+    status: (): Promise<{ client: boolean; connected: boolean; project: string; wide: boolean }> => ipcRenderer.invoke('gauth:status'),
+    saveClient: (id: string, secret: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('gauth:saveClient', id, secret),
+    importFile: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('gauth:importFile'),
+    login: (wide?: boolean): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('gauth:login', !!wide),
+    logout: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('gauth:logout'),
+    test: (): Promise<{ ok: boolean; message: string; steps: string[] }> => ipcRenderer.invoke('gauth:test'),
+    list: (): Promise<{ ok: boolean; error?: string; models: { id: string; added: boolean }[] }> => ipcRenderer.invoke('gauth:list'),
+    import: (ids: string[]): Promise<number> => ipcRenderer.invoke('gauth:import', ids)
+  },
   hosts: {
     get: (): Promise<Record<string, { value: string; default: string; custom: boolean }>> => ipcRenderer.invoke('hosts:get'),
     set: (id: string, url: string): Promise<{ ok: boolean; error?: string; value: string }> => ipcRenderer.invoke('hosts:set', id, url)

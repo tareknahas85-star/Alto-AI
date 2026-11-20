@@ -4,6 +4,7 @@ import { readJson, writeJson, newId } from './json-store'
 import { getApiKey, getSecret, setSecret } from '../store/secure-store'
 import { knownPrice, type Price } from './pricing'
 import { isChatKind, normKind } from './media-custom'
+import { googleAccessToken, googleHeaders, googleLoggedIn } from './google-gemini'
 
 export type Tier = 'TIER_1_FREE' | 'TIER_2_CHEAP' | 'TIER_3_EXPENSIVE'
 export type CustomModel = {
@@ -20,6 +21,7 @@ export type CustomModel = {
   priceIn?: number // USD per 1M input tokens (manual; wins over the built-in table)
   priceOut?: number // USD per 1M output tokens
   keyRef?: 'OPENAI_API_KEY' | 'ANTHROPIC_API_KEY' // virtual direct-provider model: uses the saved provider key
+  auth?: 'google' // 5.21.27: signs in with the user's Google account (OAuth token) instead of an API key
 }
 export type CustomModelView = CustomModel & { hasKey: boolean; autoPrice: Price | null }
 
@@ -63,7 +65,7 @@ function directModels(): CustomModel[] {
 }
 const keyOf = (m: CustomModel): string => (m.keyRef ? getApiKey(m.keyRef) ?? '' : getSecret(`model:${m.id}`) ?? '')
 
-const toView = (m: CustomModel): CustomModelView => ({ ...m, hasKey: !!keyOf(m), autoPrice: knownPrice(m.model) })
+const toView = (m: CustomModel): CustomModelView => ({ ...m, hasKey: m.auth === 'google' ? googleLoggedIn() : !!keyOf(m), autoPrice: knownPrice(m.model) })
 // Chat routing (picker, tiers, reviewers) only ever sees chat models; the Models page sees everything.
 export const listCustomModelViews = (): CustomModelView[] => [...listCustomModels().filter((m) => isChatKind(m.kind)), ...directModels()].map(toView)
 export const listAllCustomModelViews = (): CustomModelView[] => listCustomModels().map(toView)
@@ -90,6 +92,7 @@ export function addCustomModel(input: {
   baseURL?: string
   apiKey?: string
   tier?: string
+  auth?: string
   kind?: string
   desc?: string
   limit?: string
@@ -102,6 +105,7 @@ export function addCustomModel(input: {
   const tier = TIERS.includes(input.tier as Tier) ? (input.tier as Tier) : 'TIER_2_CHEAP'
   const kind = normKind(input.kind)
   const m: CustomModel = { id: newId(), name, model, baseURL, tier, enabled: true }
+  if (input.auth === 'google') m.auth = 'google'
   if (kind !== 'chat') m.kind = kind
   const desc = String(input.desc ?? '').trim().slice(0, 200)
   const limit = String(input.limit ?? '').trim().slice(0, 120)
@@ -158,6 +162,10 @@ export function customEndpoint(m: CustomModel): { base: string; key: string } {
 }
 
 export function clientForCustomModel(m: CustomModel): { client: OpenAI; modelId: string } {
+  if (m.auth === 'google') {
+    // the SDK calls the setter before every request, so the token is always fresh
+    return { client: new OpenAI({ baseURL: m.baseURL, apiKey: () => googleAccessToken(), defaultHeaders: googleHeaders() }), modelId: m.model }
+  }
   const key = keyOf(m) || (m.baseURL ? '' : process.env.OPENROUTER_API_KEY || '')
   return {
     client: new OpenAI({

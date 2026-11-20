@@ -423,6 +423,7 @@ export function ModelsPage() {
               {head('Gemini')}
               <KeyField name="GEMINI_API_KEY" onChange={setKeyHas('GEMINI_API_KEY')} verify={() => window.api.providers.check('gemini')} />
               <HostField id="gemini" />
+              <GoogleAccountPanel onChanged={load} />
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-muted">الموديلات</h3>
                 <div className="flex items-center gap-2">
@@ -610,6 +611,98 @@ export function ModelsPage() {
   )
 }
 
+// 5.21.27: دخول بحساب غوغل لـ Gemini (OAuth). المفتاح فوق ما بينلمس؛ هاد طريق تاني بجنبو.
+function GoogleAccountPanel({ onChanged }: { onChanged: () => void }): ReactElement {
+  const [st, setSt] = useState<{ client: boolean; connected: boolean; project: string; wide: boolean } | null>(null)
+  const [id, setId] = useState('')
+  const [secret, setSecret] = useState('')
+  const [wide, setWide] = useState(false)
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [list, setList] = useState<{ list: { id: string; added: boolean }[]; sel: Set<string> } | null>(null)
+  const refresh = useCallback(() => void window.api.gauth.status().then(setSt), [])
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+  const run = async (key: string, fn: () => Promise<{ ok: boolean; error?: string; message?: string }>, okText: string): Promise<void> => {
+    setBusy(key)
+    setMsg(null)
+    const r = await fn()
+    setBusy('')
+    setMsg({ ok: r.ok, text: r.ok ? (r.message ?? okText) : '✗ ' + (r.error ?? r.message ?? 'فشل') })
+    refresh()
+  }
+  return (
+    <div className={cardCls + ' mb-4 space-y-3 p-4'}>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold">الدخول بحساب غوغل (بدون مفتاح)</h3>
+        <Chip>{st?.client ? 'العميل محفوظ' : 'ما في عميل'}</Chip>
+        <Chip>{st?.connected ? 'متصل ✓' : 'مش متصل'}</Chip>
+      </div>
+      <p className="text-xs text-muted">بتسجّل دخول بحسابك وبتستعمل Gemini من حصة حسابك. بتحتاج Desktop client من مشروعك على Google Cloud (مرة وحدة). المفتاح اللي فوق بيضل شغّال متل ما هو.</p>
+      {!st?.client ? (
+        <div className="space-y-2">
+          <input dir="ltr" className={inputCls} placeholder="Client ID (…apps.googleusercontent.com)" value={id} onChange={(e) => setId(e.target.value)} />
+          <input dir="ltr" type="password" className={inputCls} placeholder="Client Secret" value={secret} onChange={(e) => setSecret(e.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <button className={primaryBtn} disabled={!id.trim() || !secret.trim() || !!busy} onClick={() => void run('save', () => window.api.gauth.saveClient(id, secret).then((r) => { if (r.ok) { setId(''); setSecret('') } return r }), 'انحفظ العميل')}>احفظ</button>
+            <button className={ghostBtn + ' border border-outline'} disabled={!!busy} onClick={() => void run('file', () => window.api.gauth.importFile(), 'انحفظ العميل من الملف')}>استورد ملف client_secret.json</button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button className={primaryBtn} disabled={!!busy} onClick={() => void run('login', () => window.api.gauth.login(wide), 'تمام، انربط الحساب')}>
+              {busy === 'login' ? 'بانتظار موافقتك بالمتصفح…' : st.connected ? 'سجّل دخول من جديد' : 'سجّل دخول بحساب غوغل'}
+            </button>
+            <button className={ghostBtn + ' border border-outline'} disabled={!!busy || !st.connected} onClick={() => void run('test', () => window.api.gauth.test(), 'اشتغل')}>{busy === 'test' ? 'عم أجرّب…' : 'اختبار'}</button>
+            <button
+              className={ghostBtn + ' border border-outline'}
+              disabled={!!busy || !st.connected}
+              onClick={async () => {
+                setBusy('list')
+                const r = await window.api.gauth.list()
+                setBusy('')
+                if (!r.ok) return setMsg({ ok: false, text: '✗ ' + (r.error ?? 'فشل') })
+                setList({ list: r.models, sel: new Set() })
+              }}
+            >
+              {busy === 'list' ? 'عم أجلب…' : 'اسحب الموديلات'}
+            </button>
+            {st.connected && <button className={ghostBtn + ' border border-outline'} disabled={!!busy} onClick={() => void run('out', () => window.api.gauth.logout().then((r) => ({ ok: r.ok })), 'انفصل')}>قطع</button>}
+            <button className={ghostBtn + ' border border-outline'} disabled={!!busy} onClick={() => void run('reset', () => window.api.gauth.saveClient('', ''), 'انمسح العميل، حط الجديد')} title="غيّر الـ Client ID والـ Secret">غيّر العميل</button>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={wide} onChange={(e) => setWide(e.target.checked)} />
+            صلاحية أوسع (cloud-platform): فعّلها بس إذا الاختبار قال إنو الصلاحية ما كفت
+          </label>
+          {st.project && <p className="text-xs text-muted" dir="ltr">project number: {st.project}</p>}
+        </div>
+      )}
+      {msg && <p className={'text-xs ' + (msg.ok ? 'text-success' : 'text-danger')}>{msg.text}</p>}
+      {list && (
+        <Modal title="موديلات Gemini (حساب غوغل)" onClose={() => setList(null)}>
+          <div className="space-y-3">
+            <p className="text-xs text-muted">{list.list.length} موديل. بتنضاف بدخول حسابك؛ الـ pro بطبقة "قوي" والباقي بـ "رخيص".</p>
+            <div className="max-h-80 space-y-1 overflow-y-auto">
+              {list.list.map((x) => (
+                <label key={x.id} className="flex items-center gap-2 text-xs">
+                  <input type="checkbox" disabled={x.added} checked={x.added || list.sel.has(x.id)} onChange={(e) => { const s2 = new Set(list.sel); if (e.target.checked) s2.add(x.id); else s2.delete(x.id); setList({ ...list, sel: s2 }) }} />
+                  <span dir="ltr" className="font-mono">{x.id}</span>
+                  {x.added && <Chip>مضاف</Chip>}
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button className={ghostBtn} onClick={() => setList(null)}>إلغاء</button>
+              <button className={primaryBtn} disabled={!list.sel.size} onClick={async () => { await window.api.gauth.import([...list.sel]); setList(null); onChanged() }}>ضيف المحدد ({list.sel.size})</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
 type OllamaInfo = {
   state: 'missing' | 'stopped' | 'running'
   models: string[]
