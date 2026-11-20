@@ -6,7 +6,7 @@ import { getApiKey } from '../store/secure-store'
 import OpenAI from 'openai'
 import { apinexClient, apinexModelId, isApinexModel } from './apinex'
 import fs from 'fs'
-import { dataFile } from './json-store'
+import { dataFile, readJson } from './json-store'
 import { bumpFreeCount, modelBlockReason, noteModelFailure, noteRateLimit, noteModelOk, rateLimitWaitSec } from './model-health'
 import { strongPaidModels } from './router'
 import { refuseDowngrade, STRONG_WAIT_MAX_SEC, strongRequiredFor } from './strong-policy'
@@ -1019,9 +1019,17 @@ function unverifiedClaimWarning(
 }
 
 const CANT_USE_TOOLS = /(ما\s*(بقدّ?ر|أقدر|اقدر)(ش)?|لا\s*(أقدر|يمكنني)|cannot|can't|unable)[^\n]{0,80}(أدوات|ادوات|tools?|pc_run|ملف|تنفيذ)/i
+function probedToolOk(model: string): boolean {
+  try {
+    const rs = readJson<{ id: string; ok: boolean; tool: boolean; score: number; at: string }[]>('free-probe.json', [])
+    const r = rs.find((x) => x.id === model)
+    return !!r && r.ok && r.tool && r.score >= 70 && Date.now() - Date.parse(r.at) < 21 * 86400000
+  } catch { return false }
+}
 // Models that cannot be trusted to drive tools: free-tier routes and small/nano variants. Strong families (gemini/gpt/claude) stay allowed.
 function isWeakForActions(model: string): boolean {
   if (model.startsWith('custom:')) return false // the user added it himself: trust his choice
   if (/claude|sonnet|opus|haiku/i.test(model)) return false
+  if (probedToolOk(model)) return false // a real probe proved it makes valid tool calls: trust the evidence over the name
   return /:free$|^openrouter\/free$|nemo|nano|tiny|small|lite/i.test(model)
 }
