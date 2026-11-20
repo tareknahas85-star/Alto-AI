@@ -362,10 +362,11 @@ export function registerConnectorsHandlers(): void {
     if (!d) return { ok: false, message: 'خدمة مو معروفة' }
     try {
       await ensureServer(d)
-      const tools = (await listMcpTools()).filter((t) => t.server === d.id)
+      // 5.21.26: ask for THIS server by name (remote OAuth servers are skipped by the plain listing) and wait longer for a cold start.
+      const tools = await listMcpTools({ only: d.id, waitMs: 90000 })
       if (!tools.length) {
         setConnected(d.id, false)
-        return { ok: false, message: 'ما في أدوات. دوس اتصل.' }
+        return { ok: false, message: d.kind === 'remote' ? 'ما رد بأدوات. غالباً بدو تسجيل دخول من جديد، دوس اتصل.' : 'ما في أدوات. دوس اتصل.' }
       }
       if (d.id === 'ms365') {
         const v = tools.find((t) => /verify.?login/i.test(t.name))

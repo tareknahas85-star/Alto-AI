@@ -148,7 +148,9 @@ const safe = (s: string): string => s.replace(/[^a-zA-Z0-9_-]/g, '_')
 export async function listMcpTools(opts?: { only?: string; waitMs?: number }): Promise<McpToolInfo[]> {
   const cfg = await loadMCPConfig()
   // 5.21.17: سيرفرات OAuth البعيدة ما بتشتغل تلقائياً (بتفتح صفحة تسجيل دخول بالمتصفح)، بس إذا طلبتها بالاسم.
-  const active = cfg.servers.filter((s) => s.enabled !== false && (opts?.only ? s.name === opts.only : !isRemoteLoginServer(s)))
+  // 5.21.26: a remote OAuth server the user already connected (sign-in done, token stored) is a normal server; only the never-connected ones stay off.
+  const connected = getAccounts().connected
+  const active = cfg.servers.filter((s) => s.enabled !== false && (opts?.only ? s.name === opts.only : !isRemoteLoginServer(s) || connected.includes(s.name)))
   const stale = active.filter((s) => {
     const hit = toolCache.get(s.name)
     if (hit && Date.now() - hit.at <= TTL) return false
