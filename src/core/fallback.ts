@@ -872,8 +872,11 @@ async function executeWithFallbackInner(
       failures
     }
   }
+  // 5.21.21: نعرض السبب الحقيقي لكل موديل بدل «افحص مفاتيح API» (مضلّلة للموديلات المحلية).
+  const why = failures.slice(-6).map((f) => '• ' + f.model + ': ' + f.reason.replace(/\s+/g, ' ').slice(0, 220)).join('\n')
+  const local = failures.some((f) => /ECONNREFUSED|ECONNRESET|fetch failed|Connection error|connect/i.test(f.reason))
   return {
-    content: 'All models failed. Please check your API keys.',
+    content: '❌ ما قدرت أجاوب. أسباب الفشل:\n' + (why || '• ما في تفاصيل مسجّلة') + (local ? '\n\nإذا الموديل محلي (Ollama): تأكد إنو Ollama شغّال (افتح http://127.0.0.1:11434) وإنو الموديل محمّل.' : ''),
     modelUsed: 'none',
     success: false,
     triedModels,
