@@ -16,7 +16,8 @@ import { deleteMemoryEntry, importMemory, listMemory, memoryPrompt, saveMemoryEn
 import { ensureCatalogFresh, fetchOpenRouterModels, listCatalog, resetCatalogEnabled, setCatalogEnabled, testOpenRouterKey } from '../core/catalog'
 import { HOST_DEFAULTS, hostOf, hostsInfo, setHost, type HostId } from '../core/hosts'
 import { getApiKey } from '../store/secure-store'
-import { googleAccessToken, googleHeaders, googleImportClientFile, googleLogin, googleLogout, googleSaveClient, googleStatus } from '../core/google-gemini'
+import { googleListModels, googleGenerateOnce } from '../core/google-native'
+import { googleImportClientFile, googleLogin, googleLogout, googleSaveClient, googleStatus } from '../core/google-gemini'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import {
   OLLAMA_DOWNLOAD_URL,
@@ -286,12 +287,6 @@ export function registerManagementHandlers(): void {
     return n
   })
   // ---- Gemini بحساب غوغل (OAuth): ما بيشيل مفتاح API، طريق تاني بجنبو.
-  const gHeaders = async (): Promise<Record<string, string>> => ({ Authorization: 'Bearer ' + (await googleAccessToken()), ...googleHeaders() })
-  const gChatIds = (j: { data?: { id?: string }[] }): string[] =>
-    (j.data ?? [])
-      .map((m) => String(m.id ?? '').replace(/^models\//, ''))
-      .filter((id) => /^gemini/i.test(id) && !/embed|aqa|imagen|tts|veo|live|image|audio|robotics|computer-use/i.test(id))
-      .sort()
   ipcMain.handle('gauth:status', () => googleStatus())
   ipcMain.handle('gauth:saveClient', (_e, id: unknown, secret: unknown) => {
     try {
@@ -329,39 +324,35 @@ export function registerManagementHandlers(): void {
   ipcMain.handle('gauth:test', async () => {
     const steps: string[] = []
     try {
-      const h = await gHeaders()
-      const lr = await fetch(hostOf('gemini') + '/models', { headers: h, signal: AbortSignal.timeout(20000) })
-      if (!lr.ok) return { ok: false, message: 'قائمة الموديلات: خطأ ' + lr.status + ' ' + (await lr.text()).replace(/\s+/g, ' ').slice(0, 220), steps }
-      const ids = gChatIds((await lr.json()) as { data?: { id?: string }[] })
+      const ids = await googleListModels()
       steps.push('القائمة: ' + ids.length + ' موديل')
-      const pick = ids.find((x) => /flash/i.test(x) && !/lite/i.test(x)) ?? ids[0]
-      if (!pick) return { ok: false, message: 'ما في موديلات دردشة بالقائمة', steps }
-      const cr = await fetch(hostOf('gemini') + '/chat/completions', {
-        method: 'POST',
-        headers: { ...h, 'content-type': 'application/json' },
-        body: JSON.stringify({ model: pick, messages: [{ role: 'user', content: 'قول: تمام' }], max_tokens: 64 }),
-        signal: AbortSignal.timeout(40000)
-      })
-      const body = await cr.text()
-      if (!cr.ok) return { ok: false, message: 'رد من ' + pick + ': خطأ ' + cr.status + ' ' + body.replace(/\s+/g, ' ').slice(0, 260), steps }
+      const ver = (x: string): number => Number(/gemini-(\d+(?:\.\d+)?)/i.exec(x)?.[1] ?? 0)
+      const cands = ids.filter((x) => /flash/i.test(x) && !/lite|preview|exp|image|tts/i.test(x)).sort((x, y) => ver(y) - ver(x)).slice(0, 4)
+      if (!cands.length) return { ok: false, message: 'ما في موديلات دردشة بالقائمة', steps }
+      let pick = ''
       let txt = ''
-      try {
-        txt = String((JSON.parse(body) as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? '')
-      } catch {
-        /* keep empty */
+      let lastErr = ''
+      for (const c of cands) {
+        try {
+          txt = await googleGenerateOnce(c, 'قول: تمام')
+          pick = c
+          break
+        } catch (e) {
+          lastErr = c + ': ' + msg(e)
+          steps.push('جرّبت ' + c + ' وما اشتغل')
+        }
       }
+      if (!pick) return { ok: false, message: 'رد الموديل: ' + lastErr, steps }
       steps.push('رد ' + pick + ': ' + txt.slice(0, 60))
       return { ok: true, message: 'اشتغل. ' + steps.join(' · '), steps }
     } catch (e) {
-      return { ok: false, message: msg(e), steps }
+      return { ok: false, message: 'قائمة الموديلات: ' + msg(e), steps }
     }
   })
   ipcMain.handle('gauth:list', async () => {
     try {
-      const r = await fetch(hostOf('gemini') + '/models', { headers: await gHeaders(), signal: AbortSignal.timeout(20000) })
-      if (!r.ok) return { ok: false, error: 'خطأ ' + r.status + ' ' + (await r.text()).replace(/\s+/g, ' ').slice(0, 160), models: [] }
       const have = new Set(listCustomModelViews().filter((m) => m.auth === 'google').map((m) => m.model))
-      return { ok: true, models: gChatIds((await r.json()) as { data?: { id?: string }[] }).map((id) => ({ id, added: have.has(id) })) }
+      return { ok: true, models: (await googleListModels()).map((id) => ({ id, added: have.has(id) })) }
     } catch (e) {
       return { ok: false, error: msg(e), models: [] }
     }

@@ -4,7 +4,8 @@ import { readJson, writeJson, newId } from './json-store'
 import { getApiKey, getSecret, setSecret } from '../store/secure-store'
 import { knownPrice, type Price } from './pricing'
 import { isChatKind, normKind } from './media-custom'
-import { googleAccessToken, googleHeaders, googleLoggedIn } from './google-gemini'
+import { googleLoggedIn } from './google-gemini'
+import { googleNativeFetch } from './google-native'
 
 export type Tier = 'TIER_1_FREE' | 'TIER_2_CHEAP' | 'TIER_3_EXPENSIVE'
 export type CustomModel = {
@@ -163,8 +164,8 @@ export function customEndpoint(m: CustomModel): { base: string; key: string } {
 
 export function clientForCustomModel(m: CustomModel): { client: OpenAI; modelId: string } {
   if (m.auth === 'google') {
-    // the SDK calls the setter before every request, so the token is always fresh
-    return { client: new OpenAI({ baseURL: m.baseURL, apiKey: () => googleAccessToken(), defaultHeaders: googleHeaders() }), modelId: m.model }
+    // native generateContent through a translating fetch (the OpenAI-compatible endpoint rejects OAuth tokens)
+    return { client: new OpenAI({ baseURL: m.baseURL, apiKey: 'google-oauth', fetch: googleNativeFetch }), modelId: m.model }
   }
   const key = keyOf(m) || (m.baseURL ? '' : process.env.OPENROUTER_API_KEY || '')
   return {
