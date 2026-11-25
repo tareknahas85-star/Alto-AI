@@ -92,6 +92,7 @@ type Stats = {
   totalMs: number
   master: string
   masterModel: string
+  masterError?: string
   complexity: string
   type: string
   promptTokens: number
@@ -208,7 +209,16 @@ function StatusBar({
   const speeds = withStats.map((p) => p.stats?.tps ?? 0).filter((x) => x > 0)
   const avgTps = speeds.length ? speeds.reduce((a, x) => a + x, 0) / speeds.length : 0
   const failCount = withStats.reduce((a, p) => a + (p.stats?.failures.length ?? 0), 0)
-  const masterLabel = st?.master === 'local' ? 'ماستر محلي' : st?.master === 'openrouter' ? 'ماستر سحابي' : st ? 'ماستر احتياطي' : ''
+  const masterLabel =
+    st?.master === 'local'
+      ? 'ماستر محلي'
+      : st?.master === 'openrouter'
+        ? 'ماستر سحابي'
+        : st?.master === 'hydrogen' || st?.master === 'google'
+          ? 'ماستر: ' + (st.masterModel || st.master)
+          : st
+            ? 'ماستر احتياطي'
+            : ''
   return (
     <div className="mx-auto mt-1 max-w-3xl">
       <button
@@ -247,6 +257,11 @@ function StatusBar({
               <div dir="ltr">
                 master: {st.masterModel || st.master} · {fmtMs(st.masterMs)} → {st.complexity}/{st.type}
               </div>
+              {st.masterError ? (
+                <div dir="ltr" className="text-amber-600">
+                  master fallback: {st.masterError}
+                </div>
+              ) : null}
               <div dir="ltr">
                 model: {fmtMs(st.execMs)} · in {st.promptTokens || '—'} · out {st.completionTokens}
                 {st.est ? ' (estimated)' : ''} · {st.tps || '—'} t/s

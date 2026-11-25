@@ -271,7 +271,7 @@ export function registerIpcHandlers(): void {
           console.log('[UI] Analysis:', analysis)
           const project = projectId ? (listProjects().projects.find((p) => p.id === projectId) ?? null) : null
           const projectCtx = project ? buildProjectContext(project) : undefined
-          const mem = memoryPrompt()
+          const mem = memoryPrompt(projectId)
           const mm = masterMemoryPrompt(projectId, userMsg)
           const extra = [projectCtx, mm?.text, mem?.text].filter(Boolean).join('\n\n') || undefined
           const execStart = Date.now()
@@ -303,6 +303,7 @@ export function registerIpcHandlers(): void {
             totalMs: Date.now() - started,
             master: analysis.source ?? '',
             masterModel: analysis.masterModel ?? '',
+            masterError: analysis.masterError ?? '',
             complexity: analysis.complexity,
             type: analysis.type,
             promptTokens: u?.promptTokens ?? 0,

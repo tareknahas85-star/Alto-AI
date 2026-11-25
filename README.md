@@ -33,14 +33,14 @@
 |---|---|
 | ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
 | 📺 **Feature by feature · ميزة بميزة** (9 short episodes · 9 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
-| 🚀 **What's new in 5.21.9 · شو الجديد بـ 5.21.9** (ep 9 · الحلقة 9) | [Watch · شوف](https://youtu.be/6oA_IcxejOE) |
+| 🚀 **What's new in 5.21.30 · شو الجديد بـ 5.21.30** | [Changelog · السجل](CHANGELOG.md) |
 | 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
 
 | | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.12-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.30-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.30/Alto-AI-5.21.30-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.30/Alto-AI-5.21.30-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
 
 📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
 📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
@@ -67,7 +67,13 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.21.9
+### What's new in 5.21.30
+
+- **The master you pick is the master that runs.** If the master model you chose fails, the app now tries the default one next, and the message stats show why it failed. The label no longer says "backup master" when the master actually worked.
+- **Memory stays separate.** A general memory entry that names another project no longer reaches this chat, and project memory only reaches chats of its own project.
+- **Gemini with your Google account, no API key** (5.21.27 to 5.21.29): sign in once and your account's models are added to the list, marked «personal account».
+
+### Earlier: 5.21.9
 
 - **Live voice translation.** A new «ترجمة» tab: pick a target language, speak in any language, and hear the translation as you talk, with the original and translated text side by side. Uses Gemini's live translation model with your own Gemini key.
 - **Music with Lyria 3.5.** The audio generator can turn a text description (genre, mood, instruments) into a music track.
@@ -355,7 +361,13 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.21.9)
+### شو الجديد بآخر نسخة (5.21.30)
+
+- **الماستر اللي بتختارو هو اللي بيشتغل.** إذا الماستر اللي اخترتو فشل، البرنامج بيجرّب الافتراضي بعدو وبيعرضلك سبب الفشل بإحصائيات الرد. وما عاد يكتب «ماستر احتياطي» وهو شغّال.
+- **الذاكرة ما بتخلط الشغل.** أي معلومة عامة بتذكر مشروع تاني ما عاد توصل لمحادثتك، وذاكرة المشروع بتوصل بس لمحادثات نفس المشروع.
+- **دخول بحساب غوغل لـ Gemini بدون مفتاح API** (من 5.21.27 لـ 5.21.29): بتسجّل دخول مرة وحدة وموديلات حسابك بتنضاف للقائمة بعلامة «حساب شخصي».
+
+### قبلها (5.21.9)
 
 - **ترجمة فورية بالصوت.** تبويب جديد «ترجمة»: بتختار اللغة وبتحكي بأي لغة، وبتسمع الترجمة وأنت عم تحكي، ومعها نص الأصل ونص الترجمة جنب بعض. بتشتغل بموديل الترجمة تبع Gemini ومفتاحك.
 - **موسيقى بـ Lyria 3.5.** توليد الصوت صار بيعمل موسيقى من وصف نصي (النوع، المزاج، الآلات).
@@ -400,8 +412,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.12-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.12-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.30-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.30-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>

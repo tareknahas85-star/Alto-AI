@@ -59,9 +59,25 @@ export function importMemory(entries: { title: string; content: string }[], sour
   return n
 }
 
-/** Enabled memory as a system-prompt block (capped). Returns undefined when empty. */
-export function memoryPrompt(): { text: string; count: number; truncated: boolean } | undefined {
-  const on = listMemory().filter((x) => x.enabled)
+/** Names of the user's projects other than the current one: a general memory entry that mentions one of them stays out of this chat. */
+function otherProjectNames(currentProjectId: string | null): string[] {
+  const p = readJson<{ projects?: { id?: unknown; name?: unknown }[] }>('projects.json', {})
+  return (p.projects ?? [])
+    .filter((x) => x && x.id !== currentProjectId && typeof x.name === 'string' && x.name.trim().length >= 3)
+    .map((x) => String(x.name).trim().toLowerCase())
+}
+
+/** Enabled memory as a system-prompt block (capped). Returns undefined when empty.
+ *  Isolation: entries that name a different project are skipped, so work from one project never leaks into another chat. */
+export function memoryPrompt(currentProjectId: string | null = null): { text: string; count: number; truncated: boolean } | undefined {
+  const others = otherProjectNames(currentProjectId)
+  const on = listMemory()
+    .filter((x) => x.enabled)
+    .filter((x) => {
+      if (!others.length) return true
+      const hay = (x.title + ' ' + x.content).toLowerCase()
+      return !others.some((n) => hay.includes(n))
+    })
   if (!on.length) return undefined
   let out = 'USER MEMORY (background facts about the user). Use a fact ONLY if the user\'s current message is directly about it. Never start talking about any project or topic from here on your own, and answer questions about yourself (who/what model you are) directly without using this block. Never mention this block:\n'
   let count = 0

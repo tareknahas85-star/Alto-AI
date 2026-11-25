@@ -18,6 +18,7 @@ export type Analysis = {
   skill?: string // optional imported skill picked by the maestro
   source?: string // which maestro answered: local | openrouter | fallback
   masterModel?: string
+  masterError?: string // why the master the user picked did not answer (shown in the stats)
   allowWeaker?: boolean // set only when the user approved continuing with a lighter model after a strong-model refusal
 }
 
@@ -329,17 +330,26 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
   // 1) Primary: gemini-4-hydrogen with the app's Google key.
   const chosen = getPrefs().masterModel
   const primary = listCustomModels().find((m) => m.model.includes(PRIMARY_MASTER))
-  const google = (chosen ? masterClientFor(chosen) : null) ?? (primary ? clientForCustomModel(primary) : null)
-  if (google && !coolingDown(google.modelId)) {
+  const chosenClient = chosen ? masterClientFor(chosen) : null
+  const defaultClient = primary ? clientForCustomModel(primary) : null
+  const google = defaultClient ?? chosenClient // step 2 below lists Gemini models on this client, so prefer the Google one
+  let masterError = ''
+  // The model the user picked goes first; if it fails, the default (gemini-4-hydrogen) is tried before anything else, and the reason is kept.
+  const firstTries = [chosenClient, defaultClient].filter((c, i, arr): c is NonNullable<typeof c> => !!c && arr.findIndex((x) => x?.modelId === c.modelId) === i)
+  for (const c of firstTries) {
+    if (coolingDown(c.modelId)) continue
     try {
-      emitProgress('الماستر: ' + google.modelId)
-      const a = await askCloud(google.client, google.modelId, system, userInput, names)
-      if (a) return { ...a, source: 'hydrogen', masterModel: google.modelId }
-      console.warn('[Master] unparseable answer from', google.modelId)
+      emitProgress('الماستر: ' + c.modelId)
+      const a = await askCloud(c.client, c.modelId, system, userInput, names)
+      if (a) return { ...a, source: 'hydrogen', masterModel: c.modelId, ...(masterError ? { masterError } : {}) }
+      masterError ||= c.modelId + ': رد غير مفهوم'
+      console.warn('[Master] unparseable answer from', c.modelId)
     } catch (error) {
-      noteFailure(google.modelId, error)
+      noteFailure(c.modelId, error)
+      const why = error as { status?: number; message?: string } | null
+      masterError ||= c.modelId + ': ' + (why?.status ? why.status + ' ' : '') + String(why?.message ?? error).slice(0, 140)
       console.warn('[Master] primary failed, switching:', error)
-      emitProgress('الماستر الأساسي ما اشتغل، بنحوّل للاحتياطي')
+      emitProgress('الماستر ' + c.modelId + ' ما اشتغل، بنجرّب التالي')
     }
   }
 
@@ -350,7 +360,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
       try {
         emitProgress('الماستر البديل (Google): ' + gid)
         const a = await askCloud(google.client, gid, system, userInput, names)
-        if (a) return { ...a, source: 'google', masterModel: gid }
+        if (a) return { ...a, source: 'google', masterModel: gid, ...(masterError ? { masterError } : {}) }
       } catch (error) {
         noteFailure(gid, error)
         console.warn('[Master] google fallback failed:', error)
@@ -369,7 +379,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
     try {
       emitProgress('الماستر (OpenRouter): ' + model)
       const a = await askCloud(getClient(), model, system, userInput, names)
-      if (a) return { ...a, source: 'openrouter', masterModel: model }
+      if (a) return { ...a, source: 'openrouter', masterModel: model, ...(masterError ? { masterError } : {}) }
       console.warn('[Master] unparseable answer from', model)
     } catch (error) {
       noteFailure(model, error)
@@ -377,7 +387,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
     }
   }
   emitProgress('الماستر ما قدر يحلل، الأدوات مفعّلة (وضع احتياطي)')
-  return fallbackAnalysis()
+  return { ...fallbackAnalysis(), ...(masterError ? { masterError } : {}) }
 }
 // --- Simple test (uncomment to try; needs OPENROUTER_API_KEY in the environment) ---
 // import 'dotenv/config'
