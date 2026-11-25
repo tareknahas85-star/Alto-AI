@@ -173,6 +173,7 @@ declare global {
         get: () => Promise<{ value: string; recommended: string }>
         candidates: () => Promise<{ value: string; label: string; tier: string }[]>
         set: (v: string) => Promise<string>
+        probe: () => Promise<{ chosen: string; source: string; masterModel: string; masterError: string; ms: number }>
       }
       freeFirst: {
         get: () => Promise<'openrouter' | 'apinex'>

@@ -1,5 +1,5 @@
 import { clientForCustomModel, listCustomModels } from './custom-models'
-import { SYSTEM_PROMPT, parseAnalysis } from './master'
+import { SYSTEM_PROMPT, parseAnalysis, masterClientFor } from './master'
 
 type TestCase = { q: string; tools: boolean; type: string }
 export const MASTER_TEST_CASES: TestCase[] = [
@@ -94,11 +94,14 @@ async function runCase(client: Client, modelId: string, c: TestCase): Promise<Te
 }
 
 async function runModel(hint: string): Promise<ModelResult> {
-  const m = listCustomModels().find((x) => x.model.includes(hint))
-  if (!m) {
-    return { model: hint, summary: { error: 'الموديل غير مضاف بالبرنامج' }, rows: [] }
+  // A master id picked in Settings (custom:<id>, an OpenRouter id or apinex) resolves exactly like the real master does; a plain hint is matched by model name.
+  const isId = hint.startsWith('custom:') || hint.startsWith('apinex:') || hint.includes('/')
+  const m = isId ? null : listCustomModels().find((x) => x.model.includes(hint))
+  const resolved = isId ? masterClientFor(hint) : m ? clientForCustomModel(m) : null
+  if (!resolved) {
+    return { model: hint, summary: { error: 'الموديل غير مضاف بالبرنامج أو ما إلو مفتاح' }, rows: [] }
   }
-  const { client, modelId } = clientForCustomModel(m)
+  const { client, modelId } = resolved
   const rows: TestRow[] = new Array(MASTER_TEST_CASES.length)
   let next = 0
   const worker = async (): Promise<void> => {
@@ -110,7 +113,7 @@ async function runModel(hint: string): Promise<ModelResult> {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
   const n = rows.length
   return {
-    model: m.name + ' (' + modelId + ')',
+    model: (m ? m.name : hint) + ' (' + modelId + ')',
     summary: {
       total: n,
       parsed: rows.filter((r) => r.parsed).length,

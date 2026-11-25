@@ -26,7 +26,28 @@ export function MasterTestPanel() {
   const effective = chosen || rec
   const choose = async (v: string): Promise<void> => {
     setChosen(v)
-    await window.api.master.set(v)
+    try {
+      const saved = await window.api.master.set(v)
+      // Do not trust the optimistic highlight: show what the app really stored.
+      setChosen(saved)
+      if (saved !== v) setMsg('ما انحفظ الماستر: المحفوظ فعلياً ' + (saved || '(الافتراضي)'))
+    } catch (e) {
+      setMsg('فشل حفظ الماستر: ' + String(e))
+    }
+  }
+  const probe = async (): Promise<void> => {
+    setBusy(true)
+    setMsg('عم جرّب الماستر المختار…')
+    try {
+      const r = await window.api.master.probe()
+      setMsg(
+        'المختار: ' + (r.chosen || '(الافتراضي)') + '\nالشغّال فعلياً: ' + (r.masterModel || r.source || '—') + ' (' + r.source + ') · ' + r.ms + 'ms' + (r.masterError ? '\nفشل: ' + r.masterError : '')
+      )
+    } catch (e) {
+      setMsg('فشل: ' + String(e))
+    } finally {
+      setBusy(false)
+    }
   }
   const run = async (): Promise<void> => {
     setBusy(true)
@@ -57,15 +78,21 @@ export function MasterTestPanel() {
         onChange={(e) => void choose(e.target.value)}
       >
         {shown.map((o) => (
-          <option key={o.value} value={o.value}>
+          // onClick too: with a filtered list the browser already shows the first option as selected, so clicking it fires no change event.
+          <option key={o.value} value={o.value} onClick={() => o.value !== effective && void choose(o.value)}>
             {o.value === rec ? '★ ' : ''}
             {o.label}
           </option>
         ))}
       </select>
-      <button onClick={run} disabled={busy} className="rounded bg-slate-700 px-3 py-1.5 text-sm text-white disabled:opacity-50">
-        اختبار الماستر
-      </button>
+      <div className="flex gap-2">
+        <button onClick={probe} disabled={busy} className="rounded bg-slate-700 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+          جرّب الماستر المختار
+        </button>
+        <button onClick={run} disabled={busy} className="rounded bg-slate-700 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+          اختبار الماستر (20 سؤال)
+        </button>
+      </div>
       {msg && <pre className="mt-2 whitespace-pre-wrap text-xs">{msg}</pre>}
     </div>
   )

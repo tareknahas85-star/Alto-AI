@@ -194,7 +194,7 @@ function pickStrongestGoogle(ids: string[]): string | null {
   return scored[0]?.id ?? null
 }
 // الماستر المختار من القائمة: موديل مخصص، أو موديل OpenRouter (المفتاح نفسه)، أو موديل apinex.
-function masterClientFor(chosen: string): { client: OpenAI; modelId: string } | null {
+export function masterClientFor(chosen: string): { client: OpenAI; modelId: string } | null {
   if (chosen.startsWith(CUSTOM_PREFIX)) {
     const m = getCustomModel(chosen.slice(CUSTOM_PREFIX.length))
     return m ? clientForCustomModel(m) : null

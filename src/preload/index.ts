@@ -61,7 +61,8 @@ const api = {
   master: {
     get: (): Promise<{ value: string; recommended: string }> => ipcRenderer.invoke('master:get'),
     candidates: (): Promise<{ value: string; label: string; tier: string }[]> => ipcRenderer.invoke('master:candidates'),
-    set: (v: string): Promise<string> => ipcRenderer.invoke('master:set', v)
+    set: (v: string): Promise<string> => ipcRenderer.invoke('master:set', v),
+    probe: (): Promise<{ chosen: string; source: string; masterModel: string; masterError: string; ms: number }> => ipcRenderer.invoke('master:probe')
   },
   freeFirst: {
     get: (): Promise<'openrouter' | 'apinex'> => ipcRenderer.invoke('freeFirst:get'),

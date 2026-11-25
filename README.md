@@ -33,14 +33,14 @@
 |---|---|
 | ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
 | 📺 **Feature by feature · ميزة بميزة** (9 short episodes · 9 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
-| 🚀 **What's new in 5.21.30 · شو الجديد بـ 5.21.30** | [Changelog · السجل](CHANGELOG.md) |
+| 🚀 **What's new in 5.21.31 · شو الجديد بـ 5.21.31** | [Changelog · السجل](CHANGELOG.md) |
 | 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
 
 | | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.30-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.30/Alto-AI-5.21.30-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.30/Alto-AI-5.21.30-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.31-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.31/Alto-AI-5.21.31-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.31/Alto-AI-5.21.31-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
 
 📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
 📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
@@ -67,7 +67,13 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.21.30
+### What's new in 5.21.31
+
+- **Master test follows your choice.** The Settings master test now runs the master you picked first (it used to run a fixed pair), and a new «Try the chosen master» button shows which model actually answered and why it fell back, e.g. a 402/400 from the provider.
+- **Picking a master from a filtered list now sticks.** Searching until one model is left and clicking it did nothing before; fixed.
+- **Memory stays separate and the master falls back visibly** (5.21.30).
+
+### Earlier: 5.21.30
 
 - **The master you pick is the master that runs.** If the master model you chose fails, the app now tries the default one next, and the message stats show why it failed. The label no longer says "backup master" when the master actually worked.
 - **Memory stays separate.** A general memory entry that names another project no longer reaches this chat, and project memory only reaches chats of its own project.
@@ -361,7 +367,13 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.21.30)
+### شو الجديد بآخر نسخة (5.21.31)
+
+- **اختبار الماستر بيمشي ورا اختيارك.** اختبار الماستر بالإعدادات صار يجرّب الماستر اللي اخترتو أولاً (كان يجرّب زوج ثابت)، وزر جديد «جرّب الماستر المختار» بيقلّك مين جاوب فعلياً وليش رجع للاحتياطي (مثلاً 402 أو 400 من المزوّد).
+- **اختيار ماستر من قائمة مفلترة صار يثبت.** إذا بحثت لحد ما يضل موديل واحد وضغطت عليه ما كان يتغيّر شي، وهلأ انصلح.
+- **الذاكرة منفصلة والفشل ظاهر** (من 5.21.30).
+
+### قبلها (5.21.30)
 
 - **الماستر اللي بتختارو هو اللي بيشتغل.** إذا الماستر اللي اخترتو فشل، البرنامج بيجرّب الافتراضي بعدو وبيعرضلك سبب الفشل بإحصائيات الرد. وما عاد يكتب «ماستر احتياطي» وهو شغّال.
 - **الذاكرة ما بتخلط الشغل.** أي معلومة عامة بتذكر مشروع تاني ما عاد توصل لمحادثتك، وذاكرة المشروع بتوصل بس لمحادثات نفس المشروع.
@@ -412,8 +424,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.30-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.30-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.31-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.31-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>

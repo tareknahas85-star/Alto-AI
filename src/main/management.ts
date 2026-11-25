@@ -67,6 +67,7 @@ import {
 } from '../core/custom-models'
 import { getEffort, setEffort } from '../core/effort'
 import { getPrefs, setPrefs } from '../core/prefs'
+import { analyzeRequest } from '../core/master'
 import { CUSTOM_PREFIX, listCustomModels as listMasterCandidates } from '../core/custom-models'
 import { clearGeneral, getMasterMemory, updateProjectMemory } from '../core/master-memory'
 import {
@@ -132,6 +133,12 @@ export function registerManagementHandlers(): void {
     return [...custom, ...router, ...apinex]
   })
   ipcMain.handle('master:set', (_e, v: unknown) => setPrefs({ masterModel: typeof v === 'string' ? v : '' }).masterModel)
+  // Runs one real classification through the same code the chat uses and reports which master answered (or why it did not).
+  ipcMain.handle('master:probe', async () => {
+    const t0 = Date.now()
+    const a = await analyzeRequest('اكتبلي دالة بايثون ترتب مصفوفة أرقام')
+    return { chosen: getPrefs().masterModel, source: a.source ?? '', masterModel: a.masterModel ?? '', masterError: a.masterError ?? '', ms: Date.now() - t0 }
+  })
   ipcMain.handle('apinex:refresh', () => apinexRefreshNow())
   ipcMain.handle('computer:reset', () => {
     resetComputerSession()
