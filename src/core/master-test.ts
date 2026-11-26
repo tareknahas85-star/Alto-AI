@@ -1,5 +1,7 @@
 import { clientForCustomModel, listCustomModels } from './custom-models'
 import { SYSTEM_PROMPT, parseAnalysis, masterClientFor } from './master'
+import { cliModelAlias, cliModelName, isCliModel, runClaudeCliEx } from './cli-models'
+import { subscriptionEnginesEnabled } from './feature-flags'
 
 type TestCase = { q: string; tools: boolean; type: string }
 export const MASTER_TEST_CASES: TestCase[] = [
@@ -50,9 +52,10 @@ const TIMEOUT_MS = 45000
 
 type Client = ReturnType<typeof clientForCustomModel>['client']
 
-async function runCase(client: Client, modelId: string, c: TestCase): Promise<TestRow> {
-  const t0 = Date.now()
-  try {
+type Ask = (q: string) => Promise<string>
+const askApi =
+  (client: Client, modelId: string): Ask =>
+  async (q) => {
     const r = await client.chat.completions.create(
       {
         model: modelId,
@@ -60,12 +63,21 @@ async function runCase(client: Client, modelId: string, c: TestCase): Promise<Te
         max_tokens: 1000,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: c.q }
+          { role: 'user', content: q }
         ]
       },
       { timeout: TIMEOUT_MS, maxRetries: 0 }
     )
-    const text = r.choices[0]?.message?.content ?? ''
+    return r.choices[0]?.message?.content ?? ''
+  }
+const askCli =
+  (hint: string): Ask =>
+  async (q) => (await runClaudeCliEx(q, undefined, cliModelAlias(hint), 90000, undefined, SYSTEM_PROMPT)).text
+
+async function runCase(ask: Ask, c: TestCase): Promise<TestRow> {
+  const t0 = Date.now()
+  try {
+    const text = await ask(c.q)
     const a = parseAnalysis(text, [])
     return {
       q: c.q,
@@ -95,25 +107,31 @@ async function runCase(client: Client, modelId: string, c: TestCase): Promise<Te
 
 async function runModel(hint: string): Promise<ModelResult> {
   // A master id picked in Settings (custom:<id>, an OpenRouter id or apinex) resolves exactly like the real master does; a plain hint is matched by model name.
-  const isId = hint.startsWith('custom:') || hint.startsWith('apinex:') || hint.includes('/')
+  const isCli = isCliModel(hint)
+  if (isCli && !subscriptionEnginesEnabled()) {
+    return { model: hint, summary: { error: 'محركات الاشتراك مقفلة بهالنسخة' }, rows: [] }
+  }
+  const isId = isCli || hint.startsWith('custom:') || hint.startsWith('apinex:') || hint.includes('/')
   const m = isId ? null : listCustomModels().find((x) => x.model.includes(hint))
-  const resolved = isId ? masterClientFor(hint) : m ? clientForCustomModel(m) : null
-  if (!resolved) {
+  const resolved = isCli ? null : isId ? masterClientFor(hint) : m ? clientForCustomModel(m) : null
+  if (!resolved && !isCli) {
     return { model: hint, summary: { error: 'الموديل غير مضاف بالبرنامج أو ما إلو مفتاح' }, rows: [] }
   }
-  const { client, modelId } = resolved
+  const ask: Ask = isCli ? askCli(hint) : askApi(resolved!.client, resolved!.modelId)
+  const modelId = isCli ? 'claude CLI' : resolved!.modelId
+  const conc = isCli ? 2 : CONCURRENCY
   const rows: TestRow[] = new Array(MASTER_TEST_CASES.length)
   let next = 0
   const worker = async (): Promise<void> => {
     while (next < MASTER_TEST_CASES.length) {
       const i = next++
-      rows[i] = await runCase(client, modelId, MASTER_TEST_CASES[i])
+      rows[i] = await runCase(ask, MASTER_TEST_CASES[i])
     }
   }
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker))
+  await Promise.all(Array.from({ length: conc }, worker))
   const n = rows.length
   return {
-    model: (m ? m.name : hint) + ' (' + modelId + ')',
+    model: (isCli ? cliModelName(hint) : m ? m.name : hint) + ' (' + modelId + ')',
     summary: {
       total: n,
       parsed: rows.filter((r) => r.parsed).length,

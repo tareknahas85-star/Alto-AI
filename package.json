@@ -1,6 +1,6 @@
 {
   "name": "alto-ai",
-  "version": "5.21.31",
+  "version": "5.21.32",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "Tarek Nahas <tareknahas@live.com>",

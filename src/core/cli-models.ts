@@ -49,6 +49,8 @@ export function cleanEnv(acct: ClaudeAcct = 'work'): NodeJS.ProcessEnv {
   const env = { ...process.env }
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
+  delete env.ANTHROPIC_BASE_URL
+  delete env.CLAUDE_CODE_OAUTH_TOKEN // a stale env token overrides the real sign-in; the app uses the signed-in profile only
   if (acct === 'personal') env.CLAUDE_CONFIG_DIR = personalClaudeDir()
   return env
 }
@@ -131,7 +133,7 @@ function runClaudeOnce(acct: ClaudeAcct, prompt: string, signal?: AbortSignal, m
     const cleanSys = (): void => {
       if (sysFile) fs.rm(sysFile, { force: true }, () => undefined)
     }
-    const child = spawn(exe, ['-p', ...(model ? ['--model', model] : []), ...(effort && effort !== 'auto' ? ['--effort', effort] : []), ...(sysFile ? ['--append-system-prompt-file', sysFile] : []), '--strict-mcp-config', '--tools', '', '--no-session-persistence', '--output-format', 'json', '--disable-slash-commands'], {
+    const child = spawn(exe, ['-p', ...(model ? ['--model', model] : []), ...(effort && effort !== 'auto' ? ['--effort', effort] : []), ...(sysFile ? ['--append-system-prompt-file', sysFile] : []), '--setting-sources', 'project', '--strict-mcp-config', '--tools', '', '--no-session-persistence', '--output-format', 'json', '--disable-slash-commands'], {
       cwd: os.tmpdir(),
       env: cleanEnv(acct),
       windowsHide: true

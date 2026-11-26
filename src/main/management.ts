@@ -33,7 +33,8 @@ import { addSchedule, listSchedules, removeSchedule, runScheduleNow, runningSche
 import { importServers, parseAny, scanSources } from '../mcp/import'
 import { importPlugins, scanPlugins } from '../mcp/plugins'
 import { accountLogin, accountsStatus, getFullAutonomy, setFullAutonomy, type AcctKind } from '../core/cli-agent'
-import { claudeCliStatus, claudePersonalLogin, getClaudeAcctCfg, setClaudeAcctCfg } from '../core/cli-models'
+import { CLAUDE_CLI_MODELS, claudeCliPath, claudeCliStatus, claudePersonalLogin, getClaudeAcctCfg, setClaudeAcctCfg } from '../core/cli-models'
+import { subscriptionEnginesEnabled } from '../core/feature-flags'
 import fsp from 'fs/promises'
 import {
   createSkill,
@@ -130,7 +131,8 @@ export function registerManagementHandlers(): void {
     const custom = listCustomModelViews().filter((m) => m.enabled).map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: m.tier }))
     const router = listCatalog().models.filter((m) => m.pricePerM === 0).map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier }))
     const apinex = hasApinexKey() ? apinexFreeIds().map((id) => ({ value: id, label: id.replace(/^apinex:/, '') + ' (apinex)', tier: 'TIER_1_FREE' })) : []
-    return [...custom, ...router, ...apinex]
+    const cli = subscriptionEnginesEnabled() && claudeCliPath() ? CLAUDE_CLI_MODELS.map((x) => ({ value: x.id, label: x.label, tier: 'SUBSCRIPTION' })) : []
+    return [...cli, ...custom, ...router, ...apinex]
   })
   ipcMain.handle('master:set', (_e, v: unknown) => setPrefs({ masterModel: typeof v === 'string' ? v : '' }).masterModel)
   // Runs one real classification through the same code the chat uses and reports which master answered (or why it did not).

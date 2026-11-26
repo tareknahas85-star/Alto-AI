@@ -7,6 +7,8 @@ import { getApiKey } from '../store/secure-store'
 import { apinexClient, apinexModelId, hasApinexKey, isApinexModel } from './apinex'
 import { skillCatalog } from '../skills/loader'
 import { emitProgress, currentSignal } from './progress'
+import { cliModelAlias, cliModelName, isCliModel, runClaudeCliEx } from './cli-models'
+import { subscriptionEnginesEnabled } from './feature-flags'
 
 const LOCAL_BASE = 'http://127.0.0.1:11434'
 export type Analysis = {
@@ -195,6 +197,7 @@ function pickStrongestGoogle(ids: string[]): string | null {
 }
 // الماستر المختار من القائمة: موديل مخصص، أو موديل OpenRouter (المفتاح نفسه)، أو موديل apinex.
 export function masterClientFor(chosen: string): { client: OpenAI; modelId: string } | null {
+  if (isCliModel(chosen)) return null // subscription engines run through the signed-in CLI, not an API client
   if (chosen.startsWith(CUSTOM_PREFIX)) {
     const m = getCustomModel(chosen.slice(CUSTOM_PREFIX.length))
     return m ? clientForCustomModel(m) : null
@@ -203,6 +206,12 @@ export function masterClientFor(chosen: string): { client: OpenAI; modelId: stri
   const key = getApiKey('OPENROUTER_API_KEY').trim()
   if (!key) return null
   return { client: new OpenAI({ baseURL: hostOf('openrouter'), apiKey: key, timeout: 90000, maxRetries: 0 }), modelId: chosen }
+}
+
+// Master through the signed-in Claude account (official `claude` CLI, no API key). Only reachable while subscription engines are enabled.
+export async function askViaCli(chosen: string, system: string, userInput: string, names: string[], timeoutMs = 60000): Promise<Analysis | null> {
+  const r = await runClaudeCliEx(userInput, currentSignal(), cliModelAlias(chosen), timeoutMs, undefined, system)
+  return parseAnalysis(r.text, names)
 }
 
 async function googleFallbackModel(client: OpenAI): Promise<string | null> {
@@ -336,6 +345,22 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
   let masterError = ''
   // The model the user picked goes first; if it fails, the default (gemini-4-hydrogen) is tried before anything else, and the reason is kept.
   const firstTries = [chosenClient, defaultClient].filter((c, i, arr): c is NonNullable<typeof c> => !!c && arr.findIndex((x) => x?.modelId === c.modelId) === i)
+  if (chosen && isCliModel(chosen)) {
+    if (!subscriptionEnginesEnabled()) {
+      masterError ||= cliModelName(chosen) + ': محركات الاشتراك مقفلة بهالنسخة'
+    } else if (!coolingDown(chosen)) {
+      try {
+        emitProgress('الماستر: ' + cliModelName(chosen))
+        const a = await askViaCli(chosen, system, userInput, names)
+        if (a) return { ...a, source: 'cli', masterModel: cliModelName(chosen) }
+        masterError ||= cliModelName(chosen) + ': رد غير مفهوم'
+      } catch (error) {
+        noteFailure(chosen, error)
+        masterError ||= cliModelName(chosen) + ': ' + String((error as Error)?.message ?? error).slice(0, 140)
+        emitProgress('الماستر ' + cliModelName(chosen) + ' ما اشتغل، بنجرّب التالي')
+      }
+    }
+  }
   for (const c of firstTries) {
     if (coolingDown(c.modelId)) continue
     try {

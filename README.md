@@ -33,14 +33,14 @@
 |---|---|
 | ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
 | 📺 **Feature by feature · ميزة بميزة** (9 short episodes · 9 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
-| 🚀 **What's new in 5.21.31 · شو الجديد بـ 5.21.31** | [Changelog · السجل](CHANGELOG.md) |
+| 🚀 **What's new in 5.21.32 · شو الجديد بـ 5.21.32** | [Changelog · السجل](CHANGELOG.md) |
 | 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
 
 | | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.31-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.31/Alto-AI-5.21.31-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.31/Alto-AI-5.21.31-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.32-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.32/Alto-AI-5.21.32-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.32/Alto-AI-5.21.32-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
 
 📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
 📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
@@ -67,7 +67,11 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.21.31
+### What's new in 5.21.32
+
+- **The master accepts more engines and explains failures.** If the master you picked cannot answer, the default master takes over and the reason is shown; command-line engines that are already signed in can be chosen too when they are available.
+
+### Earlier: 5.21.31
 
 - **Master test follows your choice.** The Settings master test now runs the master you picked first (it used to run a fixed pair), and a new «Try the chosen master» button shows which model actually answered and why it fell back, e.g. a 402/400 from the provider.
 - **Picking a master from a filtered list now sticks.** Searching until one model is left and clicking it did nothing before; fixed.
@@ -367,7 +371,11 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.21.31)
+### شو الجديد بآخر نسخة (5.21.32)
+
+- **الماستر صار يقبل محركات أكتر وبيشرح ليش فشل.** إذا الماستر اللي اخترتو ما قدر يجاوب بياخد الافتراضي مطرحو وبيعرضلك السبب، وكمان بتقدر تختار محرك سطر أوامر مسجّل دخول عليه إذا كان متوفر.
+
+### قبلها (5.21.31)
 
 - **اختبار الماستر بيمشي ورا اختيارك.** اختبار الماستر بالإعدادات صار يجرّب الماستر اللي اخترتو أولاً (كان يجرّب زوج ثابت)، وزر جديد «جرّب الماستر المختار» بيقلّك مين جاوب فعلياً وليش رجع للاحتياطي (مثلاً 402 أو 400 من المزوّد).
 - **اختيار ماستر من قائمة مفلترة صار يثبت.** إذا بحثت لحد ما يضل موديل واحد وضغطت عليه ما كان يتغيّر شي، وهلأ انصلح.
@@ -424,8 +432,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.31-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.31-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.32-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.32-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>

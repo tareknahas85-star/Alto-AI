@@ -214,7 +214,7 @@ function StatusBar({
       ? 'ماستر محلي'
       : st?.master === 'openrouter'
         ? 'ماستر سحابي'
-        : st?.master === 'hydrogen' || st?.master === 'google'
+        : st?.master === 'hydrogen' || st?.master === 'google' || st?.master === 'cli'
           ? 'ماستر: ' + (st.masterModel || st.master)
           : st
             ? 'ماستر احتياطي'
