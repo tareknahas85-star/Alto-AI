@@ -74,6 +74,13 @@ const askCli =
   (hint: string): Ask =>
   async (q) => (await runClaudeCliEx(q, undefined, cliModelAlias(hint), 90000, undefined, SYSTEM_PROMPT)).text
 
+// Never return an empty reason: a bare 'Error' or an empty message still has to tell the user something.
+function errText(e: unknown): string {
+  const st = (e as { status?: number } | null)?.status
+  const m = e instanceof Error ? e.message || e.name : String(e)
+  return ((st ? st + ' ' : '') + (m || 'فشل بدون رسالة')).slice(0, 200)
+}
+
 async function runCase(ask: Ask, c: TestCase): Promise<TestRow> {
   const t0 = Date.now()
   try {
@@ -100,12 +107,12 @@ async function runCase(ask: Ask, c: TestCase): Promise<TestRow> {
       toolsOk: false,
       typeOk: false,
       ms: Date.now() - t0,
-      error: e instanceof Error ? e.message.slice(0, 200) : String(e)
+      error: errText(e)
     }
   }
 }
 
-async function runModel(hint: string): Promise<ModelResult> {
+export async function runModel(hint: string, opts?: { cancelled?: () => boolean; budgetMs?: number }): Promise<ModelResult> {
   // A master id picked in Settings (custom:<id>, an OpenRouter id or apinex) resolves exactly like the real master does; a plain hint is matched by model name.
   const isCli = isCliModel(hint)
   if (isCli && !subscriptionEnginesEnabled()) {
@@ -122,13 +129,30 @@ async function runModel(hint: string): Promise<ModelResult> {
   const conc = isCli ? 2 : CONCURRENCY
   const rows: TestRow[] = new Array(MASTER_TEST_CASES.length)
   let next = 0
+  let done = 0
+  let failed = 0
+  let deadStart = false
+  const t0 = Date.now()
+  const overBudget = (): boolean => !!opts?.budgetMs && Date.now() - t0 > opts.budgetMs
   const worker = async (): Promise<void> => {
-    while (next < MASTER_TEST_CASES.length) {
+    while (next < MASTER_TEST_CASES.length && !opts?.cancelled?.() && !deadStart && !overBudget()) {
       const i = next++
       rows[i] = await runCase(ask, MASTER_TEST_CASES[i])
+      // Fail fast: if the first batch all failed, the model/key is unusable; do not burn 45 s timeouts on the rest.
+      done++
+      if (rows[i].error) failed++
+      if (done >= conc && failed >= done) deadStart = true
     }
   }
   await Promise.all(Array.from({ length: conc }, worker))
+  if (opts?.cancelled?.()) return { model: hint, summary: { error: 'انلغى' }, rows: [] }
+  if (deadStart) {
+    const why = rows.find((r) => r?.error)?.error ?? 'فشلت كل الطلبات'
+    return { model: hint, summary: { error: why }, rows: rows.filter(Boolean) }
+  }
+  if (overBudget() && rows.filter(Boolean).length < MASTER_TEST_CASES.length) {
+    return { model: hint, summary: { error: 'بطيء جداً: ما خلّص الاختبار بالوقت المسموح (' + Math.round((opts?.budgetMs ?? 0) / 1000) + ' ثانية)' }, rows: rows.filter(Boolean) }
+  }
   const n = rows.length
   return {
     model: (isCli ? cliModelName(hint) : m ? m.name : hint) + ' (' + modelId + ')',

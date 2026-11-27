@@ -11,6 +11,7 @@ export type Prefs = {
   askBeforeNewTools: boolean // ask before the first few uses of a tool group (learning period)
   approvedTools: string[] // tool groups the user approved for good
   securityToolsEnabled: boolean // pwned_password_check / virustotal_hash_lookup (off until the user turns them on)
+  autoMemoryEnabled: boolean // after a turn, save lasting facts the user stated into the memory list (visible, deletable)
   masterModel: string // الماستر اللي اختاره المستخدم (custom:<id>)، فاضي = الافتراضي gemini-4-hydrogen
 }
 
@@ -24,6 +25,7 @@ const DEFAULTS: Prefs = {
   askBeforeNewTools: true,
   approvedTools: [],
   securityToolsEnabled: false,
+  autoMemoryEnabled: true,
   masterModel: ''
 }
 
@@ -39,6 +41,7 @@ export function getPrefs(): Prefs {
     askBeforeNewTools: s.askBeforeNewTools !== false,
     approvedTools: Array.isArray(s.approvedTools) ? s.approvedTools.filter((x) => typeof x === 'string') : [],
     securityToolsEnabled: s.securityToolsEnabled === true,
+    autoMemoryEnabled: s.autoMemoryEnabled !== false,
     masterModel: typeof s.masterModel === 'string' ? s.masterModel : ''
   }
 }

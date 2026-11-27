@@ -6,6 +6,7 @@ import { knownPrice, type Price } from './pricing'
 import { isChatKind, normKind } from './media-custom'
 import { googleLoggedIn } from './google-gemini'
 import { googleNativeFetch } from './google-native'
+import { orderCustom, type Prefer, type ScanLite } from './custom-order'
 
 export type Tier = 'TIER_1_FREE' | 'TIER_2_CHEAP' | 'TIER_3_EXPENSIVE'
 export type CustomModel = {
@@ -71,10 +72,16 @@ const toView = (m: CustomModel): CustomModelView => ({ ...m, hasKey: m.auth === 
 export const listCustomModelViews = (): CustomModelView[] => [...listCustomModels().filter((m) => isChatKind(m.kind)), ...directModels()].map(toView)
 export const listAllCustomModelViews = (): CustomModelView[] => listCustomModels().map(toView)
 
-export function customModelsForTier(tier: Tier, last = false): string[] {
-  return listCustomModels()
-    .filter((m) => m.enabled && isChatKind(m.kind) && m.tier === tier && !!m.last === last)
-    .map((m) => CUSTOM_PREFIX + m.id)
+// What the last manual scan says about each model (read straight from its file: master-scan imports this module).
+function scanOf(): (id: string) => ScanLite | undefined {
+  const entries = readJson<{ entries?: Record<string, ScanLite> }>('master-scan.json', {}).entries ?? {}
+  return (id) => entries[CUSTOM_PREFIX + id] ?? entries[id]
+}
+
+// Inside a tier the order is: light first for simple/medium requests, heavy first for complex ones (see custom-order.ts).
+export function customModelsForTier(tier: Tier, last = false, prefer: Prefer = 'light'): string[] {
+  const list = listCustomModels().filter((m) => m.enabled && isChatKind(m.kind) && m.tier === tier && !!m.last === last)
+  return orderCustom(list, prefer, scanOf()).map((m) => CUSTOM_PREFIX + m.id)
 }
 
 function validBaseURL(u: string): boolean {

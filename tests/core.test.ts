@@ -1347,3 +1347,106 @@ test('5.21.9 lyria: request shape and audio extraction', () => {
   assert.equal(lyriaAudio(null), null)
   assert.equal(lyriaAudio({}), null)
 })
+
+// ---- 5.21.33: master health, local guard, qualification
+import { noteModelFailure, modelBlockReason, clearModelBlock, blockNote } from '../src/core/model-health'
+import { isLocalBaseURL } from '../src/core/local-guard'
+import { qualifies, MIN_PARSED, MIN_TOOLS } from '../src/core/master-qualify'
+
+test('model health: 402, no credit and bad key block a model; a manual test clears it', () => {
+  const cases: [string, string][] = [
+    ['t-mistral', '402 You need a subscription to access this API.'],
+    ['t-anthropic', 'Your credit balance is too low to access the Anthropic API'],
+    ['t-badkey', '401 {"detail":"Invalid API Key"}']
+  ]
+  for (const [id, msg] of cases) {
+    noteModelFailure(id, msg)
+    assert.equal(modelBlockReason(id), 'blocked', id)
+    assert.ok(blockNote(id).length > 0, id)
+    clearModelBlock(id)
+    assert.equal(modelBlockReason(id), null, id)
+    assert.equal(blockNote(id), '', id)
+  }
+})
+
+test('model health: an unrelated error does not block the model', () => {
+  noteModelFailure('t-plain', 'socket hang up')
+  assert.equal(modelBlockReason('t-plain'), null)
+})
+
+test('local guard: Ollama / LM Studio are local, cloud hosts are not', () => {
+  assert.equal(isLocalBaseURL('http://127.0.0.1:11434/v1'), true)
+  assert.equal(isLocalBaseURL('http://localhost:1234/v1'), true)
+  assert.equal(isLocalBaseURL('https://api.mistral.ai/v1'), false)
+  assert.equal(isLocalBaseURL('https://generativelanguage.googleapis.com/v1beta/openai/'), false)
+  assert.equal(isLocalBaseURL(''), false)
+  assert.equal(isLocalBaseURL(undefined), false)
+})
+
+test('master qualification: thresholds and errors', () => {
+  assert.equal(qualifies(20, 19), true) // Claude Sonnet through the work account
+  assert.equal(qualifies(19, 17), true) // gemini-4-hydrogen
+  assert.equal(qualifies(MIN_PARSED, MIN_TOOLS), true)
+  assert.equal(qualifies(MIN_PARSED - 1, 20), false)
+  assert.equal(qualifies(20, MIN_TOOLS - 1), false)
+  assert.equal(qualifies(20, 20, 'انلغى'), false)
+})
+
+// ---- 5.21.34: automatic memory
+import { worthExtracting, parseFacts, mergeFacts, AUTO_SOURCE } from '../src/core/auto-memory'
+import { listMemory, deleteMemoryEntry } from '../src/core/memory'
+
+test('auto memory: only messages that state something lasting reach the model', () => {
+  assert.equal(worthExtracting('أنا بفضّل الردود القصيرة وبستخدم ويندوز'), true)
+  assert.equal(worthExtracting('I always want answers in Arabic'), true)
+  assert.equal(worthExtracting('كم الساعة؟'), false)
+  assert.equal(worthExtracting('اكتبلي دالة لجمع رقمين بالبايثون'), false)
+})
+
+test('auto memory: parseFacts keeps safe facts and drops secrets, blocked words and duplicates', () => {
+  const answer = JSON.stringify({
+    facts: [
+      { title: 'الأسلوب', content: 'بفضّل ردود قصيرة وبالشامي' },
+      { title: 'مفتاح', content: 'my api_key = AIzaSyA1234567890abcdefghijkl' },
+      { title: 'مشروع', content: 'بشتغل على مشروع Zeta السرّي' },
+      { title: 'مكرر', content: 'بفضّل ردود قصيرة وبالشامي!' },
+      { title: 'x', content: 'قصير' }
+    ]
+  })
+  const f = parseFacts('some text ' + answer + ' tail', ['zeta'])
+  assert.equal(f.length, 1)
+  assert.equal(f[0].title, 'الأسلوب')
+  assert.deepEqual(parseFacts('not json'), [])
+  assert.deepEqual(parseFacts('{"facts":"x"}'), [])
+})
+
+test('auto memory: mergeFacts adds new facts once, tags them, and skips known ones', () => {
+  const before = listMemory().length
+  const a = mergeFacts([{ title: 'اختبار-تلقائي', content: 'بستخدم جهاز ديل XPS للاختبار الآلي' }])
+  const b = mergeFacts([{ title: 'نفس الشي', content: 'بستخدم جهاز ديل XPS للاختبار الآلي' }])
+  assert.equal(a, 1)
+  assert.equal(b, 0)
+  const mine = listMemory().filter((e) => e.source === AUTO_SOURCE && e.content.includes('للاختبار الآلي'))
+  assert.equal(mine.length, 1)
+  for (const m of mine) deleteMemoryEntry(m.id)
+  assert.equal(listMemory().length, before)
+})
+
+// ---- 5.21.33: custom model order inside a tier
+import { orderCustom, heft } from '../src/core/custom-order'
+
+test('custom order: simple requests try light models first, complex ones heavy first, duplicates once', () => {
+  const m = (id: string, model: string) => ({ id, model, baseURL: 'https://g/' })
+  const list = [m('a', 'gemini-4-carbon'), m('b', 'gemini-flash-latest'), m('c', 'gemini-pro-latest'), m('d', 'gemini-flash-lite-latest'), m('e', 'gemini-4-carbon'), m('f', 'gemini-4-hydrogen')]
+  const none = () => undefined
+  assert.deepEqual(orderCustom(list, 'light', none).map((x) => x.id), ['d', 'b', 'f', 'a', 'c'])
+  assert.deepEqual(orderCustom(list, 'strong', none).map((x) => x.id), ['a', 'c', 'f', 'b', 'd'])
+  assert.ok(heft('gemini-4-carbon') > heft('gemini-flash-lite-latest'))
+})
+
+test('custom order: a model that failed the scan goes last among equals, a faster qualified one goes first', () => {
+  const m = (id: string, model: string) => ({ id, model, baseURL: 'https://g/' })
+  const list = [m('x', 'gemini-3.5-flash'), m('y', 'gemini-3.6-flash'), m('z', 'gemini-3.7-flash')]
+  const scan = (id: string) => ({ x: { error: '429' }, y: { qualified: true, avgMs: 9000 }, z: { qualified: true, avgMs: 2000 } } as Record<string, { error?: string; qualified?: boolean; avgMs?: number }>)[id]
+  assert.deepEqual(orderCustom(list, 'light', scan).map((q) => q.id), ['z', 'y', 'x'])
+})

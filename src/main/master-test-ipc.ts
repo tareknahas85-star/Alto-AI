@@ -3,8 +3,13 @@ import fs from 'fs'
 import path from 'path'
 import { runMasterTests } from '../core/master-test'
 import { getPrefs } from '../core/prefs'
+import { cancelScan, clearScan, scanStatus, startScan } from '../core/master-scan'
 
 export function registerMasterTestHandlers(): void {
+  ipcMain.handle('masterScan:start', () => startScan())
+  ipcMain.handle('masterScan:cancel', () => cancelScan())
+  ipcMain.handle('masterScan:status', () => scanStatus())
+  ipcMain.handle('masterScan:clear', () => clearScan())
   ipcMain.handle('masterTest:run', async () => {
     try {
       // The master picked in Settings is tested first (so the test follows the choice), with gemini-4-hydrogen as the baseline.

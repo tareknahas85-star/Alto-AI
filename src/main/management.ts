@@ -10,7 +10,7 @@ import { apinexFreeIds, apinexRefreshNow, hasApinexKey } from '../core/apinex'
 import { getRoles, setRoles } from '../core/roles'
 import { getClaudeUsage, setClaudeCap } from '../core/claude-usage'
 import { getEngineSeries } from '../core/usage-log'
-import { freeUsage } from '../core/model-health'
+import { clearModelBlock, freeUsage } from '../core/model-health'
 import { moveCatalogModel } from '../core/catalog'
 import { deleteMemoryEntry, importMemory, listMemory, memoryPrompt, saveMemoryEntry, toggleMemoryEntry } from '../core/memory'
 import { ensureCatalogFresh, fetchOpenRouterModels, listCatalog, resetCatalogEnabled, setCatalogEnabled, testOpenRouterKey } from '../core/catalog'
@@ -68,7 +68,9 @@ import {
 } from '../core/custom-models'
 import { getEffort, setEffort } from '../core/effort'
 import { getPrefs, setPrefs } from '../core/prefs'
-import { analyzeRequest } from '../core/master'
+import { analyzeRequest, masterClientFor } from '../core/master'
+import { loadScan } from '../core/master-scan'
+import { isLocalBaseURL } from '../core/local-guard'
 import { CUSTOM_PREFIX, listCustomModels as listMasterCandidates } from '../core/custom-models'
 import { clearGeneral, getMasterMemory, updateProjectMemory } from '../core/master-memory'
 import {
@@ -128,16 +130,27 @@ export function registerManagementHandlers(): void {
   // كل الموديلات النازلة على البرنامج: مخصصة مفعّلة + كل كتالوج OpenRouter + مجاني apinex. الكتالوج بيتحدث تلقائي.
   ipcMain.handle('master:candidates', () => {
     ensureCatalogFresh()
-    const custom = listCustomModelViews().filter((m) => m.enabled).map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: m.tier }))
+    const custom = listCustomModelViews().filter((m) => m.enabled && !isLocalBaseURL(m.baseURL)).map((m) => ({ value: CUSTOM_PREFIX + m.id, label: m.name, tier: m.tier }))
     const router = listCatalog().models.filter((m) => m.pricePerM === 0).map((m) => ({ value: m.id, label: (m.name || m.id) + ' (OpenRouter)', tier: m.tier }))
     const apinex = hasApinexKey() ? apinexFreeIds().map((id) => ({ value: id, label: id.replace(/^apinex:/, '') + ' (apinex)', tier: 'TIER_1_FREE' })) : []
     const cli = subscriptionEnginesEnabled() && claudeCliPath() ? CLAUDE_CLI_MODELS.map((x) => ({ value: x.id, label: x.label, tier: 'SUBSCRIPTION' })) : []
-    return [...cli, ...custom, ...router, ...apinex]
+    const scan = loadScan().entries
+    return [...cli, ...custom, ...router, ...apinex].map((o) => {
+      const s = scan[o.value]
+      return { ...o, scan: s ? { qualified: s.qualified, parsed: s.parsed, tools: s.tools, avgMs: s.avgMs, at: s.at } : null }
+    })
   })
   ipcMain.handle('master:set', (_e, v: unknown) => setPrefs({ masterModel: typeof v === 'string' ? v : '' }).masterModel)
   // Runs one real classification through the same code the chat uses and reports which master answered (or why it did not).
   ipcMain.handle('master:probe', async () => {
     const t0 = Date.now()
+    // A manual test means "try it for real": forget an old block (e.g. a key fixed since).
+    const picked = getPrefs().masterModel
+    if (picked) {
+      clearModelBlock(picked)
+      const mc = masterClientFor(picked)
+      if (mc) clearModelBlock(mc.modelId)
+    }
     const a = await analyzeRequest('اكتبلي دالة بايثون ترتب مصفوفة أرقام')
     return { chosen: getPrefs().masterModel, source: a.source ?? '', masterModel: a.masterModel ?? '', masterError: a.masterError ?? '', ms: Date.now() - t0 }
   })

@@ -9,6 +9,8 @@ import { skillCatalog } from '../skills/loader'
 import { emitProgress, currentSignal } from './progress'
 import { cliModelAlias, cliModelName, isCliModel, runClaudeCliEx } from './cli-models'
 import { subscriptionEnginesEnabled } from './feature-flags'
+import { modelBlockReason, noteModelFailure, noteRateLimit, noteModelOk, blockNote } from './model-health'
+import { isLocalBaseURL } from './local-guard'
 
 const LOCAL_BASE = 'http://127.0.0.1:11434'
 export type Analysis = {
@@ -166,16 +168,11 @@ export async function warmLocalMaster(): Promise<void> {
 const APPROVED_LOCAL_MASTERS = ['qwen3:32b', 'qwen2.5:32b', 'qwen3:14b', 'qwen2.5:14b', 'gemma3:12b']
 // Primary cloud master: used whenever its key is in the app.
 const PRIMARY_MASTER = 'gemini-4-hydrogen'
-const COOLDOWN_MS = 10 * 60 * 1000
-
-// A model that answered 429 (quota) is skipped for a while instead of being hammered.
-const cooldown = new Map<string, number>()
-function coolingDown(id: string): boolean {
-  return (cooldown.get(id) ?? 0) > Date.now()
-}
+// Failures are kept in the app-wide health record (model-health.json, survives restarts): 429 cools down, 402/401/no credit blocks for a while.
+const coolingDown = (id: string): boolean => modelBlockReason(id) !== null
 function noteFailure(id: string, error: unknown): void {
-  const status = (error as { status?: number } | null)?.status
-  if (status === 429) cooldown.set(id, Date.now() + COOLDOWN_MS)
+  noteModelFailure(id, error instanceof Error ? error.message : String(error))
+  noteRateLimit(id, error)
 }
 const utcDay = (): string => new Date().toISOString().slice(0, 10)
 
@@ -200,7 +197,7 @@ export function masterClientFor(chosen: string): { client: OpenAI; modelId: stri
   if (isCliModel(chosen)) return null // subscription engines run through the signed-in CLI, not an API client
   if (chosen.startsWith(CUSTOM_PREFIX)) {
     const m = getCustomModel(chosen.slice(CUSTOM_PREFIX.length))
-    return m ? clientForCustomModel(m) : null
+    return m && !isLocalBaseURL(m.baseURL) ? clientForCustomModel(m) : null // a local model is never the master
   }
   if (isApinexModel(chosen)) return hasApinexKey() ? { client: apinexClient(), modelId: apinexModelId(chosen) } : null
   const key = getApiKey('OPENROUTER_API_KEY').trim()
@@ -348,11 +345,16 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
   if (chosen && isCliModel(chosen)) {
     if (!subscriptionEnginesEnabled()) {
       masterError ||= cliModelName(chosen) + ': محركات الاشتراك مقفلة بهالنسخة'
-    } else if (!coolingDown(chosen)) {
+    } else if (coolingDown(chosen)) {
+      masterError ||= cliModelName(chosen) + ': ' + blockNote(chosen)
+    } else {
       try {
         emitProgress('الماستر: ' + cliModelName(chosen))
         const a = await askViaCli(chosen, system, userInput, names)
-        if (a) return { ...a, source: 'cli', masterModel: cliModelName(chosen) }
+        if (a) {
+          noteModelOk(chosen)
+          return { ...a, source: 'cli', masterModel: cliModelName(chosen) }
+        }
         masterError ||= cliModelName(chosen) + ': رد غير مفهوم'
       } catch (error) {
         noteFailure(chosen, error)
@@ -362,11 +364,17 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
     }
   }
   for (const c of firstTries) {
-    if (coolingDown(c.modelId)) continue
+    if (coolingDown(c.modelId)) {
+      masterError ||= c.modelId + ': ' + blockNote(c.modelId)
+      continue
+    }
     try {
       emitProgress('الماستر: ' + c.modelId)
       const a = await askCloud(c.client, c.modelId, system, userInput, names)
-      if (a) return { ...a, source: 'hydrogen', masterModel: c.modelId, ...(masterError ? { masterError } : {}) }
+      if (a) {
+        noteModelOk(c.modelId)
+        return { ...a, source: 'hydrogen', masterModel: c.modelId, ...(masterError ? { masterError } : {}) }
+      }
       masterError ||= c.modelId + ': رد غير مفهوم'
       console.warn('[Master] unparseable answer from', c.modelId)
     } catch (error) {
@@ -393,9 +401,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
     }
   }
 
-  // 3) Strongest approved local model installed on this machine.
-  const local = await tryLocalMaster(userInput, system, names)
-  if (local) return local
+  // 3) Local models are never used automatically: they are weaker. Only a confidential project (localOnly above) or a model the user picks by hand uses them.
 
   // 4) Second provider: free OpenRouter models that support tools.
   for (const model of await openRouterFreeTools()) {
@@ -411,6 +417,7 @@ export async function analyzeRequest(userInput: string, localOnly = false): Prom
       console.warn('[Master] model failed, trying next:', model, error)
     }
   }
+  masterError ||= 'ما في ماستر سحابي ردّ (تأكد من الاتصال أو الـ VPN). الماستر المحلي ما بيشتغل تلقائياً، اختاره بإيدك من المحادثة إذا بدك'
   emitProgress('الماستر ما قدر يحلل، الأدوات مفعّلة (وضع احتياطي)')
   return { ...fallbackAnalysis(), ...(masterError ? { masterError } : {}) }
 }

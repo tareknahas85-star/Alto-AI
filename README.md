@@ -33,14 +33,14 @@
 |---|---|
 | ▶️ **Full walkthrough · الشرح الكامل** (3 min · 3 دقايق) | [Watch · شوف](https://youtu.be/1pAgZwKZ9tk) |
 | 📺 **Feature by feature · ميزة بميزة** (9 short episodes · 9 حلقات قصيرة) | [Playlist · القائمة](https://www.youtube.com/playlist?list=PLcNiveD7O_pU) |
-| 🚀 **What's new in 5.21.32 · شو الجديد بـ 5.21.32** | [Changelog · السجل](CHANGELOG.md) |
+| 🚀 **What's new in 5.21.33 · شو الجديد بـ 5.21.33** | [Changelog · السجل](CHANGELOG.md) |
 | 🔔 **Channel · القناة** | [TaNa Lab on YouTube](https://www.youtube.com/@tanalabtech) |
 
 ## Download · التحميل
 
 | | 📘 Guide · الدليل | Windows | Linux / Ubuntu | Android |
 |---|---|---|---|---|
-| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.32-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.32/Alto-AI-5.21.32-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.32/Alto-AI-5.21.32-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
+| **Latest · آخر نسخة** | [⬇️ Interactive guide · الدليل التفاعلي](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-Guide.html) | [⬇️ Installer · المثبّت](https://github.com/tareknahas85-star/Alto-AI/releases/latest/download/Alto-AI-5.21.33-windows-setup.exe) | [⬇️ .deb](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.33/Alto-AI-5.21.33-linux.deb) · [⬇️ AppImage](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.33/Alto-AI-5.21.33-linux.AppImage) | [⬇️ APK](https://github.com/tareknahas85-star/Alto-AI/releases/download/v5.21.9/Alto-AI-5.21.12-android.apk) |
 
 📘 **Start here:** the interactive guide is one HTML file that works offline on any device. Download it and open it in any browser.
 📘 **ابدأ من هون:** الدليل التفاعلي ملف واحد بيشتغل بلا نت على أي جهاز. نزّلو وافتحو بأي متصفح.
@@ -67,7 +67,14 @@ or build it yourself. The Windows installer is not signed, so the first time
 Windows SmartScreen shows a warning: press **More info**, then **Run anyway**.
 Every release has a `SHA256SUMS.txt` file so you can check your download.
 
-### What's new in 5.21.32
+### What's new in 5.21.33
+
+- **A manual «Scan models» button.** It runs the full master test on the models you have a key for and shows which ones qualify as master and why the others do not (expired key, quota used up, too slow). It only runs when you press it, and local models are never scanned or picked automatically.
+- **Dead models are skipped for a while.** A model with no credit (402) or a bad key (401) is set aside on its own instead of wasting attempts on every message. Fix the key and a manual check puts it back.
+- **Automatic memory.** After an answer, Alto saves the lasting things you said about yourself. They show up in Memory with an «automatic» tag, you can edit or delete them, and the «Auto-save» switch in Settings → Memory turns it off. It does not run for confidential projects, scheduled tasks or private mode, and it never saves anything that looks like a secret.
+- **Smarter order inside a tier.** A simple request now tries the light, fast model first instead of whichever one happens to be first in your list; a complex request starts with the heavy one. A model that failed the last scan goes later, and a model imported twice is tried once.
+
+### Earlier: 5.21.32
 
 - **The master accepts more engines and explains failures.** If the master you picked cannot answer, the default master takes over and the reason is shown; command-line engines that are already signed in can be chosen too when they are available.
 
@@ -371,7 +378,14 @@ and the licenses of the libraries it uses are in
 
 <a id="whatsnew-ar"></a>
 
-### شو الجديد بآخر نسخة (5.21.32)
+### شو الجديد بآخر نسخة (5.21.33)
+
+- **زر «افحص الموديلات» يدوي.** بيجرّب موديلاتك اللي إلها مفتاح بالاختبار الكامل وبيقلّك مين مؤهّل يكون ماستر ومين لا، مع السبب (مفتاح منتهي، الحصة خلصت، بطيء كتير). بيشتغل بس لما تضغطو، والموديلات المحلية ما بتنفحص ولا بتنختار لحالها.
+- **الموديل الميّت بيتحط على جنب.** اللي ما عندو رصيد (402) أو مفتاحو غلط (401) بيتخطّاه البرنامج فترة بدل ما يضيّع محاولات بكل رسالة. صلّح المفتاح وفحص يدوي بيرجّعو.
+- **ذاكرة تلقائية.** بعد كل جواب بيحفظ البرنامج الأشياء الثابتة اللي حكيتها عن نفسك، وبتظهر بالذاكرة بعلامة «تلقائي» وبتقدر تعدّلها أو تحذفها، ومفتاح «حفظ تلقائي» بالإعدادات ← الذاكرة بيطفيها. ما بتشتغل بالمشاريع السرّية ولا بالمهام المجدولة ولا بالوضع الخاص، وما بتحفظ أي شي شكلو سر.
+- **ترتيب أذكى جوّا الفئة.** الطلب البسيط صار يجرّب الموديل الخفيف والسريع أولاً بدل أول واحد بالقائمة، والطلب المعقّد بيبدأ بالثقيل. الموديل اللي فشل بآخر فحص بيتأخّر، واللي مستورد مرتين بينجرّب مرة.
+
+### قبلها (5.21.32)
 
 - **الماستر صار يقبل محركات أكتر وبيشرح ليش فشل.** إذا الماستر اللي اخترتو ما قدر يجاوب بياخد الافتراضي مطرحو وبيعرضلك السبب، وكمان بتقدر تختار محرك سطر أوامر مسجّل دخول عليه إذا كان متوفر.
 
@@ -432,8 +446,8 @@ and the licenses of the libraries it uses are in
 <summary><b>لينكس (أوبونتو / ديبيان)</b></summary>
 
 1. نزّل ملف `.deb` من صفحة الإصدارات.
-2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.32-linux.deb`
-3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.32-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
+2. ثبّتو: دبل كليك عليه، أو من التيرمينال اكتب: `sudo apt install ./Alto-AI-5.21.33-linux.deb`
+3. بديل: ملف `AppImage`. اعطيه صلاحية التشغيل بـ `chmod +x Alto-AI-5.21.33-linux.AppImage` وبعدين شغّلو. على أوبونتو 24.04 أضف `--no-sandbox` بآخر الأمر.
 
 </details>
 <details>

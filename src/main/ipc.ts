@@ -1,6 +1,6 @@
 import { startAndroidEmulator } from './android-emulator'
 import { BrowserWindow, ipcMain, type WebContents } from 'electron'
-import { analyzeRequest, warmLocalMaster, type Analysis } from '../core/master'
+import { analyzeRequest, type Analysis } from '../core/master'
 import { ensureOllama } from '../core/ollama'
 import { calculateSavedCost } from '../core/fallback'
 import { executeWithSkill } from '../skills/executor'
@@ -44,6 +44,7 @@ import { registerOrbIpc } from './orb'
 import { recordTurn as recordLearning } from '../core/learning'
 import { needsFreshInfo, needsLocation } from '../core/guidance'
 import { memoryPrompt } from '../core/memory'
+import { autoMemory } from '../core/auto-memory'
 import { runInContext, cancelRun, isUnattended, setRunMaster, addStage, getStages, type RunMode } from '../core/progress'
 import { createStreamBatcher } from '../core/stream-batch'
 import { ensureCatalogFresh, listCatalog } from '../core/catalog'
@@ -108,7 +109,7 @@ export function registerIpcHandlers(): void {
   registerHealthCheck()
   registerLearnHandlers()
   registerFreeProbeHandlers()
-  void ensureOllama().then(() => setTimeout(() => void warmLocalMaster(), 500))
+  void ensureOllama()
 
   type Hist = { role: 'user' | 'assistant'; content: string }[]
   type LastRun = { userMsg: string; analysis: Analysis; tried: string[]; masterMs: number; history: Hist; projectId: string | null }
@@ -328,6 +329,10 @@ export function registerIpcHandlers(): void {
             recordLearning({ userMsg, toolsUsed: result.toolsUsed ?? [], ok: result.modelUsed !== 'none', confidential: !!project?.confidential, unattended: isUnattended() || o.tabId.startsWith('sched-') })
           } catch {
             /* learning is best-effort */
+          }
+          // Automatic memory: lasting facts the user stated are added to the memory list (visible and deletable); skipped for confidential projects and scheduled runs.
+          if (result.modelUsed !== 'none') {
+            void autoMemory({ userMsg, reply: result.content, confidential: !!project?.confidential, unattended: isUnattended() || o.tabId.startsWith('sched-') })
           }
           // A task started on the PC also pings the paired phone app (tasks the phone started already get their own reply there).
           if (o.tabId !== TG_TAB && !o.tabId.startsWith('phone-') && Date.now() - started >= 20000)

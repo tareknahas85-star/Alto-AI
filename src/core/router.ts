@@ -10,10 +10,11 @@ import { pinnedFree } from './free-pin'
 import { CUSTOM_PREFIX } from './custom-models'
 import { apinexFreeIds, hasApinexKey } from './apinex'
 import { freeFirst } from './free-provider'
+import type { Prefer } from './custom-order'
 
 // Built-in tiers plus the user's enabled custom models (custom ones are tried first inside their tier).
-const tier = (t: 'TIER_1_FREE' | 'TIER_2_CHEAP' | 'TIER_3_EXPENSIVE'): string[] => {
-  const base = [...customModelsForTier(t, false), ...(catalogModelsForTier(t) ?? MODEL_TIERS[t]), ...customModelsForTier(t, true)]
+const tier = (t: 'TIER_1_FREE' | 'TIER_2_CHEAP' | 'TIER_3_EXPENSIVE', prefer: Prefer = 'light'): string[] => {
+  const base = [...customModelsForTier(t, false, prefer), ...(catalogModelsForTier(t) ?? MODEL_TIERS[t]), ...customModelsForTier(t, true, prefer)]
   if (t !== 'TIER_1_FREE') return base
   // Free tier: the strongest free models OpenRouter currently offers go first (ranked automatically), then the rest.
   const pinned = pinnedFree()
@@ -27,7 +28,7 @@ const tier = (t: 'TIER_1_FREE' | 'TIER_2_CHEAP' | 'TIER_3_EXPENSIVE'): string[] 
 // Confidential projects: paid strong models only (no free tier, no custom/local ones).
 export const strongPaidModels = (): string[] => tier('TIER_3_EXPENSIVE').filter((m) => !m.includes(':free') && !m.startsWith(CUSTOM_PREFIX))
 // المدفوع فقط: الأقوى أولاً (TIER_3 ثم TIER_2)، من غير أي موديل مجاني.
-const paidTiers = (): string[] => [...tier('TIER_3_EXPENSIVE'), ...tier('TIER_2_CHEAP')].filter((m) => !m.includes(':free'))
+const paidTiers = (): string[] => [...tier('TIER_3_EXPENSIVE', 'strong'), ...tier('TIER_2_CHEAP', 'strong')].filter((m) => !m.includes(':free'))
 
 export function getTierForAnalysis(analysis: Analysis): string[] {
   // A chat run carries its own mode (free / auto / model); outside a run the global free-only guard applies.
@@ -50,8 +51,8 @@ export function getTierForAnalysis(analysis: Analysis): string[] {
       ]
     case 'complex':
       return [
-        ...tier('TIER_3_EXPENSIVE'),
-        ...tier('TIER_2_CHEAP'),
+        ...tier('TIER_3_EXPENSIVE', 'strong'),
+        ...tier('TIER_2_CHEAP', 'strong'),
         ...tier('TIER_1_FREE')
       ]
   }

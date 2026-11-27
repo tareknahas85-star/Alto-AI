@@ -10,6 +10,7 @@ export function MemoryPanel() {
   const [err, setErr] = useState('')
   const [importing, setImporting] = useState(false)
   const [raw, setRaw] = useState('')
+  const [auto, setAuto] = useState(true)
 
   const setAll = async (on: boolean): Promise<void> => {
     for (const m of items) if (m.enabled !== on) await window.api.memory.save({ id: m.id, title: m.title, content: m.content, enabled: on })
@@ -45,6 +46,7 @@ export function MemoryPanel() {
     setItems(await window.api.memory.list())
     const p = await window.api.memory.preview()
     setPreview({ count: p.count, chars: p.text.length, truncated: p.truncated })
+    setAuto((await window.api.prefs.get()).autoMemoryEnabled)
   }
   useEffect(() => {
     void load()
@@ -69,6 +71,19 @@ export function MemoryPanel() {
               المدخلات المفعّلة بتنضاف لتعليمات الموديل مع كل رسالة (حد أقصى ~6000 حرف). ما بتنبعت للماستر، بس للموديل
               اللي بيجاوب.
             </p>
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <Toggle
+                checked={auto}
+                label="حفظ تلقائي"
+                onChange={async () => {
+                  await window.api.prefs.set({ autoMemoryEnabled: !auto })
+                  await load()
+                }}
+              />
+              <span className="text-muted">
+                بعد كل جواب، Alto بيحفظ لحاله الأشياء الثابتة اللي حكيتها عن نفسك (بتظهر هون بعلامة «تلقائي» وبتقدر تعدّلها أو تحذفها). ما بيشتغل بالمشاريع السرّية ولا بالوضع الخاص.
+              </span>
+            </div>
             {preview && (
               <p className="mt-1 text-xs text-muted">
                 داخل بالطلب هلق: {preview.count} مدخل ({preview.chars} حرف){preview.truncated ? ' — في مدخلات انقطعت بسبب الحد' : ''}

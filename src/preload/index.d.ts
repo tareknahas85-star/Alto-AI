@@ -5,7 +5,7 @@ export type SideViewInfo = { open: boolean; host: string; zoom: number; font: st
 export type SideImportSource = { id: string; browser: string; label: string; profile: string; name: string; hasHistory: boolean; hasBookmarks: boolean }
 export type CheckItemInfo = { id: string; label: string; state: 'ok' | 'fail' | 'skip'; message: string; ms: number }
 export type CheckResultInfo = { kind: string; items: CheckItemInfo[]; ok: number; fail: number; skipped: number; cancelled: boolean }
-export type PrefsInfo = { locationEnabled: boolean; learningEnabled: boolean; learningPaused: boolean; onboardingDone: boolean; interests: string[]; catalogEnabled: string[]; askBeforeNewTools: boolean; approvedTools: string[]; securityToolsEnabled: boolean }
+export type PrefsInfo = { locationEnabled: boolean; learningEnabled: boolean; learningPaused: boolean; onboardingDone: boolean; interests: string[]; catalogEnabled: string[]; askBeforeNewTools: boolean; approvedTools: string[]; securityToolsEnabled: boolean; autoMemoryEnabled: boolean }
 export type LearnRing = { id: string; label: string; pct: number; detail: string; editable?: { kind: 'lang' | 'length' | 'tone'; options: { value: string; label: string }[]; current: string } }
 export type LearnViewInfo = {
   enabled: boolean
@@ -47,6 +47,18 @@ export type CustomModelInfo = {
   autoPrice?: { in: number; out: number } | null
 }
 export type ChatMode = { kind: 'free' } | { kind: 'auto' } | { kind: 'council'; author?: string; critic?: string } | { kind: 'model'; id: string }
+export type MasterScanInfo = { qualified: boolean; parsed: number; tools: number; avgMs: number; at: number }
+export type MasterCandidate = { value: string; label: string; tier: string; scan: MasterScanInfo | null }
+export type MasterScanStatus = {
+  running: boolean
+  cancelled: boolean
+  total: number
+  done: number
+  current: string
+  error?: string
+  at: number
+  entries: { id: string; label: string; total: number; parsed: number; tools: number; type: number; errors: number; avgMs: number; at: number; qualified: boolean; error?: string }[]
+}
 export type ChatOpts = { tabId: string; projectId: string | null; mode: ChatMode; allowWeaker?: boolean; master?: boolean }
 export type ChatResult = { content: string; meta?: string; cancelled?: boolean; failed?: boolean; needsChoice?: boolean; policyRefused?: boolean; skillHint?: { tools: string[] } }
 export type ProjectMemoryInfo = { id: string; name: string; path: string; summary: string; tech: string[]; ports: number[]; decisions: string[]; updatedAt: number }
@@ -171,7 +183,7 @@ declare global {
       }
       master: {
         get: () => Promise<{ value: string; recommended: string }>
-        candidates: () => Promise<{ value: string; label: string; tier: string }[]>
+        candidates: () => Promise<MasterCandidate[]>
         set: (v: string) => Promise<string>
         probe: () => Promise<{ chosen: string; source: string; masterModel: string; masterError: string; ms: number }>
       }
@@ -492,6 +504,12 @@ declare global {
         preview: () => Promise<{ text: string; count: number; truncated: boolean }>
       }
       masterTest: { run: () => Promise<{ ok: boolean; file?: string; summary?: string; error?: string }> },
+      masterScan: {
+        start: () => Promise<{ ok: boolean; error?: string }>
+        cancel: () => Promise<void>
+        status: () => Promise<MasterScanStatus>
+        clear: () => Promise<void>
+      },
       catalog: {
         list: () => Promise<{
           fetchedAt: number

@@ -27,6 +27,14 @@ export function noteModelFailure(model: string, message: string): void {
     // 402 = الموديل يحتاج شحن أو check-in (apinex المجاني): ما بنعيد تجربته كل طلب، ينحجب 24 ساعة.
     h.blocked[model] = Date.now() + 24 * 3600 * 1000
     changed = true
+  } else if (/credit balance is too low|insufficient[_ ]?quota|You need a subscription/i.test(message)) {
+    // The provider says the account has no credit or plan: retrying on every request only adds delay.
+    h.blocked[model] = Date.now() + 24 * 3600 * 1000
+    changed = true
+  } else if (/\b401\b|Invalid API Key|invalid x-api-key|Incorrect API key|Unauthorized/i.test(message)) {
+    // A rejected key: skip for 30 minutes (the test buttons clear this block at once after the key is fixed).
+    h.blocked[model] = Date.now() + 30 * 60 * 1000
+    changed = true
   } else if (/only available on agentic harness|No endpoints found|model not found|is not a valid model/i.test(message)) {
     h.blocked[model] = Date.now() + 24 * 3600 * 1000
     changed = true
@@ -72,6 +80,24 @@ export function noteModelOk(model: string): void {
 export function rateLimitWaitSec(model: string): number {
   const lim = load().limited[model]
   return lim && lim.until > Date.now() ? Math.ceil((lim.until - Date.now()) / 1000) : 0
+}
+
+// The user pressed a test button: forget any block on this model so it is tried for real.
+export function clearModelBlock(model: string): void {
+  const h = load()
+  if (h.blocked[model] === undefined && h.limited[model] === undefined) return
+  delete h.blocked[model]
+  delete h.limited[model]
+  writeJson(FILE, h)
+}
+
+// Why a model is being skipped, in words the user can read.
+export function blockNote(model: string): string {
+  const why = modelBlockReason(model)
+  if (why === 'rate-limited') return 'محدود مؤقتاً (429)، رح يتجرّب لاحقاً'
+  if (why === 'free-daily-limit') return 'خلص حد المجاني اليومي'
+  if (why === 'blocked') return 'محجوب مؤقتاً بسبب فشل سابق (اشتراك أو رصيد أو مفتاح). اضغط «جرّب الماستر المختار» بعد ما تصلحو'
+  return ''
 }
 
 export function modelBlockReason(model: string): string | null {

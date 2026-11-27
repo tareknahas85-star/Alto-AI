@@ -60,7 +60,7 @@ const api = {
   },
   master: {
     get: (): Promise<{ value: string; recommended: string }> => ipcRenderer.invoke('master:get'),
-    candidates: (): Promise<{ value: string; label: string; tier: string }[]> => ipcRenderer.invoke('master:candidates'),
+    candidates: (): Promise<{ value: string; label: string; tier: string; scan: unknown }[]> => ipcRenderer.invoke('master:candidates'),
     set: (v: string): Promise<string> => ipcRenderer.invoke('master:set', v),
     probe: (): Promise<{ chosen: string; source: string; masterModel: string; masterError: string; ms: number }> => ipcRenderer.invoke('master:probe')
   },
@@ -252,6 +252,12 @@ const api = {
     preview: () => ipcRenderer.invoke('memory:preview')
   },
   masterTest: { run: (): Promise<unknown> => ipcRenderer.invoke('masterTest:run') },
+  masterScan: {
+    start: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('masterScan:start'),
+    cancel: (): Promise<void> => ipcRenderer.invoke('masterScan:cancel'),
+    status: (): Promise<unknown> => ipcRenderer.invoke('masterScan:status'),
+    clear: (): Promise<void> => ipcRenderer.invoke('masterScan:clear')
+  },
   catalog: {
     list: () => ipcRenderer.invoke('catalog:list'),
     test: () => ipcRenderer.invoke('catalog:test'),
